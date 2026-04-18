@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow authenticated users to read and write certificates
+    match /certificates/{certificateId} {
+      allow read: if true; // Public read for verification
+      allow write: if request.auth != null; // Only authenticated users can write
+    }
+    
+    // Allow authenticated users to manage databases
+    match /databases/{databaseId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // Allow authenticated users to manage participants
+    match /participants/{participantId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // Allow authenticated users to manage categories
+    match /categories/{categoryId} {
+      allow read: if true; // Public read for verification portal
+      allow write: if request.auth != null;
+    }
+  }
+}

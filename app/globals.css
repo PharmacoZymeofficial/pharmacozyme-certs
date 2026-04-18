@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+@theme {
+  /* Primary Colors */
+  --color-primary: #1b4332;
+  --color-vivid-green: #2d6a4f;
+  --color-grass-green: #40916c;
+  --color-dark-green: #081c15;
+  
+  /* Brand Colors (Admin specific) */
+  --color-brand-dark-green: #062106;
+  --color-brand-green: #2d5a27;
+  --color-brand-grass-green: #4b8b3b;
+  --color-brand-vivid-green: #22c55e;
+  
+  /* Primary Container */
+  --color-primary-container: #d8f3dc;
+  --color-primary-fixed: #b7e4c7;
+  
+  /* Surface Colors */
+  --color-surface: #fcfdfc;
+  --color-surface-container: #f1f3f1;
+  --color-surface-container-low: #f7f9f7;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-variant: #e0e4df;
+  --color-surface-container-high: #e7e9e6;
+  --color-surface-container-highest: #e2e3e1;
+  
+  /* Text Colors */
+  --color-on-surface: #191c1a;
+  --color-on-surface-variant: #444843;
+  --color-on-background: #191c1a;
+  --color-outline: #747872;
+  --color-outline-variant: #c4c8c2;
+  
+  /* Semantic Colors */
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  
+  /* Border Radius */
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  
+  /* Font Families */
+  --font-headline: "Fredoka", sans-serif;
+  --font-body: "Poppins", sans-serif;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+}
+
+body {
+  background-color: var(--color-surface-container-low);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-headline);
+}
+
+.font-headline {
+  font-family: var(--font-headline);
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
+.active-green-border {
+  position: relative;
+}
+
+.active-green-border::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 2px;
+  background-color: #2d6a4f;
+}
+
+/* Vivid gradient for CTAs */
+.vivid-gradient-cta {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+}
+
+/* Dark nav gradient for sidebar */
+.dark-nav-gradient {
+  background: linear-gradient(180deg, #062106 0%, #0c330c 100%);
+}
+
+/* Green glow effect */
+.green-glow {
+  box-shadow: 0 0 20px rgba(45, 106, 79, 0.15);
+}
+
+/* Editorial shadow */
+.editorial-shadow {
+  box-shadow: 0px 12px 32px -4px rgba(8, 28, 21, 0.05);
+}

@@ -1,0 +1,55 @@
+import Image from "next/image";
+
+export default function Navbar() {
+  return (
+    <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl shadow-sm shadow-green-900/5">
+      <div className="flex justify-between items-center px-4 sm:px-6 lg:px-8 h-14 sm:h-16 max-w-full mx-auto">
+        {/* Logo with Image */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="relative w-8 h-8 sm:w-10 sm:h-10">
+            <Image 
+              src="/pharmacozyme-logo.png" 
+              alt="PharmacoZyme Logo" 
+              fill
+              sizes="40px"
+              className="object-contain"
+              priority
+            />
+          </div>
+          <span className="font-headline text-lg sm:text-2xl font-bold text-green-800">
+            PharmacoZyme
+          </span>
+        </div>
+
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center space-x-8">
+          <a 
+            href="/verify" 
+            className="font-body font-medium text-sm text-green-700 border-b-2 border-green-600 pb-1"
+          >
+            Verification
+          </a>
+          <a 
+            href="#resources" 
+            className="font-body font-medium text-sm text-stone-600 hover:text-green-600 transition-colors"
+          >
+            Resources
+          </a>
+          <a 
+            href="#support" 
+            className="font-body font-medium text-sm text-stone-600 hover:text-green-600 transition-colors"
+          >
+            Support
+          </a>
+        </div>
+
+        {/* Sign In Button */}
+        <div className="flex items-center gap-3 sm:gap-4">
+          <button className="px-4 sm:px-6 py-1.5 sm:py-2 rounded-full bg-green-700 text-white font-body font-medium text-xs sm:text-sm transition-transform hover:bg-green-800 active:scale-95">
+            Sign In
+          </button>
+        </div>
+      </div>
+    </nav>
+  );
+}

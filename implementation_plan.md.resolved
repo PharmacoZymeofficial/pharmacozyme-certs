@@ -1,0 +1,58 @@
+# Certificate System Upgrade & Bug Fix Plan
+
+This implementation plan outlines the upgrades, fixes, and testing strategies for the `pharmacozyme-certs` system, discovering and addressing critical bugs in ID generation and sorting logic, and providing a robust testing framework.
+
+## User Review Required
+
+> [!IMPORTANT]
+> The current length of generating certificate IDs is limited to 4 hexadecimal characters (`uuidv4().slice(0, 4)`), which provides only 65,536 unique combinations. **This poses a high risk of ID collisions during batch generation**. We propose upgrading this to at least 6 or 8 characters (`uuidv4().split('-')[0]`), which provides over 4 billion combinations. **This will change the format of future IDs from `PZ-2026-XXXX` to `PZ-2026-XXXXXXXX`**. Please let me know if this format change is acceptable!
+
+## Proposed Changes
+
+---
+
+### ID Generation & Collisions
+
+Currently, multiple IDs generated concurrently could potentially overlap due to the short UUID slice. We will upgrade the generation length to increase entropy.
+
+#### [MODIFY] [generate/route.ts](file:///d:/Claude%20Code%20workspace/PZ%20Certificate%20Verification%20System/pharmacozyme-certs/app/api/certificates/generate/route.ts)
+- Update `certId` creation to use an 8-character slice: `uuidv4().split('-')[0].toUpperCase()`.
+
+---
+
+### Hexadecimal Sorting Logic Bug
+
+Currently, the arrays of participants are sorted using JavaScript's base-10 `parseInt` on hexadecimal strings. For example: `parseInt("1B9D")` returns `1`, and `parseInt("A2F1")` returns `NaN`. This completely breaks the deterministic syncing of Google Sheets data and certificate generation lists.
+
+#### [MODIFY] [generate/route.ts](file:///d:/Claude%20Code%20workspace/PZ%20Certificate%20Verification%20System/pharmacozyme-certs/app/api/certificates/generate/route.ts)
+- Change the sorting comparison logic to parse as base 16: `parseInt(..., 16)`, or convert it to use `.localeCompare()` for robust alphabetic hex sorting.
+
+#### [MODIFY] [sync/route.ts](file:///d:/Claude%20Code%20workspace/PZ%20Certificate%20Verification%20System/pharmacozyme-certs/app/api/sheets/sync/route.ts)
+- Apply the same base-16 `parseInt` or `.localeCompare()` fix to the `firebaseToSheets` syncing sort logic.
+
+---
+
+### Verification Resiliency
+
+If a user manually types a certificate ID on the verification page using lowercase letters (e.g. `pz-2026-1b9d`), Firebase will return a 404 because Firebase queries are case-sensitive and the ID is stored as `PZ-2026-1B9D`.
+
+#### [MODIFY] [verify/route.ts](file:///d:/Claude%20Code%20workspace/PZ%20Certificate%20Verification%20System/pharmacozyme-certs/app/api/verify/route.ts)
+- Coerce `certId` to uppercase: `certId = certId.toUpperCase()` before executing the Firestore `where("uniqueCertId", "==", certId)` query.
+
+---
+
+## Open Questions
+
+> [!WARNING]
+> Regarding the ID format: Since past IDs are 4 characters (e.g. `PZ-2026-1B9D`), they will continue to work perfectly. For new operations, should I update the ID part to 8 characters (e.g. `PZ-2026-A1B2C3D4`) or explicitly 6 characters? 
+
+## Verification Plan
+
+### Automated Tests
+- Review Typescript Build (`npm run build`) to ensure no implicit `any` bugs or compilation warnings are introduced. 
+- Fix any local testing scripts (like `test-api.js`) which currently use hardcoded backend IPs (`192.168.18.165`) and update them to rely on environmental variables or generic loops.
+
+### Manual Verification
+- Generate a batch of test certificates and ensure the Google Sheet sync populates the cells sequentially according to the updated Base-16 logic.
+- Perform a simulated search query using all lowercase characters (`pz-xxxx`) and verify the 200 HTTP code returns the payload gracefully.
+- Validate the new ID length works well through the full end-to-end verification and email dispatch via Resend.
