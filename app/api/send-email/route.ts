@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://certs.pharmacozyme.com";
 const VERIFY_URL = process.env.NEXT_PUBLIC_VERIFY_URL || `${BASE_URL}/verify`;
 const CLAIM_URL = `${BASE_URL}/claim`;
@@ -18,6 +17,7 @@ export async function POST(request: NextRequest) {
 
     // Check if Resend API key is configured
     const apiKey = process.env.RESEND_API_KEY;
+    const resend = apiKey ? new Resend(apiKey) : null;
     if (!apiKey || apiKey === "your_resend_api_key_here") {
       console.log("Simulating email send (no API key configured)");
       
