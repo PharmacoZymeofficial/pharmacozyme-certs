@@ -1,6 +1,5 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getFirestore, Firestore } from "firebase/firestore";
-import { getStorage, FirebaseStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyAlJ_YdL27ErCAz30rA7HoGBvLP2dGI-wg",
@@ -13,7 +12,6 @@ const firebaseConfig = {
 
 let app: FirebaseApp | undefined;
 let firestore: Firestore | undefined;
-let storage: FirebaseStorage | undefined;
 
 function getFirebaseApp(): FirebaseApp {
   if (!app) {
@@ -33,13 +31,5 @@ function getFirebaseStore(): Firestore {
   return firestore;
 }
 
-function getFirebaseStorage(): FirebaseStorage {
-  if (!storage) {
-    storage = getStorage(getFirebaseApp());
-  }
-  return storage;
-}
-
 export { app };
 export const db = getFirebaseStore();
-export { getFirebaseStorage as getStorage };

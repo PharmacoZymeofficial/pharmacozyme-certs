@@ -501,7 +501,22 @@ export default function CertificateGenerator({ database, participants, onGenerat
       
       // Check if using uploaded template
       const isUploadedTemplate = !["standard", "modern"].includes(selectedTemplate);
-      const templateData = uploadedTemplates.find(t => t.id === selectedTemplate);
+      let templateData = uploadedTemplates.find(t => t.id === selectedTemplate);
+
+      // Fetch full template data (with pdfBase64) before generation loop
+      if (isUploadedTemplate && templateData) {
+        try {
+          const fullRes = await fetch(`/api/templates/${templateData.id}`);
+          if (fullRes.ok) {
+            const fullData = await fullRes.json();
+            if (fullData.pdfBase64) {
+              templateData = { ...templateData, fileUrl: `data:application/pdf;base64,${fullData.pdfBase64}` };
+            }
+          }
+        } catch (err) {
+          console.error("Failed to fetch full template data:", err);
+        }
+      }
       
       // Fetch existing certificates count
       let serialNumber = 1;

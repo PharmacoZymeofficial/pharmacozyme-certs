@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, getStorage } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { collection, getDocs, addDoc, doc, deleteDoc, updateDoc, query, orderBy, getDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
 export async function GET() {
   try {
@@ -9,10 +8,12 @@ export async function GET() {
     const q = query(templatesRef, orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
 
-    const templates = querySnapshot.docs.map((docSnap) => ({
-      id: docSnap.id,
-      ...docSnap.data(),
-    }));
+    const templates = querySnapshot.docs.map((docSnap) => {
+      const data = docSnap.data();
+      // Strip pdfBase64 from list response — only needed when loading for generation
+      const { pdfBase64, ...rest } = data;
+      return { id: docSnap.id, ...rest };
+    });
 
     return NextResponse.json({ templates });
   } catch (error: any) {
@@ -33,48 +34,29 @@ export async function POST(request: NextRequest) {
     const category = formData.get("category") as string;
 
     if (!file || !name) {
-      return NextResponse.json(
-        { error: "File and name are required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "File and name are required" }, { status: 400 });
     }
 
     if (!file.type.includes("pdf")) {
-      return NextResponse.json(
-        { error: "Only PDF files are allowed" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Only PDF files are allowed" }, { status: 400 });
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: "File size must be less than 5MB" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "File size must be less than 5MB" }, { status: 400 });
     }
 
-    const fileExtension = file.name.split(".").pop() || "pdf";
-    const uniqueFileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExtension}`;
-    const storagePath = `templates/${uniqueFileName}`;
-
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = new Uint8Array(arrayBuffer);
-
-    const storageRef = ref(getStorage(), storagePath);
-    await uploadBytes(storageRef, buffer, { contentType: "application/pdf" });
-    const fileUrl = await getDownloadURL(storageRef);
+    const pdfBase64 = Buffer.from(arrayBuffer).toString("base64");
 
     const templatesRef = collection(db, "certificateTemplates");
     const newTemplate = {
       name,
       description: description || "",
       category: category || "General",
-      fileName: uniqueFileName,
-      storagePath,
-      fileUrl,
       originalName: file.name,
       fileType: file.type || "application/pdf",
       fileSize: file.size,
+      pdfBase64,
       isActive: true,
       usageCount: 0,
       positions: {
@@ -87,10 +69,11 @@ export async function POST(request: NextRequest) {
 
     const docRef = await addDoc(templatesRef, newTemplate);
 
+    const { pdfBase64: _, ...templateMeta } = newTemplate;
     return NextResponse.json({
       success: true,
       id: docRef.id,
-      template: { id: docRef.id, ...newTemplate },
+      template: { id: docRef.id, ...templateMeta },
     });
   } catch (error: any) {
     console.error("Error creating template:", error);
@@ -107,10 +90,7 @@ export async function PUT(request: NextRequest) {
     const { id, positions } = body;
 
     if (!id || !positions) {
-      return NextResponse.json(
-        { error: "ID and positions are required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "ID and positions are required" }, { status: 400 });
     }
 
     const templateRef = doc(db, "certificateTemplates", id);
@@ -136,20 +116,6 @@ export async function DELETE(request: NextRequest) {
     }
 
     const templateRef = doc(db, "certificateTemplates", id);
-    const templateSnap = await getDoc(templateRef);
-
-    if (templateSnap.exists()) {
-      const data = templateSnap.data();
-      if (data.storagePath) {
-        try {
-          const storageRef = ref(getStorage(), data.storagePath);
-          await deleteObject(storageRef);
-        } catch (storageErr) {
-          console.error("Failed to delete from Storage:", storageErr);
-        }
-      }
-    }
-
     await deleteDoc(templateRef);
 
     return NextResponse.json({ success: true });

@@ -1,29 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, getStorage } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { doc, deleteDoc, updateDoc, getDoc } from "firebase/firestore";
-import { ref, deleteObject } from "firebase/storage";
+
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    const templateRef = doc(db, "certificateTemplates", id);
+    const snap = await getDoc(templateRef);
+
+    if (!snap.exists()) {
+      return NextResponse.json({ error: "Template not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ id: snap.id, ...snap.data() });
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message }, { status: 500 });
+  }
+}
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-
     const templateRef = doc(db, "certificateTemplates", id);
-    const templateSnap = await getDoc(templateRef);
-
-    if (templateSnap.exists()) {
-      const data = templateSnap.data();
-      if (data.storagePath) {
-        try {
-          const storageRef = ref(getStorage(), data.storagePath);
-          await deleteObject(storageRef);
-        } catch (storageErr) {
-          console.error("Failed to delete from Storage:", storageErr);
-        }
-      }
-    }
-
     await deleteDoc(templateRef);
-
     return NextResponse.json({ success: true, message: "Template deleted" });
   } catch (error: any) {
     console.error("Error deleting template:", error);
@@ -44,10 +43,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const templateRef = doc(db, "certificateTemplates", id);
-    await updateDoc(templateRef, {
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    });
+    await updateDoc(templateRef, { ...updates, updatedAt: new Date().toISOString() });
 
     return NextResponse.json({ success: true, message: "Template updated" });
   } catch (error: any) {
