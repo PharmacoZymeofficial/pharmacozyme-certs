@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, firebaseStorage } from "@/lib/firebase";
+import { db, getStorage } from "@/lib/firebase";
 import { collection, getDocs, addDoc, doc, deleteDoc, updateDoc, query, orderBy, getDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = new Uint8Array(arrayBuffer);
 
-    const storageRef = ref(firebaseStorage, storagePath);
+    const storageRef = ref(getStorage(), storagePath);
     await uploadBytes(storageRef, buffer, { contentType: "application/pdf" });
     const fileUrl = await getDownloadURL(storageRef);
 
@@ -142,7 +142,7 @@ export async function DELETE(request: NextRequest) {
       const data = templateSnap.data();
       if (data.storagePath) {
         try {
-          const storageRef = ref(firebaseStorage, data.storagePath);
+          const storageRef = ref(getStorage(), data.storagePath);
           await deleteObject(storageRef);
         } catch (storageErr) {
           console.error("Failed to delete from Storage:", storageErr);

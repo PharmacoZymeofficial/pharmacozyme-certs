@@ -42,4 +42,4 @@ function getFirebaseStorage(): FirebaseStorage {
 
 export { app };
 export const db = getFirebaseStore();
-export const firebaseStorage = getFirebaseStorage();
+export { getFirebaseStorage as getStorage };

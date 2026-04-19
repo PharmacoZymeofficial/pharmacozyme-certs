@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, firebaseStorage } from "@/lib/firebase";
+import { db, getStorage } from "@/lib/firebase";
 import { doc, deleteDoc, updateDoc, getDoc } from "firebase/firestore";
 import { ref, deleteObject } from "firebase/storage";
 
@@ -14,7 +14,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       const data = templateSnap.data();
       if (data.storagePath) {
         try {
-          const storageRef = ref(firebaseStorage, data.storagePath);
+          const storageRef = ref(getStorage(), data.storagePath);
           await deleteObject(storageRef);
         } catch (storageErr) {
           console.error("Failed to delete from Storage:", storageErr);
