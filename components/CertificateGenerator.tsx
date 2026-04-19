@@ -618,6 +618,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
         // Service account needs Shared Drive for regular Drive access
         let certificateUrl = "";
         
+        const issueDate = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
         const updateResponse = await fetch(`/api/participants/${participant.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -629,6 +630,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
             template: selectedTemplate,
             templateName: templateData?.name || "Standard",
             certificateUrl: certificateUrl,
+            issueDate,
             databaseId: database.id,
           }),
         });

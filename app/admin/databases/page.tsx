@@ -389,6 +389,11 @@ export default function DatabaseManagementPage() {
     }
   };
 
+  const extractSheetIdFromUrl = (input: string): string => {
+    const match = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    return match ? match[1] : input;
+  };
+
   const fetchSheetTabs = async (sheetId: string) => {
     if (!sheetId) return;
     setIsLoadingTabs(true);
@@ -1149,6 +1154,12 @@ export default function DatabaseManagementPage() {
                     {db.createdAt ? new Date(db.createdAt).toLocaleDateString() : ""}
                   </span>
                 </div>
+                {(db as any).linkedSheet && (
+                  <div className="flex items-center gap-1 mt-2 text-xs text-emerald-600 font-medium">
+                    <span className="material-symbols-outlined text-sm">table_chart</span>
+                    Linked to Google Sheets
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -1967,18 +1978,19 @@ export default function DatabaseManagementPage() {
                       <div className="space-y-4">
                         <div>
                           <label className="block text-xs font-bold text-brand-grass-green uppercase mb-2">
-                            Google Sheet ID
+                            Google Sheet URL
                           </label>
                           <input
                             type="text"
                             value={existingSheetId}
                             onChange={(e) => {
-                              setExistingSheetId(e.target.value);
-                              if (e.target.value.length > 10) {
-                                fetchSheetTabs(e.target.value);
+                              const extracted = extractSheetIdFromUrl(e.target.value);
+                              setExistingSheetId(extracted);
+                              if (extracted.length > 10) {
+                                fetchSheetTabs(extracted);
                               }
                             }}
-                            placeholder="Paste Sheet ID from URL"
+                            placeholder="Paste Google Sheet URL or ID"
                             className="w-full bg-white border border-green-100 rounded-xl p-3 text-sm outline-none"
                           />
                         </div>
