@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Resend } from "resend";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://certs.pharmacozyme.com";
 const VERIFY_URL = process.env.NEXT_PUBLIC_VERIFY_URL || `${BASE_URL}/verify`;
@@ -17,7 +16,11 @@ export async function POST(request: NextRequest) {
 
     // Check if Resend API key is configured
     const apiKey = process.env.RESEND_API_KEY;
-    const resend = apiKey ? new Resend(apiKey) : null;
+    let resend = null;
+    if (apiKey && apiKey !== "your_resend_api_key_here" && apiKey.startsWith("re_")) {
+      const { Resend } = await import("resend");
+      resend = new Resend(apiKey);
+    }
     if (!apiKey || apiKey === "your_resend_api_key_here") {
       console.log("Simulating email send (no API key configured)");
       
@@ -38,9 +41,16 @@ export async function POST(request: NextRequest) {
     }
 
     if (!apiKey.startsWith("re_")) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: "Invalid API key format",
         details: "RESEND_API_KEY appears to be invalid"
+      }, { status: 500 });
+    }
+
+    if (!resend) {
+      return NextResponse.json({
+        error: "Email service not initialized",
+        details: "Resend API key is invalid"
       }, { status: 500 });
     }
 
@@ -51,7 +61,7 @@ export async function POST(request: NextRequest) {
     for (const recipient of recipients) {
       try {
         const { email, name, certificateId, pdfBase64, driveLink } = recipient;
-        
+
         // Replace placeholders in message
         let emailMessage = message
           .replace(/\[Name\]/g, name || "")
@@ -59,14 +69,14 @@ export async function POST(request: NextRequest) {
           .replace(/\[VerificationLink\]/g, VERIFY_URL + "?id=" + certificateId);
 
         const verificationLink = CLAIM_URL + "?id=" + certificateId;
-        
+
         // Build attachments if PDF provided
         const attachments = pdfBase64 ? [{
           filename: `Certificate_${certificateId}.pdf`,
           content: pdfBase64,
         }] : [];
 
-        const data = await resend.emails.send({
+        const data = await resend!.emails.send({
           from: "PharmacoZyme Certificates <noreply@certs.pharmacozyme.com>",
           to: email,
           subject: subject || "Your Certificate from PharmacoZyme",
