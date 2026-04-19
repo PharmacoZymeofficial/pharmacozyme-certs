@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, addDoc, doc, deleteDoc, updateDoc, query, orderBy, getDoc } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, deleteDoc, updateDoc, query, orderBy } from "firebase/firestore";
 
 export async function GET() {
   try {
@@ -69,11 +69,15 @@ export async function POST(request: NextRequest) {
 
     const docRef = await addDoc(templatesRef, newTemplate);
 
+    // Store the serving URL so the template card knows where to load it from
+    const fileUrl = `/api/templates/${docRef.id}/pdf`;
+    await updateDoc(doc(templatesRef, docRef.id), { fileUrl });
+
     const { pdfBase64: _, ...templateMeta } = newTemplate;
     return NextResponse.json({
       success: true,
       id: docRef.id,
-      template: { id: docRef.id, ...templateMeta },
+      template: { id: docRef.id, ...templateMeta, fileUrl },
     });
   } catch (error: any) {
     console.error("Error creating template:", error);

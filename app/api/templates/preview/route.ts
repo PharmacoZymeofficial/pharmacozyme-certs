@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import QRCode from "qrcode";
+import { db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -41,28 +43,34 @@ function getTemplatePositions(width: number, height: number, positions?: { name:
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { templateUrl, templatePositions, testData } = body;
+    const { templateId, templateUrl, templatePositions, testData } = body;
 
-    if (!templateUrl) {
-      return NextResponse.json({ error: "Template URL is required" }, { status: 400 });
-    }
+    let templateBytes: ArrayBuffer;
 
-    // Resolve template URL - handle relative paths
-    let fetchUrl = templateUrl;
-    if (templateUrl.startsWith('/')) {
-      const baseUrl = request.nextUrl.origin;
-      fetchUrl = `${baseUrl}${templateUrl}`;
+    if (templateId) {
+      // Fetch PDF from Firestore directly
+      const snap = await getDoc(doc(db, "certificateTemplates", templateId));
+      if (!snap.exists() || !snap.data().pdfBase64) {
+        return NextResponse.json({ error: "Template not found" }, { status: 404 });
+      }
+      const buf = Buffer.from(snap.data().pdfBase64, "base64");
+      templateBytes = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+    } else if (templateUrl) {
+      // Legacy: fetch from URL
+      let fetchUrl = templateUrl;
+      if (templateUrl.startsWith('/')) {
+        fetchUrl = `${request.nextUrl.origin}${templateUrl}`;
+      }
+      const templateResponse = await fetch(fetchUrl);
+      if (!templateResponse.ok) {
+        return NextResponse.json({ error: `Failed to fetch template: ${templateResponse.status}` }, { status: 400 });
+      }
+      templateBytes = await templateResponse.arrayBuffer();
+    } else {
+      return NextResponse.json({ error: "templateId or templateUrl is required" }, { status: 400 });
     }
 
     console.log("Generating preview with positions:", JSON.stringify(templatePositions, null, 2));
-
-    // Fetch template
-    const templateResponse = await fetch(fetchUrl);
-    if (!templateResponse.ok) {
-      console.error("Template fetch failed:", templateResponse.status);
-      return NextResponse.json({ error: `Failed to fetch template: ${templateResponse.status}` }, { status: 400 });
-    }
-    const templateBytes = await templateResponse.arrayBuffer();
     
     // Load PDF
     const pdfDoc = await PDFDocument.load(templateBytes);
