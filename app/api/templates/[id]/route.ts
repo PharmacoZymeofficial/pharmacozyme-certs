@@ -1,34 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { doc, deleteDoc, updateDoc } from "firebase/firestore";
-import { unlink } from "fs/promises";
-import path from "path";
-
-const TEMPLATES_DIR = path.join(process.cwd(), "public", "uploads", "templates");
+import { db, firebaseStorage } from "@/lib/firebase";
+import { doc, deleteDoc, updateDoc, getDoc } from "firebase/firestore";
+import { ref, deleteObject } from "firebase/storage";
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { searchParams } = new URL(request.url);
-    const fileName = searchParams.get("fileName");
 
-    console.log("Deleting template:", id, "fileName:", fileName);
+    const templateRef = doc(db, "certificateTemplates", id);
+    const templateSnap = await getDoc(templateRef);
 
-    // Delete file from local storage if it exists
-    if (fileName) {
-      try {
-        const filePath = path.join(TEMPLATES_DIR, fileName);
-        await unlink(filePath);
-        console.log("File deleted:", filePath);
-      } catch (storageError) {
-        console.error("Error deleting file from storage:", storageError);
+    if (templateSnap.exists()) {
+      const data = templateSnap.data();
+      if (data.storagePath) {
+        try {
+          const storageRef = ref(firebaseStorage, data.storagePath);
+          await deleteObject(storageRef);
+        } catch (storageErr) {
+          console.error("Failed to delete from Storage:", storageErr);
+        }
       }
     }
 
-    // Delete template from Firestore
-    const templateRef = doc(db, "certificateTemplates", id);
     await deleteDoc(templateRef);
-    console.log("Template deleted from Firestore:", id);
 
     return NextResponse.json({ success: true, message: "Template deleted" });
   } catch (error: any) {

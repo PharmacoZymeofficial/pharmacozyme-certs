@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, addDoc, doc, deleteDoc, updateDoc, query, orderBy } from "firebase/firestore";
-import { writeFile, mkdir, unlink } from "fs/promises";
-import path from "path";
-
-const TEMPLATES_DIR = path.join(process.cwd(), "public", "uploads", "templates");
+import { db, firebaseStorage } from "@/lib/firebase";
+import { collection, getDocs, addDoc, doc, deleteDoc, updateDoc, query, orderBy, getDoc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
 export async function GET() {
   try {
@@ -56,20 +53,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    try {
-      await mkdir(TEMPLATES_DIR, { recursive: true });
-    } catch (err) {
-    }
-
     const fileExtension = file.name.split(".").pop() || "pdf";
     const uniqueFileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExtension}`;
-    const filePath = path.join(TEMPLATES_DIR, uniqueFileName);
+    const storagePath = `templates/${uniqueFileName}`;
 
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    await writeFile(filePath, buffer);
+    const buffer = new Uint8Array(arrayBuffer);
 
-    const fileUrl = `/uploads/templates/${uniqueFileName}`;
+    const storageRef = ref(firebaseStorage, storagePath);
+    await uploadBytes(storageRef, buffer, { contentType: "application/pdf" });
+    const fileUrl = await getDownloadURL(storageRef);
 
     const templatesRef = collection(db, "certificateTemplates");
     const newTemplate = {
@@ -77,6 +70,7 @@ export async function POST(request: NextRequest) {
       description: description || "",
       category: category || "General",
       fileName: uniqueFileName,
+      storagePath,
       fileUrl,
       originalName: file.name,
       fileType: file.type || "application/pdf",
@@ -127,6 +121,42 @@ export async function PUT(request: NextRequest) {
     console.error("Error updating template positions:", error);
     return NextResponse.json(
       { error: "Failed to update positions", details: error?.message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "Template ID is required" }, { status: 400 });
+    }
+
+    const templateRef = doc(db, "certificateTemplates", id);
+    const templateSnap = await getDoc(templateRef);
+
+    if (templateSnap.exists()) {
+      const data = templateSnap.data();
+      if (data.storagePath) {
+        try {
+          const storageRef = ref(firebaseStorage, data.storagePath);
+          await deleteObject(storageRef);
+        } catch (storageErr) {
+          console.error("Failed to delete from Storage:", storageErr);
+        }
+      }
+    }
+
+    await deleteDoc(templateRef);
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("Error deleting template:", error);
+    return NextResponse.json(
+      { error: "Failed to delete template", details: error?.message },
       { status: 500 }
     );
   }
