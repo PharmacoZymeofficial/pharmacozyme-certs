@@ -372,12 +372,9 @@ export default function TemplatesPage() {
               className="bg-white rounded-xl border border-green-100 overflow-hidden hover:shadow-lg transition-all"
             >
               {/* Preview Area */}
-              <div className="h-40 bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center relative overflow-hidden">
-                <iframe
-                  src={`${template.fileUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitV`}
-                  className="w-full h-full object-cover"
-                  title={`${template.name} preview`}
-                />
+              <div className="h-40 bg-gradient-to-br from-green-50 to-green-100 flex flex-col items-center justify-center relative overflow-hidden">
+                <span className="material-symbols-outlined text-5xl text-brand-grass-green opacity-60">picture_as_pdf</span>
+                <span className="text-xs text-brand-grass-green opacity-70 mt-1 font-medium">PDF Template</span>
                 <span className={`absolute top-3 right-3 px-2 py-1 text-xs font-bold rounded-full ${
                   template.isActive ? "bg-green-100 text-brand-green" : "bg-gray-100 text-gray-500"
                 }`}>
@@ -411,7 +408,7 @@ export default function TemplatesPage() {
                 </div>
 
                 <a
-                  href={template.fileUrl}
+                  href={`/api/templates/${template.id}/pdf`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-50 text-brand-green rounded-lg text-sm font-medium hover:bg-green-100 transition-colors"
