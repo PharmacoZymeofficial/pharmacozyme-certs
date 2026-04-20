@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,8 +20,23 @@ export async function GET(request: NextRequest) {
     const querySnapshot = await getDocs(q);
 
     if (!querySnapshot.empty) {
-      const doc = querySnapshot.docs[0];
-      return NextResponse.json({ certificate: { id: doc.id, ...doc.data() } });
+      const certDoc = querySnapshot.docs[0];
+      const certData = certDoc.data() as any;
+
+      // If driveLink missing, fetch from participant to get updated value
+      if (!certData.driveLink && certData.databaseId && certData.participantId) {
+        try {
+          const participantRef = doc(db, "databases", certData.databaseId, "participants", certData.participantId);
+          const participantSnap = await getDoc(participantRef);
+          if (participantSnap.exists()) {
+            const pData = participantSnap.data();
+            certData.driveLink = pData.driveLink || "";
+            certData.pdfUrl = pData.driveLink || "";
+          }
+        } catch { /* non-fatal */ }
+      }
+
+      return NextResponse.json({ certificate: { id: certDoc.id, ...certData } });
     }
 
     // Search 2: also try case-insensitive variations

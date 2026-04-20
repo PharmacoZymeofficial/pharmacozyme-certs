@@ -225,22 +225,20 @@ export async function POST(request: NextRequest) {
         results.push({ email, success: true, id: data.data?.id });
       } catch (err: any) {
         console.error(`Failed to send to ${recipient.email}:`, err);
-        // Retry once after 1s
+        // Retry once after 1.5s with same payload
         try {
-          await new Promise(r => setTimeout(r, 1000));
-          const { email, name, certificateId, pdfBase64, driveLink } = recipient;
-          const verificationLink = CLAIM_URL + "?id=" + certificateId;
-          const attachments = pdfBase64 ? [{ filename: `Certificate_${certificateId}.pdf`, content: pdfBase64 }] : [];
+          await new Promise(r => setTimeout(r, 1500));
           const retry = await resend!.emails.send({
             from: "PharmacoZyme Certificates <noreply@certs.pharmacozyme.com>",
-            to: email,
+            to: recipient.email,
             subject: subject || "Your Certificate from PharmacoZyme",
-            attachments,
-            html: `<p>Dear ${name || "Participant"},</p><p>Your certificate is ready. <a href="${verificationLink}">Claim your certificate</a>.</p><p>Certificate ID: ${certificateId}</p>${driveLink ? `<p><a href="${driveLink}">Download PDF</a></p>` : ""}`,
+            attachments: recipient.pdfBase64 ? [{ filename: `Certificate_${recipient.certificateId}.pdf`, content: recipient.pdfBase64 }] : [],
+            html: `<p>Dear <strong>${recipient.name || "Participant"}</strong>,</p><p>Your PharmacoZyme certificate is ready.</p><p><a href="${CLAIM_URL}?id=${recipient.certificateId}" style="background:#1b4332;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block;margin:10px 0">🎓 Claim Certificate</a></p><p>Certificate ID: <strong>${recipient.certificateId}</strong></p>${recipient.driveLink ? `<p><a href="${recipient.driveLink}">Download PDF</a></p>` : ""}`,
           });
           if (retry.error) throw new Error(retry.error.message);
-          results.push({ email, success: true, id: retry.data?.id, retried: true });
+          results.push({ email: recipient.email, success: true, id: retry.data?.id, retried: true });
         } catch (retryErr: any) {
+          console.error(`Retry also failed for ${recipient.email}:`, retryErr);
           errors.push({ email: recipient.email, error: err.message });
         }
       }
