@@ -126,13 +126,21 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const participantSnap = await getDoc(participantRef);
     const participantData = participantSnap.exists() ? participantSnap.data() : null;
 
-    // Delete PDF from Drive if requested and exists
-    if (deletePdf && participantData?.driveFileId && APPS_SCRIPT_URL) {
-      try {
-        await callAppsScript("deletePDF", { fileId: participantData.driveFileId });
-        console.log("Deleted PDF from Drive:", participantData.driveFileId);
-      } catch (driveErr) {
-        console.error("Failed to delete PDF from Drive:", driveErr);
+    // Delete PDF from Drive if requested
+    if (deletePdf && APPS_SCRIPT_URL) {
+      // Try driveFileId first, fall back to extracting from driveLink URL
+      let fileId = participantData?.driveFileId;
+      if (!fileId && participantData?.driveLink) {
+        const match = participantData.driveLink.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+        if (match) fileId = match[1];
+      }
+      if (fileId) {
+        try {
+          await callAppsScript("deletePDF", { fileId });
+          console.log("Deleted PDF from Drive:", fileId);
+        } catch (driveErr) {
+          console.error("Failed to delete PDF from Drive:", driveErr);
+        }
       }
     }
 

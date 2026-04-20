@@ -23,31 +23,20 @@ export default function Navbar() {
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center space-x-8">
-          <a 
-            href="/verify" 
+          <a
+            href="/verify"
             className="font-body font-medium text-sm text-green-700 border-b-2 border-green-600 pb-1"
           >
             Verification
           </a>
-          <a 
-            href="#resources" 
-            className="font-body font-medium text-sm text-stone-600 hover:text-green-600 transition-colors"
-          >
-            Resources
-          </a>
-          <a 
-            href="#support" 
-            className="font-body font-medium text-sm text-stone-600 hover:text-green-600 transition-colors"
+          <a
+            href="https://wa.me/923700199429"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-body font-medium text-sm text-stone-600 hover:text-green-600 transition-colors flex items-center gap-1.5"
           >
             Support
           </a>
-        </div>
-
-        {/* Sign In Button */}
-        <div className="flex items-center gap-3 sm:gap-4">
-          <button className="px-4 sm:px-6 py-1.5 sm:py-2 rounded-full bg-green-700 text-white font-body font-medium text-xs sm:text-sm transition-transform hover:bg-green-800 active:scale-95">
-            Sign In
-          </button>
         </div>
       </div>
     </nav>

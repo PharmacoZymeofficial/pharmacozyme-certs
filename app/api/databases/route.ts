@@ -24,6 +24,20 @@ export async function PUT(request: NextRequest) {
   }
 }
 
+const APPS_SCRIPT_URL = process.env.GOOGLE_APPS_SCRIPT_URL || "";
+
+async function callAppsScript(action: string, payload: any) {
+  if (!APPS_SCRIPT_URL) return null;
+  const response = await fetch(APPS_SCRIPT_URL, {
+    method: "POST",
+    body: JSON.stringify({ action, ...payload }),
+    redirect: "follow",
+    headers: { "Content-Type": "application/json" },
+  });
+  const text = await response.text();
+  try { return JSON.parse(text); } catch { return null; }
+}
+
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -33,29 +47,60 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Database ID is required" }, { status: 400 });
     }
 
-    // First, delete all participants in the database's subcollection
+    // Get database metadata (sheetId etc.) before deleting
+    const databaseRef = doc(db, "databases", id);
+    const dbSnap = await getDocs(collection(db, "databases"));
+    const dbDoc = dbSnap.docs.find(d => d.id === id);
+    const dbData = dbDoc?.data();
+
+    // Delete all participants and their Drive files
     const participantsRef = collection(db, "databases", id, "participants");
     const participantsSnap = await getDocs(participantsRef);
-    
+
     for (const pDoc of participantsSnap.docs) {
+      const pData = pDoc.data();
+      // Delete Drive PDF if file ID exists
+      if (pData.driveFileId && APPS_SCRIPT_URL) {
+        try {
+          await callAppsScript("deletePDF", { fileId: pData.driveFileId });
+        } catch { /* non-fatal */ }
+      }
       await deleteDoc(pDoc.ref);
     }
     console.log(`Deleted ${participantsSnap.size} participants`);
 
-    // Also delete any templates in the database's subcollection
+    // Clear Google Sheet data if linked
+    if (dbData?.sheetId && APPS_SCRIPT_URL) {
+      try {
+        await callAppsScript("syncData", {
+          spreadsheetId: dbData.sheetId,
+          tabName: dbData.sheetTabName || "Participants",
+          data: [],
+          mode: "write",
+          writeHeaders: true,
+          headers: ["certificateId", "name", "email", "certificateUrl", "status", "issueDate", "emailSent", "driveLink", "createdAt"],
+        });
+        console.log("Cleared sheet data");
+      } catch (sheetErr) {
+        console.error("Failed to clear sheet:", sheetErr);
+      }
+    }
+
+    // Delete templates subcollection
     const templatesRef = collection(db, "databases", id, "templates");
     const templatesSnap = await getDocs(templatesRef);
-    
     for (const tDoc of templatesSnap.docs) {
       await deleteDoc(tDoc.ref);
     }
-    console.log(`Deleted ${templatesSnap.size} templates`);
 
-    // Now delete the database itself
-    const databaseRef = doc(db, "databases", id);
+    // Delete database document
     await deleteDoc(databaseRef);
 
-    return NextResponse.json({ success: true, message: "Database, participants and templates deleted", participantsDeleted: participantsSnap.size, templatesDeleted: templatesSnap.size });
+    return NextResponse.json({
+      success: true,
+      message: "Database, participants, Drive files and Sheet data deleted",
+      participantsDeleted: participantsSnap.size,
+    });
   } catch (error: any) {
     console.error("Error deleting database:", error);
     return NextResponse.json(

@@ -92,9 +92,8 @@ function VerifyContent() {
       <Navbar />
 
       <main className="flex-1 pt-0 pb-16 sm:pb-20">
-        {/* Video Hero Section */}
-        <section className="relative w-full overflow-hidden" style={{ height: "clamp(240px, 40vw, 520px)" }}>
-          {/* PC video (hidden on mobile) */}
+        {/* Video Hero Section — full viewport, no overlay content */}
+        <section className="relative w-full overflow-hidden" style={{ height: "100svh" }}>
           <video
             className="hidden sm:block absolute inset-0 w-full h-full object-cover"
             src="/videos/hero-pc.mp4"
@@ -103,7 +102,6 @@ function VerifyContent() {
             muted
             playsInline
           />
-          {/* Mobile video (hidden on desktop) */}
           <video
             className="sm:hidden absolute inset-0 w-full h-full object-cover"
             src="/videos/hero-mobile.mp4"
@@ -112,21 +110,8 @@ function VerifyContent() {
             muted
             playsInline
           />
-          {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-[#0c2218]/60 via-[#0c2218]/30 to-surface" />
-          {/* Hero text */}
-          <div className="relative z-10 h-full flex flex-col items-center justify-center text-center px-4 gap-3 sm:gap-4">
-            <span className="inline-flex items-center px-3 sm:px-4 py-1.5 rounded-full bg-white/15 backdrop-blur-sm text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-widest border border-white/20">
-              Education | Research | Treatment
-            </span>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-headline font-bold text-white tracking-tight leading-[1.1] drop-shadow-lg">
-              Verify Certificate <br className="hidden sm:block" />
-              <span className="text-[#52b788]">Authenticity</span>
-            </h1>
-            <p className="text-sm sm:text-base text-white/80 max-w-lg leading-relaxed">
-              Tamper-proof verification for clinical credentials and professional achievements.
-            </p>
-          </div>
+          {/* Subtle bottom fade into page */}
+          <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-surface to-transparent pointer-events-none" />
         </section>
 
         {/* Verification Workflow */}

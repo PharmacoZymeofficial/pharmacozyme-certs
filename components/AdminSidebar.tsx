@@ -20,13 +20,15 @@ export default function AdminSidebar() {
   const router = useRouter();
 
   const handleLogout = async () => {
+    const ok = window.confirm("Sign out of the admin portal?");
+    if (!ok) return;
     await fetch("/api/admin/auth", { method: "DELETE" });
     router.push("/admin/login");
     router.refresh();
   };
 
   return (
-    <aside className="h-screen w-64 fixed left-0 top-0 dark-nav-gradient flex flex-col py-6 gap-2 font-body text-sm tracking-wide z-40 hidden lg:flex">
+    <aside className="h-screen w-64 fixed left-0 top-0 dark-nav-gradient flex flex-col py-6 gap-2 font-body text-sm tracking-wide z-40 hidden lg:flex overflow-y-auto">
       {/* Logo */}
       <Link href="/admin" className="px-6 mb-8 flex items-center gap-3 hover:opacity-90 transition-opacity">
         <div className="relative w-10 h-10">

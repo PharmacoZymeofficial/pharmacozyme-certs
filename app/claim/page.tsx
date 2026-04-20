@@ -226,139 +226,114 @@ function ClaimContent() {
             </div>
           )}
 
-          {/* Revealed — certificate card */}
-          {stage === "revealed" && certificate && (
-            <div style={{ animation: "fadeSlideUp 0.6s ease-out forwards" }}>
-              {/* Congrats banner */}
-              <div className="text-center mb-6">
-                <span className="text-4xl">🎉</span>
-                <h1 className="text-2xl sm:text-3xl font-headline font-bold text-brand-dark-green mt-2">
-                  Congratulations, {certificate.recipientName?.split(" ")[0]}!
-                </h1>
-                <p className="text-on-surface-variant text-sm mt-1">Your certificate has been verified and is ready.</p>
-              </div>
+          {/* Revealed — PDF first, then card */}
+          {stage === "revealed" && certificate && (() => {
+            const rawUrl = certificate.driveLink || certificate.pdfUrl || "";
+            const fileIdMatch = rawUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+            const embedUrl = fileIdMatch
+              ? `https://drive.google.com/file/d/${fileIdMatch[1]}/preview`
+              : rawUrl;
 
-              {/* Certificate card */}
-              <div
-                className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-green-100"
-                style={{ animation: "cardReveal 0.8s 0.2s ease-out both" }}
-              >
-                {/* Header */}
-                <div className="bg-gradient-to-r from-[#1b4332] to-[#2d6a4f] p-6 text-center">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/pharmacozyme-logo.png" alt="PharmacoZyme" className="h-10 mx-auto mb-3 opacity-90" />
-                  <p className="text-[#95d5b2] text-xs uppercase tracking-[0.3em] font-bold">Certificate of Achievement</p>
+            return (
+              <div style={{ animation: "fadeSlideUp 0.6s ease-out forwards" }}>
+                {/* Congrats banner */}
+                <div className="text-center mb-5">
+                  <h1 className="text-2xl sm:text-3xl font-headline font-bold text-brand-dark-green">
+                    🎉 Congratulations, {certificate.recipientName?.split(" ")[0]}!
+                  </h1>
+                  <p className="text-on-surface-variant text-sm mt-1">Your certificate has been verified and is ready.</p>
                 </div>
 
-                {/* Body */}
-                <div className="p-6 sm:p-8 text-center">
-                  <p className="text-on-surface-variant text-xs uppercase tracking-widest mb-2">This certificate is proudly presented to</p>
-                  <h2 className="text-2xl sm:text-3xl font-headline font-bold text-brand-dark-green mb-4">{certificate.recipientName}</h2>
-
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-full mb-6">
-                    <span className="material-symbols-outlined text-brand-vivid-green text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-                    <span className="text-xs font-bold text-brand-vivid-green uppercase tracking-widest">Verified Certificate</span>
+                {/* === PRIMARY: Actual PDF Certificate === */}
+                <div
+                  className="rounded-2xl overflow-hidden border border-green-200 shadow-2xl bg-white mb-5"
+                  style={{ animation: "cardReveal 0.7s 0.15s ease-out both" }}
+                >
+                  {/* PDF toolbar row */}
+                  <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-[#1b4332] to-[#2d6a4f]">
+                    <div className="flex items-center gap-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/pharmacozyme-logo.png" alt="" className="h-6 opacity-90" />
+                      <span className="text-[#95d5b2] text-xs font-bold uppercase tracking-widest">Certificate of Achievement</span>
+                    </div>
+                    {rawUrl && (
+                      <a href={rawUrl} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-white text-xs font-bold transition-colors">
+                        <span className="material-symbols-outlined text-sm">download</span>
+                        Download
+                      </a>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 text-left mb-6">
-                    {certificate.certType && (
-                      <div className="bg-surface-container-low rounded-xl p-3">
-                        <p className="text-[10px] uppercase tracking-widest text-outline mb-1">Type</p>
-                        <p className="font-semibold text-brand-dark-green text-sm">{certificate.certType}</p>
-                      </div>
-                    )}
-                    {certificate.topic && (
-                      <div className="bg-surface-container-low rounded-xl p-3">
-                        <p className="text-[10px] uppercase tracking-widest text-outline mb-1">Topic</p>
-                        <p className="font-semibold text-brand-dark-green text-sm">{certificate.topic}</p>
-                      </div>
-                    )}
-                    <div className="bg-surface-container-low rounded-xl p-3">
-                      <p className="text-[10px] uppercase tracking-widest text-outline mb-1">Certificate ID</p>
-                      <p className="font-mono font-bold text-brand-grass-green text-sm">{certificate.uniqueCertId}</p>
+                  {rawUrl ? (
+                    <iframe
+                      src={embedUrl}
+                      className="w-full"
+                      style={{ height: "480px", border: "none" }}
+                      title="Certificate PDF"
+                      allow="autoplay"
+                    />
+                  ) : (
+                    /* No Drive link yet — show name card fallback */
+                    <div className="p-8 text-center">
+                      <span className="material-symbols-outlined text-5xl text-brand-vivid-green mb-3 block" style={{ fontVariationSettings: "'FILL' 1" }}>workspace_premium</span>
+                      <p className="text-xs text-on-surface-variant mb-1">Certificate for</p>
+                      <p className="text-2xl font-headline font-bold text-brand-dark-green">{certificate.recipientName}</p>
+                      <p className="text-xs text-on-surface-variant mt-2">PDF available after generation is complete.</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* === SECONDARY: Verified badge + meta === */}
+                <div
+                  className="bg-white rounded-2xl border border-green-100 shadow-sm p-5 mb-5"
+                  style={{ animation: "cardReveal 0.7s 0.35s ease-out both" }}
+                >
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-outline mb-0.5">Certificate ID</p>
+                      <p className="font-mono font-bold text-brand-grass-green">{certificate.uniqueCertId}</p>
                     </div>
                     {certificate.issueDate && (
-                      <div className="bg-surface-container-low rounded-xl p-3">
-                        <p className="text-[10px] uppercase tracking-widest text-outline mb-1">Issue Date</p>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-widest text-outline mb-0.5">Issue Date</p>
                         <p className="font-semibold text-brand-dark-green text-sm">{formatDate(String(certificate.issueDate))}</p>
                       </div>
                     )}
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border border-green-200 rounded-full">
+                      <span className="material-symbols-outlined text-brand-vivid-green text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                      <span className="text-xs font-bold text-brand-vivid-green uppercase tracking-widest">Verified</span>
+                    </div>
                   </div>
 
-                  {/* PDF Preview */}
-                  {(certificate.pdfUrl || certificate.driveLink) && (() => {
-                    const rawUrl = (certificate.driveLink || certificate.pdfUrl || "");
-                    // Convert Google Drive view/download URL to embed preview URL
-                    const fileIdMatch = rawUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-                    const embedUrl = fileIdMatch
-                      ? `https://drive.google.com/file/d/${fileIdMatch[1]}/preview`
-                      : rawUrl;
-                    return (
-                      <div className="mb-6 rounded-xl overflow-hidden border border-green-100 shadow-inner bg-gray-50">
-                        <div className="flex items-center justify-between px-4 py-2 bg-green-50 border-b border-green-100">
-                          <span className="text-xs font-bold text-brand-dark-green flex items-center gap-1.5">
-                            <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>picture_as_pdf</span>
-                            Your Certificate
-                          </span>
-                          <a href={rawUrl} target="_blank" rel="noopener noreferrer"
-                            className="text-xs text-brand-vivid-green font-semibold flex items-center gap-1 hover:underline">
-                            <span className="material-symbols-outlined text-xs">download</span>
-                            Download
-                          </a>
-                        </div>
-                        <iframe
-                          src={embedUrl}
-                          className="w-full"
-                          style={{ height: "380px", border: "none" }}
-                          title="Certificate PDF"
-                          allow="autoplay"
-                        />
-                      </div>
-                    );
-                  })()}
-
-                  {/* Actions */}
-                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                    {(certificate.pdfUrl || certificate.driveLink) && (
-                      <a
-                        href={(certificate.driveLink || certificate.pdfUrl)!}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-[#1b4332] to-[#2d6a4f] text-white rounded-xl font-bold text-sm hover:opacity-90 transition-opacity"
-                      >
+                  <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                    {rawUrl && (
+                      <a href={rawUrl} target="_blank" rel="noopener noreferrer"
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#1b4332] to-[#2d6a4f] text-white rounded-xl font-bold text-sm hover:opacity-90 transition-opacity">
                         <span className="material-symbols-outlined text-sm">download</span>
                         Download PDF
                       </a>
                     )}
-                    <Link
-                      href={`/verify?certId=${certificate.uniqueCertId}`}
-                      className="flex items-center justify-center gap-2 px-6 py-3 bg-white border-2 border-brand-vivid-green text-brand-grass-green rounded-xl font-bold text-sm hover:bg-green-50 transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-sm">verified</span>
-                      View Verification
+                    <Link href={`/verify?certId=${certificate.uniqueCertId}`}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white border-2 border-brand-vivid-green text-brand-grass-green rounded-xl font-bold text-sm hover:bg-green-50 transition-colors">
+                      <span className="material-symbols-outlined text-sm">shield</span>
+                      Verify Authenticity
                     </Link>
                   </div>
                 </div>
 
-                {/* Footer */}
-                <div className="bg-[#f0fdf4] px-6 py-4 border-t border-green-100 flex items-center justify-between">
-                  <p className="text-[10px] text-outline">PharmacoZyme Certificate System</p>
-                  <p className="text-[10px] text-outline font-mono">{certificate.uniqueCertId}</p>
-                </div>
+                <p className="text-center text-xs text-on-surface-variant">
+                  Share this achievement with{" "}
+                  <button
+                    onClick={() => navigator.share?.({ title: "My PharmacoZyme Certificate", text: `I earned a certificate from PharmacoZyme! ID: ${certificate.uniqueCertId}`, url: window.location.href }).catch(() => {})}
+                    className="text-brand-vivid-green font-semibold underline"
+                  >
+                    Share Link
+                  </button>
+                </p>
               </div>
-
-              {/* Share nudge */}
-              <p className="text-center text-xs text-on-surface-variant mt-6">
-                Share this achievement with{" "}
-                <button
-                  onClick={() => navigator.share?.({ title: "My PharmacoZyme Certificate", text: `I earned a certificate from PharmacoZyme! ID: ${certificate.uniqueCertId}`, url: window.location.href }).catch(() => {})}
-                  className="text-brand-vivid-green font-semibold underline"
-                >
-                  Share Link
-                </button>
-              </p>
-            </div>
-          )}
+            );
+          })()}
         </div>
       </main>
 

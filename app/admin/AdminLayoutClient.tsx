@@ -1,12 +1,20 @@
 "use client";
 
 import { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import AdminSidebar from "@/components/AdminSidebar";
 import AdminMobileNav from "@/components/AdminMobileNav";
 import { ToastProvider } from "@/components/Toast";
 import { ConfirmProvider } from "@/components/ConfirmModal";
 
 export default function AdminLayoutClient({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const isLoginPage = pathname === "/admin/login";
+
+  if (isLoginPage) {
+    return <>{children}</>;
+  }
+
   return (
     <ToastProvider>
       <ConfirmProvider>
