@@ -112,11 +112,23 @@ function ClaimContent() {
         <div className="w-full max-w-lg mx-auto">
           {/* Loading state */}
           {stage === "loading" && (
-            <div className="text-center">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-100 flex items-center justify-center animate-pulse">
-                <span className="material-symbols-outlined text-4xl text-brand-vivid-green">workspace_premium</span>
+            <div className="text-center space-y-6">
+              <div className="relative w-24 h-24 mx-auto">
+                <div className="absolute inset-0 rounded-full border-4 border-green-100" />
+                <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-brand-vivid-green animate-spin" />
+                <div className="absolute inset-3 rounded-full bg-green-50 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-3xl text-brand-vivid-green" style={{ fontVariationSettings: "'FILL' 1" }}>workspace_premium</span>
+                </div>
               </div>
-              <p className="text-on-surface-variant text-sm animate-pulse">Loading your certificate...</p>
+              <div className="space-y-2">
+                <p className="text-brand-dark-green font-semibold text-sm">Fetching your certificate...</p>
+                <div className="flex justify-center gap-1.5">
+                  {[0, 1, 2].map(i => (
+                    <div key={i} className="w-1.5 h-1.5 rounded-full bg-brand-vivid-green"
+                      style={{ animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite` }} />
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -190,15 +202,27 @@ function ClaimContent() {
           {/* Opening animation */}
           {stage === "opening" && (
             <div className="text-center">
-              <div
-                className="w-32 h-32 mx-auto rounded-full bg-gradient-to-br from-[#52b788] to-[#1b4332] flex items-center justify-center shadow-2xl"
-                style={{ animation: "boxExplode 1.5s ease-out forwards" }}
-              >
-                <span className="material-symbols-outlined text-5xl text-white" style={{ fontVariationSettings: "'FILL' 1", animation: "spinIn 1.5s ease-out forwards" }}>
-                  workspace_premium
-                </span>
+              {/* Burst rings */}
+              <div className="relative w-48 h-48 mx-auto flex items-center justify-center">
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="absolute inset-0 rounded-full border-4 border-brand-vivid-green"
+                    style={{ animation: `burstRing 1s ease-out ${i * 0.15}s forwards`, opacity: 0 }} />
+                ))}
+                <div
+                  className="w-28 h-28 rounded-full bg-gradient-to-br from-[#52b788] via-[#2d6a4f] to-[#1b4332] flex items-center justify-center shadow-2xl"
+                  style={{ animation: "giftPop 0.8s cubic-bezier(0.34,1.56,0.64,1) forwards" }}
+                >
+                  <span
+                    className="material-symbols-outlined text-6xl text-white"
+                    style={{ fontVariationSettings: "'FILL' 1", animation: "starSpin 1.2s ease-out forwards" }}
+                  >
+                    workspace_premium
+                  </span>
+                </div>
               </div>
-              <p className="mt-6 text-brand-vivid-green font-bold text-lg animate-pulse">Congratulations!</p>
+              <p className="mt-6 text-brand-vivid-green font-bold text-xl" style={{ animation: "fadeUp 0.5s 0.4s ease-out both" }}>
+                🎊 Congratulations!
+              </p>
             </div>
           )}
 
@@ -261,11 +285,43 @@ function ClaimContent() {
                     )}
                   </div>
 
+                  {/* PDF Preview */}
+                  {(certificate.pdfUrl || certificate.driveLink) && (() => {
+                    const rawUrl = (certificate.driveLink || certificate.pdfUrl || "");
+                    // Convert Google Drive view/download URL to embed preview URL
+                    const fileIdMatch = rawUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+                    const embedUrl = fileIdMatch
+                      ? `https://drive.google.com/file/d/${fileIdMatch[1]}/preview`
+                      : rawUrl;
+                    return (
+                      <div className="mb-6 rounded-xl overflow-hidden border border-green-100 shadow-inner bg-gray-50">
+                        <div className="flex items-center justify-between px-4 py-2 bg-green-50 border-b border-green-100">
+                          <span className="text-xs font-bold text-brand-dark-green flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>picture_as_pdf</span>
+                            Your Certificate
+                          </span>
+                          <a href={rawUrl} target="_blank" rel="noopener noreferrer"
+                            className="text-xs text-brand-vivid-green font-semibold flex items-center gap-1 hover:underline">
+                            <span className="material-symbols-outlined text-xs">download</span>
+                            Download
+                          </a>
+                        </div>
+                        <iframe
+                          src={embedUrl}
+                          className="w-full"
+                          style={{ height: "380px", border: "none" }}
+                          title="Certificate PDF"
+                          allow="autoplay"
+                        />
+                      </div>
+                    );
+                  })()}
+
                   {/* Actions */}
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     {(certificate.pdfUrl || certificate.driveLink) && (
                       <a
-                        href={(certificate.pdfUrl || certificate.driveLink)!}
+                        href={(certificate.driveLink || certificate.pdfUrl)!}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-[#1b4332] to-[#2d6a4f] text-white rounded-xl font-bold text-sm hover:opacity-90 transition-opacity"
@@ -314,25 +370,39 @@ function ClaimContent() {
           100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
         }
         @keyframes boxBounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-12px); }
+          0%, 100% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-14px) scale(1.03); }
         }
-        @keyframes boxExplode {
-          0% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.4); opacity: 0.8; }
-          100% { transform: scale(0.8); opacity: 0; }
+        @keyframes giftPop {
+          0% { transform: scale(0.3) rotate(-15deg); opacity: 0; }
+          60% { transform: scale(1.15) rotate(5deg); opacity: 1; }
+          80% { transform: scale(0.95) rotate(-2deg); }
+          100% { transform: scale(1) rotate(0deg); opacity: 1; }
         }
-        @keyframes spinIn {
-          0% { transform: rotate(0deg) scale(0.5); opacity: 0; }
-          100% { transform: rotate(720deg) scale(1); opacity: 1; }
+        @keyframes starSpin {
+          0% { transform: rotate(-180deg) scale(0); opacity: 0; }
+          60% { transform: rotate(20deg) scale(1.2); opacity: 1; }
+          100% { transform: rotate(0deg) scale(1); opacity: 1; }
+        }
+        @keyframes burstRing {
+          0% { transform: scale(0.5); opacity: 0.8; }
+          100% { transform: scale(2.5); opacity: 0; }
+        }
+        @keyframes fadeUp {
+          0% { opacity: 0; transform: translateY(16px); }
+          100% { opacity: 1; transform: translateY(0); }
         }
         @keyframes fadeSlideUp {
           0% { opacity: 0; transform: translateY(30px); }
           100% { opacity: 1; transform: translateY(0); }
         }
         @keyframes cardReveal {
-          0% { opacity: 0; transform: scale(0.9) rotateX(10deg); }
-          100% { opacity: 1; transform: scale(1) rotateX(0deg); }
+          0% { opacity: 0; transform: scale(0.93) translateY(20px); }
+          100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes bounce {
+          0%, 80%, 100% { transform: translateY(0); }
+          40% { transform: translateY(-8px); }
         }
       `}</style>
     </div>

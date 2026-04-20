@@ -5,15 +5,16 @@ import { useState } from "react";
 interface VerifyFormProps {
   onVerify: (certId: string) => void;
   isLoading: boolean;
+  defaultValue?: string;
 }
 
-export default function VerifyForm({ onVerify, isLoading }: VerifyFormProps) {
-  const [certId, setCertId] = useState("");
+export default function VerifyForm({ onVerify, isLoading, defaultValue = "" }: VerifyFormProps) {
+  const [certId, setCertId] = useState(defaultValue);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (certId.trim()) {
-      onVerify(certId.trim().toUpperCase());
+      onVerify(certId.trim());
     }
   };
 

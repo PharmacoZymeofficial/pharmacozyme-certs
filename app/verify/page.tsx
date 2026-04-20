@@ -1,20 +1,56 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import CategorySelector from "@/components/CategorySelector";
 import VerifyForm from "@/components/VerifyForm";
 import VerificationResult from "@/components/VerificationResult";
 import TrustBadges from "@/components/TrustBadges";
 import { Certificate } from "@/lib/types";
 
 export default function VerifyPage() {
-  const [selectedCategory, setSelectedCategory] = useState<"General" | "Official">("General");
-  const [selectedSubCategory, setSelectedSubCategory] = useState("");
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex flex-col bg-surface">
+        <Navbar />
+        <main className="flex-1 flex items-center justify-center">
+          <VerifyPageSkeleton />
+        </main>
+        <Footer />
+      </div>
+    }>
+      <VerifyContent />
+    </Suspense>
+  );
+}
+
+function VerifyPageSkeleton() {
+  return (
+    <div className="w-full max-w-7xl mx-auto px-4 py-16 space-y-8 animate-pulse">
+      <div className="h-12 bg-gray-200 rounded-xl w-1/2 mx-auto" />
+      <div className="h-6 bg-gray-100 rounded-xl w-1/3 mx-auto" />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-12">
+        <div className="lg:col-span-7 space-y-6">
+          <div className="h-40 bg-gray-100 rounded-2xl" />
+          <div className="h-32 bg-gray-100 rounded-2xl" />
+        </div>
+        <div className="lg:col-span-5">
+          <div className="h-80 bg-gray-100 rounded-2xl" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VerifyContent() {
+  const searchParams = useSearchParams();
+  const urlCertId = searchParams.get("certId") || searchParams.get("id") || "";
+
   const [certificate, setCertificate] = useState<Certificate | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasAutoVerified, setHasAutoVerified] = useState(false);
 
   const handleVerify = async (certId: string) => {
     setIsLoading(true);
@@ -26,16 +62,25 @@ export default function VerifyPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Verification failed");
+        throw new Error(data.error || "Certificate not found. Please check the ID and try again.");
       }
 
       setCertificate(data.certificate);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred");
+      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Auto-verify if certId is in URL
+  useEffect(() => {
+    if (urlCertId && !hasAutoVerified) {
+      setHasAutoVerified(true);
+      handleVerify(urlCertId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlCertId]);
 
   const handleClose = () => {
     setCertificate(null);
@@ -46,52 +91,63 @@ export default function VerifyPage() {
     <div className="min-h-screen flex flex-col bg-surface">
       <Navbar />
 
-      <main className="pt-20 sm:pt-28 pb-16 sm:pb-20 flex-1">
-        {/* Hero Section */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-10 sm:mb-16">
-          <div className="flex flex-col items-center sm:items-start text-center sm:text-left gap-3 sm:gap-4 max-w-2xl mx-auto sm:mx-0">
-            <span className="inline-flex items-center px-3 sm:px-4 py-1.5 rounded-full bg-primary-container text-dark-green text-[9px] sm:text-[10px] font-bold uppercase tracking-widest">
+      <main className="flex-1 pt-0 pb-16 sm:pb-20">
+        {/* Video Hero Section */}
+        <section className="relative w-full overflow-hidden" style={{ height: "clamp(240px, 40vw, 520px)" }}>
+          {/* PC video (hidden on mobile) */}
+          <video
+            className="hidden sm:block absolute inset-0 w-full h-full object-cover"
+            src="/videos/hero-pc.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+          />
+          {/* Mobile video (hidden on desktop) */}
+          <video
+            className="sm:hidden absolute inset-0 w-full h-full object-cover"
+            src="/videos/hero-mobile.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+          />
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0c2218]/60 via-[#0c2218]/30 to-surface" />
+          {/* Hero text */}
+          <div className="relative z-10 h-full flex flex-col items-center justify-center text-center px-4 gap-3 sm:gap-4">
+            <span className="inline-flex items-center px-3 sm:px-4 py-1.5 rounded-full bg-white/15 backdrop-blur-sm text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-widest border border-white/20">
               Education | Research | Treatment
             </span>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-headline font-bold text-dark-green tracking-tight leading-[1.1]">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-headline font-bold text-white tracking-tight leading-[1.1] drop-shadow-lg">
               Verify Certificate <br className="hidden sm:block" />
-              <span className="text-vivid-green">Authenticity</span>
+              <span className="text-[#52b788]">Authenticity</span>
             </h1>
-            <p className="text-sm sm:text-base md:text-lg text-on-surface-variant max-w-lg leading-relaxed px-4 sm:px-0">
-              Ensure the legitimacy of clinical credentials and professional achievements through our tamper-proof verification ledger.
+            <p className="text-sm sm:text-base text-white/80 max-w-lg leading-relaxed">
+              Tamper-proof verification for clinical credentials and professional achievements.
             </p>
           </div>
         </section>
 
         {/* Verification Workflow */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 sm:mt-14">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12">
             {/* Form Side */}
             <div className="lg:col-span-7 space-y-6 lg:space-y-8">
-              {/* Step 1: Category Selector */}
-              <div className="bg-surface-container-lowest rounded-xl p-5 sm:p-6 lg:p-8 border border-surface-container">
+              {/* Step 1: Input */}
+              <div className="bg-surface-container-lowest rounded-2xl p-5 sm:p-6 lg:p-8 border border-surface-container shadow-sm">
                 <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-vivid-green flex items-center justify-center text-white font-bold text-xs sm:text-sm">1</div>
-                  <h2 className="text-lg sm:text-xl font-headline font-bold text-dark-green">Category Selection</h2>
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-vivid-green flex items-center justify-center text-white font-bold text-sm">
+                    <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                  </div>
+                  <div>
+                    <h2 className="text-lg sm:text-xl font-headline font-bold text-dark-green">Enter Certificate ID</h2>
+                    <p className="text-xs text-on-surface-variant">Type or paste the certificate ID number</p>
+                  </div>
                 </div>
-                <CategorySelector
-                  selectedCategory={selectedCategory}
-                  selectedSubCategory={selectedSubCategory}
-                  onCategoryChange={setSelectedCategory}
-                  onSubCategoryChange={setSelectedSubCategory}
-                />
+                <VerifyForm onVerify={handleVerify} isLoading={isLoading} defaultValue={urlCertId} />
               </div>
 
-              {/* Step 2: Input Area */}
-              <div className="bg-surface-container-lowest rounded-xl p-5 sm:p-6 lg:p-8 border border-surface-container">
-                <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-vivid-green flex items-center justify-center text-white font-bold text-xs sm:text-sm">2</div>
-                  <h2 className="text-lg sm:text-xl font-headline font-bold text-dark-green">Enter Certificate Details</h2>
-                </div>
-                <VerifyForm onVerify={handleVerify} isLoading={isLoading} />
-              </div>
-
-              {/* Trust Badges - Hidden on mobile, shown on tablet+ */}
               <div className="hidden sm:block">
                 <TrustBadges />
               </div>
@@ -101,9 +157,9 @@ export default function VerifyPage() {
             <div className="lg:col-span-5">
               <div className="lg:sticky lg:top-24">
                 <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-outline mb-4 sm:mb-6 text-center lg:text-left">
-                  Verification Preview
+                  Verification Result
                 </h3>
-                
+
                 {certificate || error || isLoading ? (
                   <VerificationResult
                     certificate={certificate}
@@ -112,49 +168,10 @@ export default function VerifyPage() {
                     onClose={handleClose}
                   />
                 ) : (
-                  /* Empty State - Preview Card */
-                  <div className="bg-surface-container-lowest rounded-xl overflow-hidden border border-outline-variant/20">
-                    <div className="relative h-36 sm:h-44 lg:h-48 bg-dark-green overflow-hidden">
-                      <div className="absolute inset-0 p-4 sm:p-6 lg:p-8 flex flex-col justify-end">
-                        <div className="text-primary-fixed font-headline font-semibold text-base sm:text-lg mb-1">MED-Q Excellence</div>
-                        <div className="text-white/60 text-[9px] sm:text-[10px] uppercase tracking-widest font-medium">Digital Credentials Division</div>
-                      </div>
-                      <div className="absolute top-4 sm:top-6 right-4 sm:right-6 px-3 sm:px-4 py-1.5 sm:py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                        <span className="text-white text-[9px] sm:text-[10px] font-bold tracking-widest uppercase">Valid ID</span>
-                      </div>
-                    </div>
-                    <div className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <label className="block text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-outline mb-1">Holder Name</label>
-                          <div className="text-base sm:text-xl font-headline font-bold text-dark-green">Dr. Julianne V. Thorne</div>
-                        </div>
-                        <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-xl bg-surface-container-low flex items-center justify-center border border-surface-variant">
-                          <span className="material-symbols-outlined text-vivid-green text-xl sm:text-2xl lg:text-3xl">qr_code_2</span>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4 sm:gap-8">
-                        <div>
-                          <label className="block text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-outline mb-1">Issue Date</label>
-                          <div className="text-xs sm:text-sm font-semibold text-dark-green">October 24, 2024</div>
-                        </div>
-                        <div>
-                          <label className="block text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-outline mb-1">Type</label>
-                          <div className="text-xs sm:text-sm font-semibold text-dark-green">Advanced Clinical Module</div>
-                        </div>
-                      </div>
-                      <div className="pt-4 sm:pt-6 border-t border-surface-container">
-                        <div className="inline-flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-xl bg-green-50 border border-green-200">
-                          <span className="material-symbols-outlined text-vivid-green text-base sm:text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-                          <span className="text-vivid-green font-bold text-[9px] sm:text-[10px] tracking-[0.2em] uppercase">VERIFIED ✓</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <EmptyResultCard />
                 )}
 
-                {/* Side Note */}
-                <div className="mt-4 sm:mt-6 lg:mt-8 p-4 sm:p-5 lg:p-6 rounded-xl bg-primary-container/30 border-l-4 border-vivid-green">
+                <div className="mt-4 sm:mt-6 p-4 sm:p-5 rounded-xl bg-primary-container/30 border-l-4 border-vivid-green">
                   <p className="text-[10px] sm:text-[11px] text-on-surface-variant leading-relaxed italic">
                     "This verification record is linked to our secure blockchain hash. Any unauthorized duplication or alteration is detectable by our system."
                   </p>
@@ -163,7 +180,6 @@ export default function VerifyPage() {
             </div>
           </div>
 
-          {/* Trust Badges - Mobile Only */}
           <div className="sm:hidden mt-6">
             <TrustBadges />
           </div>
@@ -171,6 +187,37 @@ export default function VerifyPage() {
       </main>
 
       <Footer />
+    </div>
+  );
+}
+
+function EmptyResultCard() {
+  return (
+    <div className="bg-surface-container-lowest rounded-2xl overflow-hidden border border-outline-variant/20 shadow-sm">
+      <div className="relative h-36 sm:h-44 bg-dark-green overflow-hidden flex items-end p-6">
+        <div
+          className="absolute inset-0 opacity-10"
+          style={{ backgroundImage: "radial-gradient(circle at 70% 50%, #52b788 0%, transparent 60%)" }}
+        />
+        <div className="relative z-10">
+          <div className="text-primary-fixed font-headline font-semibold text-base sm:text-lg mb-1">MED-Q Excellence</div>
+          <div className="text-white/60 text-[9px] sm:text-[10px] uppercase tracking-widest font-medium">Digital Credentials</div>
+        </div>
+        <div className="absolute top-4 right-4 px-3 py-1.5 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+          <span className="text-white text-[9px] font-bold tracking-widest uppercase">Awaiting ID</span>
+        </div>
+      </div>
+      <div className="p-5 sm:p-6 space-y-4">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="h-4 bg-surface-container rounded-lg" style={{ width: `${[70, 50, 85][i]}%` }} />
+        ))}
+        <div className="pt-3 border-t border-surface-container">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-container border border-outline-variant/20">
+            <span className="material-symbols-outlined text-outline text-base">pending</span>
+            <span className="text-outline font-bold text-[9px] tracking-[0.2em] uppercase">Enter ID to Verify</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

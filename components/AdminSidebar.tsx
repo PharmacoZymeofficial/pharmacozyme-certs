@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const navItems = [
   { href: "/admin", icon: "dashboard", label: "Dashboard" },
@@ -17,6 +17,13 @@ const navItems = [
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await fetch("/api/admin/auth", { method: "DELETE" });
+    router.push("/admin/login");
+    router.refresh();
+  };
 
   return (
     <aside className="h-screen w-64 fixed left-0 top-0 dark-nav-gradient flex flex-col py-6 gap-2 font-body text-sm tracking-wide z-40 hidden lg:flex">
@@ -77,10 +84,10 @@ export default function AdminSidebar() {
             <span className="material-symbols-outlined">help_outline</span>
             <span>Help</span>
           </Link>
-          <Link href="/" className="flex items-center gap-3 px-4 py-2 text-white/50 hover:text-white transition-all">
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2 text-white/50 hover:text-red-400 transition-all">
             <span className="material-symbols-outlined">logout</span>
             <span>Sign Out</span>
-          </Link>
+          </button>
         </div>
       </div>
     </aside>

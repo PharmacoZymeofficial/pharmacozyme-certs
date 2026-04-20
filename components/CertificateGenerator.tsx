@@ -546,7 +546,10 @@ export default function CertificateGenerator({ database, participants, onGenerat
           certId = generateCertificateId(participant.name, database.subCategory, currentSerial);
         }
         
-        const verificationUrl = `${verificationBase}?id=${certId}`;
+        // QR code + verification URL point to /claim so scanning opens the gift reveal page
+        const claimBase = verificationBase.replace(/\/verify$/, "");
+        const verificationUrl = `${claimBase}/claim?id=${certId}`;
+        const certificateClaimUrl = verificationUrl;
         const qrCodeDataUrl = await generateQRCode(verificationUrl);
 
         let pdfBytes: Uint8Array | undefined;
@@ -631,7 +634,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
         
         // Skip Drive upload - use on-demand generation instead
         // Service account needs Shared Drive for regular Drive access
-        let certificateUrl = "";
+        let certificateUrl = certificateClaimUrl;
         
         const issueDate = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
         const updateResponse = await fetch(`/api/participants/${participant.id}`, {
