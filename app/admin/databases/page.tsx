@@ -1099,6 +1099,15 @@ export default function DatabaseManagementPage() {
           </div>
         </div>
       )}
+      {isBulkDeleting && (
+        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4 max-w-sm mx-4">
+            <span className="material-symbols-outlined text-5xl text-red-500 animate-spin">progress_activity</span>
+            <p className="font-bold text-brand-dark-green text-lg">{bulkDeleteLabel}...</p>
+            <p className="text-sm text-on-surface-variant text-center">Please wait while we process all selected participants.</p>
+          </div>
+        </div>
+      )}
       {isCreating && (
         <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center">
           <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4 max-w-sm mx-4">
@@ -1114,15 +1123,6 @@ export default function DatabaseManagementPage() {
             <span className="material-symbols-outlined text-5xl text-emerald-500 animate-spin">progress_activity</span>
             <p className="font-bold text-brand-dark-green text-lg">Syncing from Sheet...</p>
             <p className="text-sm text-on-surface-variant text-center">Fetching latest data from Google Sheets.</p>
-          </div>
-        </div>
-      )}
-      {isBulkDeleting && (
-        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center">
-          <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4 max-w-sm mx-4">
-            <span className="material-symbols-outlined text-5xl text-red-500 animate-spin">progress_activity</span>
-            <p className="font-bold text-brand-dark-green text-lg">{bulkDeleteLabel || "Processing..."}</p>
-            <p className="text-sm text-on-surface-variant text-center">This may take a moment for large batches.</p>
           </div>
         </div>
       )}
@@ -1421,8 +1421,8 @@ export default function DatabaseManagementPage() {
                                 setOpenDropdown(null);
                                 const ok = await confirm({ title: "Delete PDFs", message: `Delete PDFs for ${selectedParticipants.length} selected participants?`, danger: true, confirmText: "Delete" });
                                 if (!ok) return;
+                                setBulkDeleteLabel("Deleting PDFs");
                                 setIsBulkDeleting(true);
-                                setBulkDeleteLabel("Deleting PDFs...");
                                 try {
                                   for (const id of selectedParticipants) {
                                     const participant = participants.find(p => p.id === id);
@@ -1453,8 +1453,8 @@ export default function DatabaseManagementPage() {
                                 setOpenDropdown(null);
                                 const ok = await confirm({ title: "Delete IDs", message: `Delete Certificate IDs for ${selectedParticipants.length} selected participants?`, danger: true, confirmText: "Delete" });
                                 if (!ok) return;
+                                setBulkDeleteLabel("Deleting Certificate IDs");
                                 setIsBulkDeleting(true);
-                                setBulkDeleteLabel("Deleting Certificate IDs...");
                                 try {
                                   for (const id of selectedParticipants) {
                                     await fetch(`/api/participants/${id}`, {
@@ -1481,8 +1481,8 @@ export default function DatabaseManagementPage() {
                                 setOpenDropdown(null);
                                 const ok = await confirm({ title: "Delete Both", message: `Delete Certificate ID + PDF for ${selectedParticipants.length} selected participants?`, danger: true, confirmText: "Delete All" });
                                 if (!ok) return;
+                                setBulkDeleteLabel("Deleting IDs + PDFs");
                                 setIsBulkDeleting(true);
-                                setBulkDeleteLabel("Deleting IDs and PDFs...");
                                 try {
                                   for (const id of selectedParticipants) {
                                     const participant = participants.find(p => p.id === id);
@@ -1509,26 +1509,19 @@ export default function DatabaseManagementPage() {
                               Delete Both
                             </button>
                             <button
-                              onClick={async () => {
+                              onClick={() => {
                                 setOpenDropdown(null);
-                                setIsBulkDeleting(true);
-                                setBulkDeleteLabel("Marking as Emailed...");
-                                try {
-                                  // Must execute sequentially or promise all
-                                  await Promise.all(selectedParticipants.map(async (id) => {
-                                    await fetch(`/api/participants/${id}`, {
-                                      method: "PUT",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ emailSent: true, databaseId: selectedDatabase?.id }),
-                                    });
-                                  }));
-                                  setSelectedParticipants([]);
-                                  fetchParticipants(selectedDatabase.id!);
-                                  sfx.notify();
-                                  toast.success(`Marked ${selectedParticipants.length} as Emailed`);
-                                } finally {
-                                  setIsBulkDeleting(false);
-                                }
+                                selectedParticipants.forEach(async (id) => {
+                                  await fetch(`/api/participants/${id}`, {
+                                    method: "PUT",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ emailSent: true, databaseId: selectedDatabase?.id }),
+                                  });
+                                });
+                                setSelectedParticipants([]);
+                                fetchParticipants(selectedDatabase.id!);
+                                sfx.notify();
+                                toast.success(`Marked ${selectedParticipants.length} as Emailed`);
                               }}
                               className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-blue-600 flex items-center gap-2"
                             >
@@ -1540,8 +1533,8 @@ export default function DatabaseManagementPage() {
                                 setOpenDropdown(null);
                                 const ok = await confirm({ title: "Delete Participants", message: `Delete ${selectedParticipants.length} selected participants? This cannot be undone.`, danger: true, confirmText: "Delete" });
                                 if (!ok) return;
+                                setBulkDeleteLabel("Deleting Participants");
                                 setIsBulkDeleting(true);
-                                setBulkDeleteLabel("Deleting Participants...");
                                 try {
                                   for (const id of selectedParticipants) {
                                     const participant = participants.find(p => p.id === id);

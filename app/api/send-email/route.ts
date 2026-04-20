@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
         }] : [];
 
         const data = await resend!.emails.send({
-          from: "PharmacoZyme Certificates <noreply@verify.pharmacozyme.com>",
+          from: "PharmacoZyme Certificates <noreply@certs.pharmacozyme.com>",
           to: email,
           subject: subject || "Your Certificate from PharmacoZyme",
           attachments,
@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
         try {
           await new Promise(r => setTimeout(r, 1500));
           const retry = await resend!.emails.send({
-            from: "PharmacoZyme Certificates <noreply@verify.pharmacozyme.com>",
+            from: "PharmacoZyme Certificates <noreply@certs.pharmacozyme.com>",
             to: recipient.email,
             subject: subject || "Your Certificate from PharmacoZyme",
             attachments: recipient.pdfBase64 ? [{ filename: `Certificate_${recipient.certificateId}.pdf`, content: recipient.pdfBase64 }] : [],

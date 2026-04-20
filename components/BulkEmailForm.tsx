@@ -139,15 +139,6 @@ export default function BulkEmailForm({ categories, templates }: BulkEmailFormPr
 
   return (
     <div className="bg-white rounded-xl border border-green-100 shadow-sm p-6 sm:p-8">
-      {isSending && (
-        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center">
-          <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4 max-w-sm mx-4">
-            <span className="material-symbols-outlined text-5xl text-brand-vivid-green animate-spin">progress_activity</span>
-            <p className="font-bold text-brand-dark-green text-lg">Sending Emails...</p>
-            <p className="text-sm text-on-surface-variant text-center">This may take a moment for large batches.</p>
-          </div>
-        </div>
-      )}
       {/* Header */}
       <div className="flex items-center gap-4 mb-6 sm:mb-8">
         <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-green-100 flex items-center justify-center text-brand-green flex-shrink-0">
