@@ -372,9 +372,12 @@ export default function TemplatesPage() {
               className="bg-white rounded-xl border border-green-100 overflow-hidden hover:shadow-lg transition-all"
             >
               {/* Preview Area */}
-              <div className="h-40 bg-gradient-to-br from-green-50 to-green-100 flex flex-col items-center justify-center relative overflow-hidden">
-                <span className="material-symbols-outlined text-5xl text-brand-grass-green opacity-60">picture_as_pdf</span>
-                <span className="text-xs text-brand-grass-green opacity-70 mt-1 font-medium">PDF Template</span>
+              <div className="h-40 bg-gray-50 relative overflow-hidden">
+                <iframe
+                  src={`/api/templates/${template.id}/pdf#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                  className="w-full h-full border-0 pointer-events-none"
+                  title={`${template.name} preview`}
+                />
                 <span className={`absolute top-3 right-3 px-2 py-1 text-xs font-bold rounded-full ${
                   template.isActive ? "bg-green-100 text-brand-green" : "bg-gray-100 text-gray-500"
                 }`}>
@@ -810,8 +813,9 @@ export default function TemplatesPage() {
                   </div>
                 )}
                 
-                <div 
-                  className="relative w-full min-h-[500px] bg-white rounded-xl overflow-hidden border-2 border-green-200 cursor-crosshair"
+                <div
+                  className="relative w-full bg-white rounded-xl overflow-hidden border-2 border-green-200 cursor-crosshair"
+                  style={{ aspectRatio: "1.414 / 1" }}
                   ref={previewRef}
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}
@@ -832,8 +836,8 @@ export default function TemplatesPage() {
                   />
                 ) : (
                   <iframe
-                    src={`${editingTemplate.fileUrl}#toolbar=0&navpanes=0&scrollbar=0`}
-                    className="w-full h-full"
+                    src={`/api/templates/${editingTemplate.id}/pdf#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                    className="w-full h-full border-0"
                     title="Template Preview"
                     onLoad={() => setLoadingTemplate(false)}
                   />
