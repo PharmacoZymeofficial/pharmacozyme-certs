@@ -10,9 +10,9 @@ export async function GET() {
 
     const templates = querySnapshot.docs.map((docSnap) => {
       const data = docSnap.data();
-      // Strip pdfBase64 from list response — only needed when loading for generation
       const { pdfBase64, ...rest } = data;
-      return { id: docSnap.id, ...rest };
+      // Always compute fileUrl from doc ID so the iframe always has a valid URL
+      return { id: docSnap.id, ...rest, fileUrl: `/api/templates/${docSnap.id}/pdf` };
     });
 
     return NextResponse.json({ templates });

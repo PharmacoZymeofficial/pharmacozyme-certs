@@ -374,7 +374,7 @@ export default function TemplatesPage() {
               {/* Preview Area */}
               <div className="h-40 bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center relative overflow-hidden">
                 <iframe
-                  src={`/api/templates/${template.id}/pdf#toolbar=0&navpanes=0&scrollbar=0&view=FitV`}
+                  src={`${template.fileUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitV`}
                   className="w-full h-full object-cover"
                   title={`${template.name} preview`}
                 />
@@ -411,7 +411,7 @@ export default function TemplatesPage() {
                 </div>
 
                 <a
-                  href={`/api/templates/${template.id}/pdf`}
+                  href={template.fileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-50 text-brand-green rounded-lg text-sm font-medium hover:bg-green-100 transition-colors"
@@ -835,7 +835,7 @@ export default function TemplatesPage() {
                   />
                 ) : (
                   <iframe
-                    src={`/api/templates/${editingTemplate.id}/pdf#toolbar=0&navpanes=0&scrollbar=0`}
+                    src={`${editingTemplate.fileUrl}#toolbar=0&navpanes=0&scrollbar=0`}
                     className="w-full h-full"
                     title="Template Preview"
                     onLoad={() => setLoadingTemplate(false)}
