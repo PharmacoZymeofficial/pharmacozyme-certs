@@ -221,10 +221,28 @@ export async function POST(request: NextRequest) {
 `,
         });
 
+        if (data.error) throw new Error(data.error.message || "Resend API error");
         results.push({ email, success: true, id: data.data?.id });
       } catch (err: any) {
         console.error(`Failed to send to ${recipient.email}:`, err);
-        errors.push({ email: recipient.email, error: err.message });
+        // Retry once after 1s
+        try {
+          await new Promise(r => setTimeout(r, 1000));
+          const { email, name, certificateId, pdfBase64, driveLink } = recipient;
+          const verificationLink = CLAIM_URL + "?id=" + certificateId;
+          const attachments = pdfBase64 ? [{ filename: `Certificate_${certificateId}.pdf`, content: pdfBase64 }] : [];
+          const retry = await resend!.emails.send({
+            from: "PharmacoZyme Certificates <noreply@certs.pharmacozyme.com>",
+            to: email,
+            subject: subject || "Your Certificate from PharmacoZyme",
+            attachments,
+            html: `<p>Dear ${name || "Participant"},</p><p>Your certificate is ready. <a href="${verificationLink}">Claim your certificate</a>.</p><p>Certificate ID: ${certificateId}</p>${driveLink ? `<p><a href="${driveLink}">Download PDF</a></p>` : ""}`,
+          });
+          if (retry.error) throw new Error(retry.error.message);
+          results.push({ email, success: true, id: retry.data?.id, retried: true });
+        } catch (retryErr: any) {
+          errors.push({ email: recipient.email, error: err.message });
+        }
       }
     }
 

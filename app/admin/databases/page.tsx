@@ -77,6 +77,7 @@ export default function DatabaseManagementPage() {
   const [showBulkTargetModal, setShowBulkTargetModal] = useState(false);
   const [bulkTargetAction, setBulkTargetAction] = useState<"generate" | "send" | null>(null);
   const [isDeletingDatabase, setIsDeletingDatabase] = useState(false);
+  const [isSyncingSheet, setIsSyncingSheet] = useState(false);
   
   // Undo/Redo history
   const [history, setHistory] = useState<Participant[][]>([]);
@@ -784,6 +785,33 @@ export default function DatabaseManagementPage() {
     }
   };
 
+  const handleSyncFromSheet = async () => {
+    if (!selectedDatabase?.linkedSheet || !selectedDatabase?.id) return;
+    setIsSyncingSheet(true);
+    try {
+      const response = await fetch("/api/sheets/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ databaseId: selectedDatabase.id, mode: "sheetsToFirebase" }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        sfx.success();
+        toast.success(`Sheet synced! ${data.imported || 0} records updated.`);
+        fetchParticipants(selectedDatabase.id);
+        fetchDatabases();
+      } else {
+        toast.error(data.error || "Failed to sync from sheet");
+        sfx.error();
+      }
+    } catch (err) {
+      toast.error("Error syncing from sheet");
+      sfx.error();
+    } finally {
+      setIsSyncingSheet(false);
+    }
+  };
+
   // Generate certificate IDs for all participants
   const handleGenerateIds = async () => {
     if (!selectedDatabase) return;
@@ -1069,6 +1097,24 @@ export default function DatabaseManagementPage() {
           </div>
         </div>
       )}
+      {isCreating && (
+        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4 max-w-sm mx-4">
+            <span className="material-symbols-outlined text-5xl text-brand-vivid-green animate-spin">progress_activity</span>
+            <p className="font-bold text-brand-dark-green text-lg">Creating Database...</p>
+            <p className="text-sm text-on-surface-variant text-center">Setting up your new database. Please wait.</p>
+          </div>
+        </div>
+      )}
+      {isSyncingSheet && (
+        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4 max-w-sm mx-4">
+            <span className="material-symbols-outlined text-5xl text-emerald-500 animate-spin">progress_activity</span>
+            <p className="font-bold text-brand-dark-green text-lg">Syncing from Sheet...</p>
+            <p className="text-sm text-on-surface-variant text-center">Fetching latest data from Google Sheets.</p>
+          </div>
+        </div>
+      )}
       {/* Quiet refresh bar */}
       {isRefreshing && (
         <div className="fixed top-0 left-0 right-0 z-50 h-1 overflow-hidden">
@@ -1178,16 +1224,26 @@ export default function DatabaseManagementPage() {
                   {selectedDatabase.category} • {selectedDatabase.subCategory} • {selectedDatabase.topic}
                 </p>
                 {selectedDatabase.linkedSheet && selectedDatabase.sheetId && (
-                  <a
-                    href={`https://docs.google.com/spreadsheets/d/${selectedDatabase.sheetId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 mt-2 text-xs text-emerald-600 font-medium hover:text-emerald-800 hover:underline"
-                  >
-                    <span className="material-symbols-outlined text-sm">table_chart</span>
-                    Linked to Google Sheets — Open Sheet
-                    <span className="material-symbols-outlined text-xs">open_in_new</span>
-                  </a>
+                  <div className="flex items-center gap-3 mt-2 flex-wrap">
+                    <a
+                      href={`https://docs.google.com/spreadsheets/d/${selectedDatabase.sheetId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium hover:text-emerald-800 hover:underline"
+                    >
+                      <span className="material-symbols-outlined text-sm">table_chart</span>
+                      Open Sheet
+                      <span className="material-symbols-outlined text-xs">open_in_new</span>
+                    </a>
+                    <button
+                      onClick={handleSyncFromSheet}
+                      disabled={isSyncingSheet}
+                      className="inline-flex items-center gap-1.5 text-xs text-emerald-700 font-medium bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-sm">sync</span>
+                      Refresh from Sheet
+                    </button>
+                  </div>
                 )}
               </div>
               <div className="flex gap-2">

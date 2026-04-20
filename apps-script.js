@@ -49,6 +49,9 @@ function doPost(e) {
       case "getTabs":
         result = getSheetTabs(payload);
         break;
+      case "deleteRowsByCertIds":
+        result = deleteRowsByCertIds(payload);
+        break;
       default:
         throw new Error("Unknown action: " + action);
     }
@@ -251,6 +254,35 @@ function syncData(payload) {
   }
   
   return { success: false, error: "Invalid mode" };
+}
+
+function deleteRowsByCertIds(payload) {
+  const { spreadsheetId, tabName, certIds } = payload;
+  if (!certIds || certIds.length === 0) return { success: true, deletedRows: 0 };
+
+  const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+  const sheet = spreadsheet.getSheetByName(tabName);
+  if (!sheet) throw new Error("Sheet tab not found: " + tabName);
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return { success: true, deletedRows: 0 };
+
+  const certIdSet = new Set(certIds.map(String));
+  const data = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+
+  // Collect row indices to delete (bottom-up to preserve indices)
+  const rowsToDelete = [];
+  for (let i = data.length - 1; i >= 0; i--) {
+    if (certIdSet.has(String(data[i][0]))) {
+      rowsToDelete.push(i + 2); // +2: 1-indexed + skip header
+    }
+  }
+
+  for (const rowIndex of rowsToDelete) {
+    sheet.deleteRow(rowIndex);
+  }
+
+  return { success: true, deletedRows: rowsToDelete.length };
 }
 
 // ===== DRIVE OPERATIONS =====

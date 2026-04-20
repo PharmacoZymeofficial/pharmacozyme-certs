@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Document, Page, Text, View, StyleSheet, PDFDownloadLink, Image, Font } from "@react-pdf/renderer";
 import QRCode from "qrcode";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { useToast } from "@/components/Toast";
 
 
 
@@ -425,6 +426,7 @@ interface CertificateGeneratorProps {
 }
 
 export default function CertificateGenerator({ database, participants, onGenerated }: CertificateGeneratorProps) {
+  const toast = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [certificates, setCertificates] = useState<CertificateData[]>([]);
   const [showDownload, setShowDownload] = useState(false);
@@ -738,9 +740,9 @@ export default function CertificateGenerator({ database, participants, onGenerat
       onGenerated();
       
       if (updateSuccess) {
-        alert(`Successfully generated ${generatedCerts.length} certificates!\nTemplate: ${templateData?.name || "Standard"}`);
+        toast.success(`Generated ${generatedCerts.length} certificates! Template: ${templateData?.name || "Standard"}`);
       } else {
-        alert(`Generated ${generatedCerts.length} certificates, but some updates failed.`);
+        toast.warning(`Generated ${generatedCerts.length} certificates, but some updates failed.`);
       }
       
       // Sync updated data to Sheets after all generations complete
@@ -765,7 +767,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
       }
     } catch (err) {
       console.error("Error generating certificates:", err);
-      alert("Failed to generate certificates: " + (err as Error).message);
+      toast.error("Failed to generate certificates: " + (err as Error).message);
     } finally {
       setIsGenerating(false);
       setCurrentGenerating("");

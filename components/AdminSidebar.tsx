@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
+import { useConfirm } from "@/components/ConfirmModal";
 
 const navItems = [
   { href: "/admin", icon: "dashboard", label: "Dashboard" },
@@ -18,9 +19,10 @@ const navItems = [
 export default function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const confirm = useConfirm();
 
   const handleLogout = async () => {
-    const ok = window.confirm("Sign out of the admin portal?");
+    const ok = await confirm({ title: "Sign Out", message: "Sign out of the admin portal?", confirmText: "Sign Out", danger: true });
     if (!ok) return;
     await fetch("/api/admin/auth", { method: "DELETE" });
     router.push("/admin/login");
