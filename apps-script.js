@@ -171,16 +171,34 @@ function getSheetTabs(payload) {
 // ===== DATA SYNC =====
 
 function syncData(payload) {
-  const { spreadsheetId, tabName, data, mode } = payload;
-  
+  const { spreadsheetId, tabName, data, mode, writeHeaders, headers } = payload;
+
   const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
   const sheet = spreadsheet.getSheetByName(tabName);
-  
+
   if (!sheet) {
     throw new Error("Sheet tab not found: " + tabName);
   }
-  
+
   if (mode === "write") {
+    // Write headers if explicitly provided
+    if (writeHeaders && headers && headers.length > 0) {
+      const headerLabels = [
+        "Certificate ID",
+        "Name",
+        "Email",
+        "Certificate URL",
+        "Status",
+        "Issue Date",
+        "Emailed",
+        "Drive Link",
+        "Created At"
+      ];
+      sheet.getRange(1, 1, 1, headerLabels.length).setValues([headerLabels]);
+      sheet.getRange(1, 1, 1, headerLabels.length).setFontWeight("bold");
+      sheet.autoResizeColumns(1, headerLabels.length);
+    }
+
     // Write data to Sheet
     const rows = data.map(p => [
       p.certificateId || "",
@@ -193,18 +211,18 @@ function syncData(payload) {
       p.driveLink || "",
       p.createdAt || ""
     ]);
-    
+
     // Clear existing data (keep headers)
     const lastRow = sheet.getLastRow();
     if (lastRow > 1) {
       sheet.getRange(2, 1, lastRow - 1, 9).clearContent();
     }
-    
+
     // Write new data
     if (rows.length > 0) {
       sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
     }
-    
+
     return { success: true, rowsWritten: rows.length };
     
   } else if (mode === "read") {
