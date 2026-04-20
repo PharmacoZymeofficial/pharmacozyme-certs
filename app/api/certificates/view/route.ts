@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate QR Code
-    const verificationUrl = `${process.env.NEXT_PUBLIC_VERIFY_URL || "certs.pharmacozyme.com/verify"}?id=${certificateId}`;
+    const verificationUrl = `${process.env.NEXT_PUBLIC_VERIFY_URL || "https://verify.pharmacozyme.com/verify"}?id=${certificateId}`;
     const qrCodeDataUrl = await QRCode.toDataURL(verificationUrl);
     const qrCodeBytes = Buffer.from(qrCodeDataUrl.split(",")[1], "base64");
 

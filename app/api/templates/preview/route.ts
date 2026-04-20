@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
     
     try {
       // Generate QR code as PNG
-      const qrDataUrl = await QRCode.toDataURL("https://certs.pharmacozyme.com/verify?id=TEST-123", {
+      const qrDataUrl = await QRCode.toDataURL("https://verify.pharmacozyme.com/verify?id=TEST-123", {
         width: Math.round(qrSize),
         margin: 1,
         color: { dark: "#000000", light: "#ffffff" }

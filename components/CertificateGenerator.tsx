@@ -254,7 +254,7 @@ const CertificatePDF = ({ certificate }: { certificate: CertificateData }) => {
                 <Text style={styles.detailValue}>{certificate.category} - {certificate.subCategory}</Text>
               </View>
               <View style={styles.detailRow}>
-                <Text style={styles.detailValue}>{certificate.verificationUrl || "certs.pharmacozyme.com/verify"}</Text>
+                <Text style={styles.detailValue}>{certificate.verificationUrl || "verify.pharmacozyme.com/verify"}</Text>
               </View>
             </View>
           </View>
@@ -499,7 +499,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
       : sortedParticipants;
     
     try {
-      const verificationBase = process.env.NEXT_PUBLIC_VERIFY_URL || "certs.pharmacozyme.com/verify";
+      const verificationBase = process.env.NEXT_PUBLIC_VERIFY_URL || "https://verify.pharmacozyme.com/verify";
       const year = new Date().getFullYear();
       
       // Check if using uploaded template

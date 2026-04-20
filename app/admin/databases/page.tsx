@@ -78,6 +78,8 @@ export default function DatabaseManagementPage() {
   const [bulkTargetAction, setBulkTargetAction] = useState<"generate" | "send" | null>(null);
   const [isDeletingDatabase, setIsDeletingDatabase] = useState(false);
   const [isSyncingSheet, setIsSyncingSheet] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [bulkDeleteLabel, setBulkDeleteLabel] = useState("");
   
   // Undo/Redo history
   const [history, setHistory] = useState<Participant[][]>([]);
@@ -1115,6 +1117,15 @@ export default function DatabaseManagementPage() {
           </div>
         </div>
       )}
+      {isBulkDeleting && (
+        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4 max-w-sm mx-4">
+            <span className="material-symbols-outlined text-5xl text-red-500 animate-spin">progress_activity</span>
+            <p className="font-bold text-brand-dark-green text-lg">{bulkDeleteLabel || "Processing..."}</p>
+            <p className="text-sm text-on-surface-variant text-center">This may take a moment for large batches.</p>
+          </div>
+        </div>
+      )}
       {/* Quiet refresh bar */}
       {isRefreshing && (
         <div className="fixed top-0 left-0 right-0 z-50 h-1 overflow-hidden">
@@ -1410,21 +1421,27 @@ export default function DatabaseManagementPage() {
                                 setOpenDropdown(null);
                                 const ok = await confirm({ title: "Delete PDFs", message: `Delete PDFs for ${selectedParticipants.length} selected participants?`, danger: true, confirmText: "Delete" });
                                 if (!ok) return;
-                                for (const id of selectedParticipants) {
-                                  const participant = participants.find(p => p.id === id);
-                                  if (participant?.driveFileId) {
-                                    await fetch(`/api/drive-upload?fileId=${participant.driveFileId}`, { method: "DELETE" });
+                                setIsBulkDeleting(true);
+                                setBulkDeleteLabel("Deleting PDFs...");
+                                try {
+                                  for (const id of selectedParticipants) {
+                                    const participant = participants.find(p => p.id === id);
+                                    if (participant?.driveFileId) {
+                                      await fetch(`/api/drive-upload?fileId=${participant.driveFileId}`, { method: "DELETE" });
+                                    }
+                                    await fetch(`/api/participants/${id}`, {
+                                      method: "PUT",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ certificateUrl: "", driveLink: "", driveFileId: "", status: "pending", databaseId: selectedDatabase?.id }),
+                                    });
                                   }
-                                  await fetch(`/api/participants/${id}`, {
-                                    method: "PUT",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ certificateUrl: "", driveLink: "", driveFileId: "", status: "pending", databaseId: selectedDatabase?.id }),
-                                  });
+                                  sfx.delete();
+                                  toast.success(`Deleted PDFs for ${selectedParticipants.length} participants`);
+                                  setSelectedParticipants([]);
+                                  fetchParticipants(selectedDatabase.id!);
+                                } finally {
+                                  setIsBulkDeleting(false);
                                 }
-                                sfx.delete();
-                                toast.success(`Deleted PDFs for ${selectedParticipants.length} participants`);
-                                setSelectedParticipants([]);
-                                fetchParticipants(selectedDatabase.id!);
                               }}
                               className="w-full text-left px-3 py-2 text-xs hover:bg-green-50 text-gray-700 flex items-center gap-2"
                             >
@@ -1436,17 +1453,23 @@ export default function DatabaseManagementPage() {
                                 setOpenDropdown(null);
                                 const ok = await confirm({ title: "Delete IDs", message: `Delete Certificate IDs for ${selectedParticipants.length} selected participants?`, danger: true, confirmText: "Delete" });
                                 if (!ok) return;
-                                for (const id of selectedParticipants) {
-                                  await fetch(`/api/participants/${id}`, {
-                                    method: "PUT",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ certificateId: "", serialNumber: null, status: "pending", verificationUrl: "", databaseId: selectedDatabase?.id }),
-                                  });
+                                setIsBulkDeleting(true);
+                                setBulkDeleteLabel("Deleting Certificate IDs...");
+                                try {
+                                  for (const id of selectedParticipants) {
+                                    await fetch(`/api/participants/${id}`, {
+                                      method: "PUT",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ certificateId: "", serialNumber: null, status: "pending", verificationUrl: "", databaseId: selectedDatabase?.id }),
+                                    });
+                                  }
+                                  sfx.delete();
+                                  toast.success(`Deleted Certificate IDs for ${selectedParticipants.length} participants`);
+                                  setSelectedParticipants([]);
+                                  fetchParticipants(selectedDatabase.id!);
+                                } finally {
+                                  setIsBulkDeleting(false);
                                 }
-                                sfx.delete();
-                                toast.success(`Deleted Certificate IDs for ${selectedParticipants.length} participants`);
-                                setSelectedParticipants([]);
-                                fetchParticipants(selectedDatabase.id!);
                               }}
                               className="w-full text-left px-3 py-2 text-xs hover:bg-green-50 text-gray-700 flex items-center gap-2"
                             >
@@ -1458,21 +1481,27 @@ export default function DatabaseManagementPage() {
                                 setOpenDropdown(null);
                                 const ok = await confirm({ title: "Delete Both", message: `Delete Certificate ID + PDF for ${selectedParticipants.length} selected participants?`, danger: true, confirmText: "Delete All" });
                                 if (!ok) return;
-                                for (const id of selectedParticipants) {
-                                  const participant = participants.find(p => p.id === id);
-                                  if (participant?.driveFileId) {
-                                    await fetch(`/api/drive-upload?fileId=${participant.driveFileId}`, { method: "DELETE" });
+                                setIsBulkDeleting(true);
+                                setBulkDeleteLabel("Deleting IDs and PDFs...");
+                                try {
+                                  for (const id of selectedParticipants) {
+                                    const participant = participants.find(p => p.id === id);
+                                    if (participant?.driveFileId) {
+                                      await fetch(`/api/drive-upload?fileId=${participant.driveFileId}`, { method: "DELETE" });
+                                    }
+                                    await fetch(`/api/participants/${id}`, {
+                                      method: "PUT",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ certificateId: "", certificateUrl: "", driveLink: "", driveFileId: "", status: "pending", databaseId: selectedDatabase?.id }),
+                                    });
                                   }
-                                  await fetch(`/api/participants/${id}`, {
-                                    method: "PUT",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ certificateId: "", certificateUrl: "", driveLink: "", driveFileId: "", status: "pending", databaseId: selectedDatabase?.id }),
-                                  });
+                                  sfx.delete();
+                                  toast.success(`Deleted ID + PDF for ${selectedParticipants.length} participants`);
+                                  setSelectedParticipants([]);
+                                  fetchParticipants(selectedDatabase.id!);
+                                } finally {
+                                  setIsBulkDeleting(false);
                                 }
-                                sfx.delete();
-                                toast.success(`Deleted ID + PDF for ${selectedParticipants.length} participants`);
-                                setSelectedParticipants([]);
-                                fetchParticipants(selectedDatabase.id!);
                               }}
                               className="w-full text-left px-3 py-2 text-xs hover:bg-red-50 text-red-600 flex items-center gap-2"
                             >
@@ -1480,19 +1509,26 @@ export default function DatabaseManagementPage() {
                               Delete Both
                             </button>
                             <button
-                              onClick={() => {
+                              onClick={async () => {
                                 setOpenDropdown(null);
-                                selectedParticipants.forEach(async (id) => {
-                                  await fetch(`/api/participants/${id}`, {
-                                    method: "PUT",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ emailSent: true, databaseId: selectedDatabase?.id }),
-                                  });
-                                });
-                                setSelectedParticipants([]);
-                                fetchParticipants(selectedDatabase.id!);
-                                sfx.notify();
-                                toast.success(`Marked ${selectedParticipants.length} as Emailed`);
+                                setIsBulkDeleting(true);
+                                setBulkDeleteLabel("Marking as Emailed...");
+                                try {
+                                  // Must execute sequentially or promise all
+                                  await Promise.all(selectedParticipants.map(async (id) => {
+                                    await fetch(`/api/participants/${id}`, {
+                                      method: "PUT",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ emailSent: true, databaseId: selectedDatabase?.id }),
+                                    });
+                                  }));
+                                  setSelectedParticipants([]);
+                                  fetchParticipants(selectedDatabase.id!);
+                                  sfx.notify();
+                                  toast.success(`Marked ${selectedParticipants.length} as Emailed`);
+                                } finally {
+                                  setIsBulkDeleting(false);
+                                }
                               }}
                               className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-blue-600 flex items-center gap-2"
                             >
@@ -1504,17 +1540,23 @@ export default function DatabaseManagementPage() {
                                 setOpenDropdown(null);
                                 const ok = await confirm({ title: "Delete Participants", message: `Delete ${selectedParticipants.length} selected participants? This cannot be undone.`, danger: true, confirmText: "Delete" });
                                 if (!ok) return;
-                                for (const id of selectedParticipants) {
-                                  const participant = participants.find(p => p.id === id);
-                                  if (participant?.driveFileId) {
-                                    await fetch(`/api/drive-upload?fileId=${participant.driveFileId}`, { method: "DELETE" });
+                                setIsBulkDeleting(true);
+                                setBulkDeleteLabel("Deleting Participants...");
+                                try {
+                                  for (const id of selectedParticipants) {
+                                    const participant = participants.find(p => p.id === id);
+                                    if (participant?.driveFileId) {
+                                      await fetch(`/api/drive-upload?fileId=${participant.driveFileId}`, { method: "DELETE" });
+                                    }
+                                    await fetch(`/api/participants/${id}?databaseId=${selectedDatabase?.id}`, { method: "DELETE" });
                                   }
-                                  await fetch(`/api/participants/${id}?databaseId=${selectedDatabase?.id}`, { method: "DELETE" });
+                                  setSelectedParticipants([]);
+                                  sfx.delete();
+                                  toast.success(`Deleted ${selectedParticipants.length} participants`);
+                                  fetchParticipants(selectedDatabase.id!);
+                                } finally {
+                                  setIsBulkDeleting(false);
                                 }
-                                setSelectedParticipants([]);
-                                sfx.delete();
-                                toast.success(`Deleted ${selectedParticipants.length} participants`);
-                                fetchParticipants(selectedDatabase.id!);
                               }}
                               className="w-full text-left px-3 py-2 text-xs hover:bg-red-50 text-red-600 flex items-center gap-2"
                             >
