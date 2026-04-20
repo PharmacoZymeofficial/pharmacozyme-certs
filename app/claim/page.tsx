@@ -279,13 +279,15 @@ function ClaimContent() {
                   </div>
 
                   {rawUrl ? (
-                    <iframe
-                      src={embedUrl}
-                      className="w-full"
-                      style={{ height: "480px", border: "none" }}
-                      title="Certificate PDF"
-                      allow="autoplay"
-                    />
+                    <div style={{ aspectRatio: "1.414 / 1", width: "100%" }}>
+                      <iframe
+                        src={embedUrl}
+                        className="w-full h-full"
+                        style={{ border: "none", display: "block" }}
+                        title="Certificate PDF"
+                        allow="autoplay"
+                      />
+                    </div>
                   ) : (
                     /* No Drive link yet — show name card fallback */
                     <div className="p-8 text-center">

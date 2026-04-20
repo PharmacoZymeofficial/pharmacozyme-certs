@@ -5,6 +5,7 @@ import { Document, Page, Text, View, StyleSheet, PDFDownloadLink, Image, Font } 
 import QRCode from "qrcode";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { useToast } from "@/components/Toast";
+import { sfx } from "@/lib/sfx";
 
 
 
@@ -756,8 +757,10 @@ export default function CertificateGenerator({ database, participants, onGenerat
       onGenerated();
       
       if (updateSuccess) {
+        sfx.fanfare();
         toast.success(`Generated ${generatedCerts.length} certificates! Template: ${templateData?.name || "Standard"}`);
       } else {
+        sfx.notify();
         toast.warning(`Generated ${generatedCerts.length} certificates, but some updates failed.`);
       }
       
@@ -783,6 +786,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
       }
     } catch (err) {
       console.error("Error generating certificates:", err);
+      sfx.error();
       toast.error("Failed to generate certificates: " + (err as Error).message);
     } finally {
       setIsGenerating(false);

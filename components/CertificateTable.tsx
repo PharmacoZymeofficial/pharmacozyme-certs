@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Certificate } from "@/lib/types";
 import AddCertificateModal from "./AddCertificateModal";
 import ImportModal from "./ImportModal";
+import { sfx } from "@/lib/sfx";
 
 interface CertificateTableProps {
   certificates: Certificate[];
@@ -82,11 +83,14 @@ export default function CertificateTable({ certificates, onDataChange }: Certifi
     try {
       const response = await fetch(`/api/certificates?id=${cert.id}`, { method: "DELETE" });
       if (response.ok) {
+        sfx.delete();
         onDataChange();
       } else {
+        sfx.error();
         alert("Failed to delete certificate");
       }
     } catch (err) {
+      sfx.error();
       alert("Error deleting certificate");
     } finally {
       setIsDeleting(null);
@@ -150,7 +154,7 @@ export default function CertificateTable({ certificates, onDataChange }: Certifi
 
             {/* Import Button */}
             <button
-              onClick={() => setIsImportModalOpen(true)}
+              onClick={() => { sfx.click(); setIsImportModalOpen(true); }}
               className="px-3 py-2 bg-white text-brand-grass-green border border-green-200 rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-green-50 transition-colors"
             >
               <span className="material-symbols-outlined text-lg">upload</span>
@@ -159,7 +163,7 @@ export default function CertificateTable({ certificates, onDataChange }: Certifi
 
             {/* New Entry Button */}
             <button
-              onClick={() => setIsAddModalOpen(true)}
+              onClick={() => { sfx.pop(); setIsAddModalOpen(true); }}
               className="px-4 py-2 vivid-gradient-cta text-white rounded-xl text-sm font-semibold flex items-center gap-2 shadow-sm transition-transform active:scale-95"
             >
               <span className="material-symbols-outlined text-lg">add</span>
@@ -226,7 +230,7 @@ export default function CertificateTable({ certificates, onDataChange }: Certifi
                     <td className="px-4 sm:px-8 py-4 sm:py-5 text-right">
                       <div className="flex justify-end gap-1">
                         <button
-                          onClick={() => setEditCertificate(cert)}
+                          onClick={() => { sfx.click(); setEditCertificate(cert); }}
                           className="p-2 hover:bg-green-100 rounded-xl text-brand-grass-green transition-colors"
                           title="Edit"
                         >
@@ -264,8 +268,8 @@ export default function CertificateTable({ certificates, onDataChange }: Certifi
             <p className="text-xs text-on-surface-variant">
               Showing {filteredCertificates.length} of {certificates.length} certificates
             </p>
-            <button 
-              onClick={() => setIsAddModalOpen(true)}
+            <button
+              onClick={() => { sfx.pop(); setIsAddModalOpen(true); }}
               className="text-xs font-bold text-brand-grass-green uppercase tracking-widest hover:underline"
             >
               + Add New Certificate
