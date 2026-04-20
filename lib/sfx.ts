@@ -89,4 +89,42 @@ export const sfx = {
     tone(784, "sine", 0.08, 0.10, 0.06);
     tone(1046, "sine", 0.12, 0.08, 0.12);
   },
+
+  /** Quick upward whoosh — gift box lid popping off */
+  unwrap() {
+    tone(392, "sine", 0.06, 0.10);
+    tone(523, "sine", 0.06, 0.10, 0.05);
+    tone(659, "sine", 0.06, 0.10, 0.10);
+    tone(880, "triangle", 0.10, 0.08, 0.15);
+  },
+
+  /** Big triumphant fanfare — certificate reveal */
+  fanfare() {
+    tone(523, "triangle", 0.14, 0.14);
+    tone(659, "triangle", 0.14, 0.14, 0.10);
+    tone(784, "triangle", 0.14, 0.14, 0.20);
+    tone(1046, "triangle", 0.28, 0.16, 0.32);
+    tone(1318, "sine", 0.30, 0.10, 0.36);
+    tone(784, "sine", 0.20, 0.08, 0.60);
+    tone(1046, "sine", 0.32, 0.10, 0.70);
+  },
+
+  /** Sparkle twinkle — confetti / magic accent */
+  sparkle() {
+    tone(1500, "sine", 0.05, 0.06);
+    tone(1800, "sine", 0.05, 0.06, 0.05);
+    tone(2200, "sine", 0.07, 0.05, 0.10);
+    tone(1800, "sine", 0.05, 0.04, 0.16);
+  },
+
+  /** Gentle chime — card hover / minor interaction */
+  tick() {
+    tone(1200, "sine", 0.03, 0.05);
+  },
+
+  /** Soft swoosh — share action */
+  share() {
+    tone(660, "sine", 0.06, 0.08);
+    tone(990, "sine", 0.08, 0.07, 0.05);
+  },
 };

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Certificate } from "@/lib/types";
+import { sfx } from "@/lib/sfx";
 
 interface VerificationResultProps {
   certificate: Certificate | null;
@@ -19,7 +20,7 @@ export default function VerificationResult({ certificate, isLoading, error, onCl
       setRevealed(false);
       setShowConfetti(false);
       const t1 = setTimeout(() => setRevealed(true), 100);
-      const t2 = setTimeout(() => setShowConfetti(true), 600);
+      const t2 = setTimeout(() => { setShowConfetti(true); sfx.sparkle(); }, 600);
       const t3 = setTimeout(() => setShowConfetti(false), 3500);
       return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
     }
@@ -167,6 +168,7 @@ export default function VerificationResult({ certificate, isLoading, error, onCl
               href={downloadUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => sfx.send()}
               className="inline-flex items-center gap-2 px-4 py-2 sm:py-3 rounded-xl bg-dark-green text-white text-[9px] sm:text-[10px] font-bold tracking-widest uppercase hover:bg-green-900 transition-colors"
             >
               <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>download</span>

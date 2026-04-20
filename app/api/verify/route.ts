@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 
+async function enrichDriveLink(certData: any) {
+  if (certData.driveLink || !certData.databaseId || !certData.participantId) return certData;
+  try {
+    const participantRef = doc(db, "databases", certData.databaseId, "participants", certData.participantId);
+    const participantSnap = await getDoc(participantRef);
+    if (participantSnap.exists()) {
+      const pData = participantSnap.data();
+      certData.driveLink = pData.driveLink || "";
+      certData.pdfUrl = certData.pdfUrl || pData.driveLink || "";
+      certData.driveFileId = certData.driveFileId || pData.driveFileId || "";
+    }
+  } catch { /* non-fatal */ }
+  return certData;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -21,21 +36,7 @@ export async function GET(request: NextRequest) {
 
     if (!querySnapshot.empty) {
       const certDoc = querySnapshot.docs[0];
-      const certData = certDoc.data() as any;
-
-      // If driveLink missing, fetch from participant to get updated value
-      if (!certData.driveLink && certData.databaseId && certData.participantId) {
-        try {
-          const participantRef = doc(db, "databases", certData.databaseId, "participants", certData.participantId);
-          const participantSnap = await getDoc(participantRef);
-          if (participantSnap.exists()) {
-            const pData = participantSnap.data();
-            certData.driveLink = pData.driveLink || "";
-            certData.pdfUrl = pData.driveLink || "";
-          }
-        } catch { /* non-fatal */ }
-      }
-
+      const certData = await enrichDriveLink(certDoc.data() as any);
       return NextResponse.json({ certificate: { id: certDoc.id, ...certData } });
     }
 
@@ -46,8 +47,9 @@ export async function GET(request: NextRequest) {
 
     const altSnap = !snapLower.empty ? snapLower : !snapOrig.empty ? snapOrig : null;
     if (altSnap && !altSnap.empty) {
-      const doc = altSnap.docs[0];
-      return NextResponse.json({ certificate: { id: doc.id, ...doc.data() } });
+      const altDoc = altSnap.docs[0];
+      const certData = await enrichDriveLink(altDoc.data() as any);
+      return NextResponse.json({ certificate: { id: altDoc.id, ...certData } });
     }
 
     // Search 3: fallback — search participants in all databases (try multiple case variants)

@@ -8,6 +8,7 @@ import VerifyForm from "@/components/VerifyForm";
 import VerificationResult from "@/components/VerificationResult";
 import TrustBadges from "@/components/TrustBadges";
 import { Certificate } from "@/lib/types";
+import { sfx } from "@/lib/sfx";
 
 export default function VerifyPage() {
   return (
@@ -66,8 +67,10 @@ function VerifyContent() {
       }
 
       setCertificate(data.certificate);
+      sfx.success();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+      sfx.error();
     } finally {
       setIsLoading(false);
     }

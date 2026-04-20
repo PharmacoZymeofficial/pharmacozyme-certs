@@ -6,6 +6,7 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Certificate } from "@/lib/types";
+import { sfx } from "@/lib/sfx";
 
 type ClaimStage = "loading" | "ready" | "opening" | "revealed" | "error";
 
@@ -44,14 +45,17 @@ function ClaimContent() {
         if (data.certificate) {
           setCertificate(data.certificate);
           setStage("ready");
+          sfx.notify();
         } else {
           setError(data.error || "Certificate not found.");
           setStage("error");
+          sfx.error();
         }
       })
       .catch(() => {
         setError("Failed to load certificate. Please try again.");
         setStage("error");
+        sfx.error();
       });
   }, [certId]);
 
@@ -59,6 +63,13 @@ function ClaimContent() {
     if (hasOpened.current) return;
     hasOpened.current = true;
     setStage("opening");
+
+    // Box lid pops off
+    sfx.unwrap();
+    // Sparkle burst shortly after
+    setTimeout(() => sfx.sparkle(), 280);
+    // Triumphant fanfare as PDF reveals
+    setTimeout(() => sfx.fanfare(), 850);
 
     // Generate confetti
     const pieces = Array.from({ length: 60 }, (_, i) => ({
@@ -140,6 +151,7 @@ function ClaimContent() {
               <p className="text-sm text-on-surface-variant mb-6">{error}</p>
               <Link
                 href="/verify"
+                onClick={() => sfx.click()}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-brand-vivid-green text-white rounded-xl font-semibold text-sm"
               >
                 <span className="material-symbols-outlined text-sm">search</span>
@@ -258,6 +270,7 @@ function ClaimContent() {
                     </div>
                     {rawUrl && (
                       <a href={rawUrl} target="_blank" rel="noopener noreferrer"
+                        onClick={() => sfx.click()}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-white text-xs font-bold transition-colors">
                         <span className="material-symbols-outlined text-sm">download</span>
                         Download
@@ -309,12 +322,14 @@ function ClaimContent() {
                   <div className="flex flex-col sm:flex-row gap-2 mt-4">
                     {rawUrl && (
                       <a href={rawUrl} target="_blank" rel="noopener noreferrer"
+                        onClick={() => sfx.send()}
                         className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#1b4332] to-[#2d6a4f] text-white rounded-xl font-bold text-sm hover:opacity-90 transition-opacity">
                         <span className="material-symbols-outlined text-sm">download</span>
                         Download PDF
                       </a>
                     )}
                     <Link href={`/verify?certId=${certificate.uniqueCertId}`}
+                      onClick={() => sfx.click()}
                       className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white border-2 border-brand-vivid-green text-brand-grass-green rounded-xl font-bold text-sm hover:bg-green-50 transition-colors">
                       <span className="material-symbols-outlined text-sm">shield</span>
                       Verify Authenticity
@@ -325,7 +340,10 @@ function ClaimContent() {
                 <p className="text-center text-xs text-on-surface-variant">
                   Share this achievement with{" "}
                   <button
-                    onClick={() => navigator.share?.({ title: "My PharmacoZyme Certificate", text: `I earned a certificate from PharmacoZyme! ID: ${certificate.uniqueCertId}`, url: window.location.href }).catch(() => {})}
+                    onClick={() => {
+                      sfx.share();
+                      navigator.share?.({ title: "My PharmacoZyme Certificate", text: `I earned a certificate from PharmacoZyme! ID: ${certificate.uniqueCertId}`, url: window.location.href }).catch(() => {});
+                    }}
                     className="text-brand-vivid-green font-semibold underline"
                   >
                     Share Link

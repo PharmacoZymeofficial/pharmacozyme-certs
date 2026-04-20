@@ -716,7 +716,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
               if (driveResponse.ok) {
                 const driveData = await driveResponse.json();
                 console.log("Drive upload success:", driveData.webContentLink);
-                
+
                 // Update participant with Drive link
                 await fetch(`/api/participants/${participant.id}`, {
                   method: "PUT",
@@ -727,6 +727,22 @@ export default function CertificateGenerator({ database, participants, onGenerat
                     databaseId: database.id,
                   }),
                 });
+
+                // Also persist Drive link on the cert doc so /claim + /verify find it directly
+                try {
+                  await fetch("/api/certificates", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      uniqueCertId: certId,
+                      driveLink: driveData.webContentLink || "",
+                      driveFileId: driveData.fileId || "",
+                      pdfUrl: driveData.webContentLink || "",
+                    }),
+                  });
+                } catch (patchErr) {
+                  console.error("Failed to patch cert doc with driveLink:", patchErr);
+                }
               }
             } catch (driveErr) {
               console.error("Failed to upload to Drive:", driveErr);

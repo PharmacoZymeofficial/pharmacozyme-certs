@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { sfx } from "@/lib/sfx";
 
 interface VerifyFormProps {
   onVerify: (certId: string) => void;
@@ -14,6 +15,7 @@ export default function VerifyForm({ onVerify, isLoading, defaultValue = "" }: V
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (certId.trim()) {
+      sfx.click();
       onVerify(certId.trim());
     }
   };
