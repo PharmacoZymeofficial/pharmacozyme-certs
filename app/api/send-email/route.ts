@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/firebase";
+import { doc, setDoc, increment } from "firebase/firestore";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://verify.pharmacozyme.com";
 const VERIFY_URL = process.env.NEXT_PUBLIC_VERIFY_URL || `${BASE_URL}/verify`;
@@ -242,6 +244,13 @@ export async function POST(request: NextRequest) {
           errors.push({ email: recipient.email, error: err.message });
         }
       }
+    }
+
+    if (results.length > 0) {
+      try {
+        const today = new Date().toISOString().split("T")[0];
+        await setDoc(doc(db, "email_stats", today), { sent: increment(results.length) }, { merge: true });
+      } catch { /* non-fatal */ }
     }
 
     return NextResponse.json({

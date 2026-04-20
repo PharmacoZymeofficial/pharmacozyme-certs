@@ -22,10 +22,16 @@ export default function BulkEmailForm({ categories, templates }: BulkEmailFormPr
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [emailStats, setEmailStats] = useState({ sent: 0, limit: 100, remaining: 100 });
+  const [scheduleMode, setScheduleMode] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [subject, setSubject] = useState("Your Certificate from PharmacoZyme");
+  const [message, setMessage] = useState("Dear [Name],\n\nCongratulations! Your certificate is now ready.\n\nYou can verify your certificate at: [VerificationLink]\n\nBest regards,\nPharmacoZyme Team");
 
   useEffect(() => {
     fetchDatabases();
     fetchTemplates();
+    fetch("/api/email-stats").then(r => r.json()).then(d => setEmailStats({ sent: d.sent ?? 0, limit: d.limit ?? 100, remaining: d.remaining ?? 100 })).catch(() => {});
   }, []);
 
   const fetchDatabases = async () => {
@@ -83,18 +89,44 @@ export default function BulkEmailForm({ categories, templates }: BulkEmailFormPr
   };
 
   const handleSend = async () => {
+    const targets = selectedParticipants.length > 0
+      ? participants.filter(p => selectedParticipants.includes(p.id || ""))
+      : participants;
+    if (!targets.length) { setError("No recipients selected."); return; }
     setIsSending(true);
     setError("");
-    
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setSuccess(`Emails sent to ${selectedParticipants.length > 0 ? selectedParticipants.length : participants.length} recipients!`);
+      const emailRecipients = targets.map(p => ({
+        email: p.email, name: p.name, certificateId: p.certificateId || "", driveLink: p.driveLink || "",
+      }));
+
+      if (scheduleMode) {
+        if (!scheduledAt) { setError("Please pick a date and time."); setIsSending(false); return; }
+        const res = await fetch("/api/scheduled-emails", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ recipients: emailRecipients, subject, message, scheduledAt }),
+        });
+        if (!res.ok) throw new Error((await res.json()).error);
+        setSuccess(`Emails scheduled for ${new Date(scheduledAt).toLocaleString()}!`);
+      } else {
+        const res = await fetch("/api/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ recipients: emailRecipients, subject, message }),
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error);
+        setSuccess(`Emails sent! ${result.sent} delivered${result.failed ? `, ${result.failed} failed` : ""}.`);
+        setEmailStats(prev => ({ ...prev, sent: prev.sent + (result.sent ?? 0), remaining: prev.remaining - (result.sent ?? 0) }));
+      }
+
       setStep("select");
       setSelectedDatabase(null);
       setParticipants([]);
       setSelectedParticipants([]);
-    } catch (err) {
-      setError("Failed to send emails. Please try again.");
+    } catch (err: any) {
+      setError(err.message || "Failed to send emails. Please try again.");
     } finally {
       setIsSending(false);
     }
@@ -389,6 +421,25 @@ export default function BulkEmailForm({ categories, templates }: BulkEmailFormPr
             </button>
           </div>
 
+          {/* Daily limit bar */}
+          <div className={`rounded-xl p-3 border ${emailStats.remaining <= 10 ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}`}>
+            <div className="flex justify-between items-center mb-1.5">
+              <span className="text-xs font-bold text-brand-dark-green flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>mail</span>
+                Daily Limit (Resend Free)
+              </span>
+              <span className={`text-xs font-bold ${emailStats.remaining <= 10 ? "text-red-600" : "text-brand-vivid-green"}`}>
+                {emailStats.remaining} / {emailStats.limit} remaining
+              </span>
+            </div>
+            <div className="w-full h-1.5 bg-white/60 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${emailStats.remaining <= 10 ? "bg-red-500" : "bg-brand-vivid-green"}`}
+                style={{ width: `${(emailStats.remaining / emailStats.limit) * 100}%` }}
+              />
+            </div>
+          </div>
+
           <div className="bg-green-50 rounded-xl p-4">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
@@ -410,21 +461,54 @@ export default function BulkEmailForm({ categories, templates }: BulkEmailFormPr
             </div>
           </div>
 
+          {/* Send / Schedule toggle */}
+          <div className="flex rounded-xl overflow-hidden border border-green-100">
+            <button
+              onClick={() => setScheduleMode(false)}
+              className={`flex-1 py-2 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${!scheduleMode ? "bg-brand-vivid-green text-white" : "bg-white text-on-surface-variant hover:bg-green-50"}`}
+            >
+              <span className="material-symbols-outlined text-sm">send</span>
+              Send Now
+            </button>
+            <button
+              onClick={() => setScheduleMode(true)}
+              className={`flex-1 py-2 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${scheduleMode ? "bg-brand-vivid-green text-white" : "bg-white text-on-surface-variant hover:bg-green-50"}`}
+            >
+              <span className="material-symbols-outlined text-sm">schedule_send</span>
+              Schedule
+            </button>
+          </div>
+
+          {scheduleMode && (
+            <div>
+              <label className="block text-xs font-bold text-brand-grass-green uppercase mb-2">Send Date & Time</label>
+              <input
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+                min={new Date().toISOString().slice(0, 16)}
+                className="w-full bg-surface-container-low border border-green-100 rounded-xl p-3 text-sm outline-none"
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-bold text-brand-grass-green uppercase mb-2">Email Subject</label>
             <input
               type="text"
-              defaultValue="Your Certificate from PharmacoZyme"
-              className="w-full bg-surface-container-low border border-green-100 rounded-xl p-3 text-sm"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className="w-full bg-surface-container-low border border-green-100 rounded-xl p-3 text-sm outline-none"
             />
           </div>
 
           <div>
             <label className="block text-xs font-bold text-brand-grass-green uppercase mb-2">Message</label>
             <textarea
-              defaultValue="Dear [Name],\n\nCongratulations! Your certificate is now ready.\n\nYou can verify your certificate at: [VerificationLink]\n\nBest regards,\nPharmacoZyme Team"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
               rows={5}
-              className="w-full bg-surface-container-low border border-green-100 rounded-xl p-3 text-sm resize-none"
+              className="w-full bg-surface-container-low border border-green-100 rounded-xl p-3 text-sm resize-none outline-none"
             />
             <p className="text-xs text-on-surface-variant mt-2">Placeholders: [Name], [VerificationLink]</p>
           </div>
@@ -432,13 +516,18 @@ export default function BulkEmailForm({ categories, templates }: BulkEmailFormPr
           <div className="flex gap-3 pt-4">
             <button
               onClick={handleSend}
-              disabled={isSending}
+              disabled={isSending || (scheduleMode && !scheduledAt)}
               className="flex-1 px-6 py-3 vivid-gradient-cta text-white rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isSending ? (
                 <>
                   <span className="material-symbols-outlined animate-spin">progress_activity</span>
-                  Sending...
+                  {scheduleMode ? "Scheduling..." : "Sending..."}
+                </>
+              ) : scheduleMode ? (
+                <>
+                  <span className="material-symbols-outlined">schedule_send</span>
+                  Schedule for {scheduledAt ? new Date(scheduledAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "..."}
                 </>
               ) : (
                 <>

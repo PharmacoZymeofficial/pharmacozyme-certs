@@ -63,6 +63,9 @@ export default function DatabaseManagementPage() {
   const [emailSubject, setEmailSubject] = useState("Your Certificate from PharmacoZyme");
   const [emailMessage, setEmailMessage] = useState("Dear [Name],\n\nCongratulations! Your certificate is now ready.\n\nYou can verify your certificate at: [VerificationLink]\n\nBest regards,\nPharmacoZyme Team");
   const [isSending, setIsSending] = useState(false);
+  const [emailStats, setEmailStats] = useState({ sent: 0, limit: 100, remaining: 100 });
+  const [scheduleMode, setScheduleMode] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState("");
   const [editingCertId, setEditingCertId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editingEmail, setEditingEmail] = useState<string | null>(null);
@@ -710,6 +713,43 @@ export default function DatabaseManagementPage() {
     
     setIsSending(false);
     setShowEmailModal(false);
+  };
+
+  const openEmailModal = async () => {
+    setScheduleMode(false);
+    setScheduledAt("");
+    setShowEmailModal(true);
+    try {
+      const res = await fetch("/api/email-stats");
+      const data = await res.json();
+      setEmailStats({ sent: data.sent ?? 0, limit: data.limit ?? 100, remaining: data.remaining ?? 100 });
+    } catch { /* non-fatal */ }
+  };
+
+  const handleScheduleEmails = async () => {
+    const recipients = selectedParticipants.length > 0
+      ? participants.filter(p => selectedParticipants.includes(p.id || ""))
+      : participants;
+    if (!selectedDatabase || recipients.length === 0 || !scheduledAt) return;
+    setIsSending(true);
+    try {
+      const emailRecipients = recipients.map(p => ({
+        email: p.email, name: p.name, certificateId: p.certificateId || "", driveLink: p.driveLink || "",
+      }));
+      const res = await fetch("/api/scheduled-emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipients: emailRecipients, subject: emailSubject, message: emailMessage, scheduledAt }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      sfx.success();
+      toast.success(`Emails scheduled for ${new Date(scheduledAt).toLocaleString()}`);
+      setShowEmailModal(false);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to schedule emails");
+      sfx.error();
+    }
+    setIsSending(false);
   };
 
   const handleDeleteParticipant = async (participant: Participant) => {
@@ -1492,7 +1532,7 @@ export default function DatabaseManagementPage() {
                             </button>
                             {/* Send Mail */}
                             <button
-                              onClick={() => { setOpenDropdown(null); setShowEmailModal(true); }}
+                              onClick={() => { setOpenDropdown(null); openEmailModal(); }}
                               className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-blue-700 flex items-center gap-2 font-semibold"
                             >
                               <span className="material-symbols-outlined text-sm">send</span>
@@ -2495,7 +2535,7 @@ Ahmed Khan, ahmed@email.com"
                   setSelectedParticipants([]);
                   setShowBulkTargetModal(false);
                   if (bulkTargetAction === "generate") setShowGeneratorModal(true);
-                  else setShowEmailModal(true);
+                  else openEmailModal();
                 }}
                 className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-green-100 hover:border-brand-vivid-green hover:bg-green-50 transition-all text-left"
               >
@@ -2511,7 +2551,7 @@ Ahmed Khan, ahmed@email.com"
                 onClick={() => {
                   setShowBulkTargetModal(false);
                   if (bulkTargetAction === "generate") setShowGeneratorModal(true);
-                  else setShowEmailModal(true);
+                  else openEmailModal();
                 }}
                 disabled={selectedParticipants.length === 0}
                 className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-blue-100 hover:border-blue-400 hover:bg-blue-50 transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed"
@@ -2551,7 +2591,60 @@ Ahmed Khan, ahmed@email.com"
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
+
+            {/* Daily limit banner */}
+            <div className="px-6 pt-5">
+              <div className={`rounded-xl p-3 border ${emailStats.remaining <= 10 ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}`}>
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-xs font-bold text-brand-dark-green flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>mail</span>
+                    Daily Email Limit (Resend Free)
+                  </span>
+                  <span className={`text-xs font-bold ${emailStats.remaining <= 10 ? "text-red-600" : "text-brand-vivid-green"}`}>
+                    {emailStats.remaining} / {emailStats.limit} remaining
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-white/60 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${emailStats.remaining <= 10 ? "bg-red-500" : "bg-brand-vivid-green"}`}
+                    style={{ width: `${(emailStats.remaining / emailStats.limit) * 100}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="p-6 space-y-6">
+              {/* Send mode toggle */}
+              <div className="flex rounded-xl overflow-hidden border border-green-100">
+                <button
+                  onClick={() => setScheduleMode(false)}
+                  className={`flex-1 py-2 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${!scheduleMode ? "bg-brand-vivid-green text-white" : "bg-white text-on-surface-variant hover:bg-green-50"}`}
+                >
+                  <span className="material-symbols-outlined text-sm">send</span>
+                  Send Now
+                </button>
+                <button
+                  onClick={() => setScheduleMode(true)}
+                  className={`flex-1 py-2 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${scheduleMode ? "bg-brand-vivid-green text-white" : "bg-white text-on-surface-variant hover:bg-green-50"}`}
+                >
+                  <span className="material-symbols-outlined text-sm">schedule_send</span>
+                  Schedule
+                </button>
+              </div>
+
+              {scheduleMode && (
+                <div>
+                  <label className="block text-xs font-bold text-brand-grass-green uppercase mb-2">Send Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    value={scheduledAt}
+                    onChange={(e) => setScheduledAt(e.target.value)}
+                    min={new Date().toISOString().slice(0, 16)}
+                    className="w-full bg-surface-container-low border border-green-100 rounded-xl p-3 text-sm outline-none"
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-brand-grass-green uppercase mb-2">Subject</label>
                 <input
@@ -2578,15 +2671,20 @@ Ahmed Khan, ahmed@email.com"
               <button onClick={() => setShowEmailModal(false)} className="px-6 py-3 text-sm font-bold text-on-surface-variant hover:bg-green-50 rounded-xl">
                 Cancel
               </button>
-                <button
-                onClick={handleSendEmails}
-                disabled={isSending}
+              <button
+                onClick={scheduleMode ? handleScheduleEmails : handleSendEmails}
+                disabled={isSending || (scheduleMode && !scheduledAt)}
                 className="px-6 py-3 vivid-gradient-cta text-white rounded-xl font-bold flex items-center gap-2 disabled:opacity-50"
               >
                 {isSending ? (
                   <>
                     <span className="material-symbols-outlined animate-spin">progress_activity</span>
-                    Sending...
+                    {scheduleMode ? "Scheduling..." : "Sending..."}
+                  </>
+                ) : scheduleMode ? (
+                  <>
+                    <span className="material-symbols-outlined">schedule_send</span>
+                    Schedule for {scheduledAt ? new Date(scheduledAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "..."}
                   </>
                 ) : (
                   <>
