@@ -884,51 +884,65 @@ export default function TemplatesPage() {
               </div>
             </div>
 
-            <div className="p-6 border-t border-green-50 flex justify-between">
+            <div className="p-6 border-t border-green-50 flex justify-between items-center">
               <button
                 onClick={() => setEditingTemplate(null)}
                 className="px-6 py-3 text-sm font-bold text-on-surface-variant hover:bg-green-50 rounded-xl"
               >
                 Cancel
               </button>
-              <button
-                onClick={async () => {
-                  setSavingPositions(true);
-                  try {
-                    const response = await fetch("/api/templates", {
-                      method: "PUT",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ id: editingTemplate?.id, positions }),
-                    });
-                    if (response.ok) {
-                      fetchTemplates();
-                      setEditingTemplate(null);
-                      alert("Positions saved!");
-                    } else {
-                      alert("Failed to save positions");
-                    }
-                  } catch (err) {
-                    console.error("Error saving positions:", err);
-                    alert("Error saving positions");
-                  } finally {
-                    setSavingPositions(false);
-                  }
-                }}
-                disabled={savingPositions}
-                className="px-6 py-3 vivid-gradient-cta text-white rounded-xl font-bold flex items-center gap-2 disabled:opacity-50"
-              >
-                {savingPositions ? (
-                  <>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={generatePreview}
+                  disabled={generatingPreview}
+                  className="px-5 py-3 text-sm font-bold border border-brand-vivid-green text-brand-vivid-green rounded-xl flex items-center gap-2 hover:bg-green-50 disabled:opacity-50"
+                >
+                  {generatingPreview ? (
                     <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined text-sm">save</span>
-                    Save Positions
-                  </>
-                )}
-              </button>
+                  ) : (
+                    <span className="material-symbols-outlined text-sm">visibility</span>
+                  )}
+                  {generatingPreview ? "Generating..." : "Generate Preview"}
+                </button>
+                <button
+                  onClick={async () => {
+                    setSavingPositions(true);
+                    try {
+                      const response = await fetch("/api/templates", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: editingTemplate?.id, positions }),
+                      });
+                      if (response.ok) {
+                        fetchTemplates();
+                        setEditingTemplate(null);
+                        alert("Positions saved!");
+                      } else {
+                        alert("Failed to save positions");
+                      }
+                    } catch (err) {
+                      console.error("Error saving positions:", err);
+                      alert("Error saving positions");
+                    } finally {
+                      setSavingPositions(false);
+                    }
+                  }}
+                  disabled={savingPositions}
+                  className="px-6 py-3 vivid-gradient-cta text-white rounded-xl font-bold flex items-center gap-2 disabled:opacity-50"
+                >
+                  {savingPositions ? (
+                    <>
+                      <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-sm">save</span>
+                      Save Positions
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

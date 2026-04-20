@@ -71,11 +71,15 @@ export async function POST(request: NextRequest) {
         return aId.localeCompare(bId);
       });
 
+      const headerRow = ["name", "email", "certificateId", "certificateUrl", "status", "issueDate", "emailSent", "driveLink", "createdAt"];
+
       const result = await callAppsScript("syncData", {
         spreadsheetId,
         tabName,
         data: sortedParticipants,
         mode: "write",
+        headers: headerRow,
+        writeHeaders: true,
       });
 
       return NextResponse.json({

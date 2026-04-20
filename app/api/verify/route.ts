@@ -35,16 +35,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ certificate: { id: doc.id, ...doc.data() } });
     }
 
-    // Search 3: fallback — search participants in all databases
+    // Search 3: fallback — search participants in all databases (try multiple case variants)
+    const origCertId = searchParams.get("certId") || "";
+    const certIdVariants = [...new Set([certId, origCertId, origCertId.toUpperCase(), origCertId.toLowerCase()])];
+
     const databasesRef = collection(db, "databases");
     const dbSnap = await getDocs(databasesRef);
 
     for (const dbDoc of dbSnap.docs) {
       const participantsRef = collection(db, "databases", dbDoc.id, "participants");
-      const pQuery = query(participantsRef, where("certificateId", "==", certId));
-      const pSnap = await getDocs(pQuery);
+      // Try all case variants
+      let pSnap: any = null;
+      for (const variant of certIdVariants) {
+        const pQuery = query(participantsRef, where("certificateId", "==", variant));
+        const snap = await getDocs(pQuery);
+        if (!snap.empty) { pSnap = snap; break; }
+      }
+      if (!pSnap) continue;
 
-      if (!pSnap.empty) {
+      {
         const pDoc = pSnap.docs[0];
         const pData = pDoc.data();
         const dbData = dbDoc.data();

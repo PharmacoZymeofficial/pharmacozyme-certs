@@ -1177,6 +1177,18 @@ export default function DatabaseManagementPage() {
                 <p className="text-on-surface-variant">
                   {selectedDatabase.category} • {selectedDatabase.subCategory} • {selectedDatabase.topic}
                 </p>
+                {selectedDatabase.linkedSheet && selectedDatabase.sheetId && (
+                  <a
+                    href={`https://docs.google.com/spreadsheets/d/${selectedDatabase.sheetId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 mt-2 text-xs text-emerald-600 font-medium hover:text-emerald-800 hover:underline"
+                  >
+                    <span className="material-symbols-outlined text-sm">table_chart</span>
+                    Linked to Google Sheets — Open Sheet
+                    <span className="material-symbols-outlined text-xs">open_in_new</span>
+                  </a>
+                )}
               </div>
               <div className="flex gap-2">
                 <button

@@ -1,3 +1,6 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import { Certificate } from "@/lib/types";
 
 interface VerificationResultProps {
@@ -8,6 +11,19 @@ interface VerificationResultProps {
 }
 
 export default function VerificationResult({ certificate, isLoading, error, onClose }: VerificationResultProps) {
+  const [revealed, setRevealed] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  useEffect(() => {
+    if (certificate) {
+      setRevealed(false);
+      setShowConfetti(false);
+      const t1 = setTimeout(() => setRevealed(true), 100);
+      const t2 = setTimeout(() => setShowConfetti(true), 600);
+      const t3 = setTimeout(() => setShowConfetti(false), 3500);
+      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    }
+  }, [certificate]);
   if (isLoading) {
     return (
       <div className="bg-white rounded-xl overflow-hidden border border-outline-variant/20 animate-pulse">
@@ -55,8 +71,35 @@ export default function VerificationResult({ certificate, isLoading, error, onCl
 
   const isValid = certificate.status === "generated" || certificate.status === "sent";
 
+  const downloadUrl = certificate?.driveLink || certificate?.pdfUrl || "";
+
   return (
-    <div className="bg-white rounded-xl overflow-hidden border border-outline-variant/20">
+    <div
+      className="bg-white rounded-xl overflow-hidden border border-outline-variant/20 relative"
+      style={{
+        transform: revealed ? "translateY(0) scale(1)" : "translateY(20px) scale(0.97)",
+        opacity: revealed ? 1 : 0,
+        transition: "all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)",
+      }}
+    >
+      {/* Confetti burst */}
+      {showConfetti && (
+        <div className="absolute inset-0 pointer-events-none z-50 overflow-hidden">
+          {Array.from({ length: 18 }).map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-2 h-2 rounded-sm"
+              style={{
+                left: `${10 + Math.random() * 80}%`,
+                top: "-8px",
+                background: ["#22c55e","#16a34a","#4ade80","#fbbf24","#60a5fa","#f472b6"][i % 6],
+                animation: `fall ${0.8 + Math.random() * 1.2}s ease-in ${Math.random() * 0.4}s forwards`,
+                transform: `rotate(${Math.random() * 360}deg)`,
+              }}
+            />
+          ))}
+        </div>
+      )}
       {/* Header with dark green background */}
       <div className="relative h-36 sm:h-44 lg:h-48 bg-dark-green overflow-hidden">
         <div className="absolute inset-0 p-4 sm:p-6 lg:p-8 flex flex-col justify-end">
@@ -106,10 +149,10 @@ export default function VerificationResult({ certificate, isLoading, error, onCl
           <p className="font-mono text-[10px] sm:text-xs text-gray-600 break-all">{certificate.blockchainHash}</p>
         </div>
 
-        {/* Verified Stamp */}
-        <div className="pt-3 sm:pt-4 border-t border-surface-container">
+        {/* Verified Stamp + Download */}
+        <div className="pt-3 sm:pt-4 border-t border-surface-container flex flex-wrap items-center gap-3">
           <div className={`inline-flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-xl border ${isValid ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-            <span 
+            <span
               className={`material-symbols-outlined ${isValid ? 'text-vivid-green' : 'text-red-500'} text-base sm:text-lg`}
               style={isValid ? { fontVariationSettings: "'FILL' 1" } : {}}
             >
@@ -119,6 +162,17 @@ export default function VerificationResult({ certificate, isLoading, error, onCl
               {isValid ? 'VERIFIED ✓' : 'INVALID'}
             </span>
           </div>
+          {isValid && downloadUrl && (
+            <a
+              href={downloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 sm:py-3 rounded-xl bg-dark-green text-white text-[9px] sm:text-[10px] font-bold tracking-widest uppercase hover:bg-green-900 transition-colors"
+            >
+              <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>download</span>
+              Download PDF
+            </a>
+          )}
         </div>
       </div>
 

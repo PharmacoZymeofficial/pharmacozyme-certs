@@ -667,6 +667,31 @@ export default function CertificateGenerator({ database, participants, onGenerat
         } else {
           console.log(`SUCCESS for ${participant.id}`);
           
+          // Write to top-level certificates collection so /verify can find it
+          try {
+            await fetch("/api/certificates", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                uniqueCertId: certId,
+                recipientName: participant.name,
+                recipientEmail: participant.email || "",
+                category: database.category,
+                subCategory: database.subCategory,
+                topic: database.topic,
+                certType: database.topic || database.subCategory,
+                issueDate,
+                status: "generated",
+                verificationUrl,
+                databaseId: database.id,
+                participantId: participant.id,
+                createdAt: new Date().toISOString(),
+              }),
+            });
+          } catch (certErr) {
+            console.error("Failed to write to certificates collection:", certErr);
+          }
+
           // Upload PDF to Drive and update participant with Drive link
           if (pdfBytes && database.linkedSheet) {
             try {
