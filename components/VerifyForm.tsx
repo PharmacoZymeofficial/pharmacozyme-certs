@@ -3,25 +3,35 @@
 import { useState } from "react";
 import { sfx } from "@/lib/sfx";
 
+const categoryStructure: Record<string, string[]> = {
+  General: ["Courses", "Workshops", "Webinars", "MED-Q"],
+  Official: ["Central Team", "Sub Team", "Ambassadors", "Affiliates", "Mentors"],
+};
+
 interface VerifyFormProps {
-  onVerify: (certId: string) => void;
+  onVerify: (certId: string, category?: string, subCategory?: string) => void;
   isLoading: boolean;
   defaultValue?: string;
 }
 
 export default function VerifyForm({ onVerify, isLoading, defaultValue = "" }: VerifyFormProps) {
   const [certId, setCertId] = useState(defaultValue);
+  const [category, setCategory] = useState("");
+  const [subCategory, setSubCategory] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (certId.trim()) {
       sfx.click();
-      onVerify(certId.trim());
+      onVerify(certId.trim(), category || undefined, subCategory || undefined);
     }
   };
 
+  const subCategories = category ? (categoryStructure[category] || []) : [];
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
       <div className="relative">
         <label className="block text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] text-outline mb-1.5 sm:mb-2 px-1">
           Certificate ID Number
@@ -35,7 +45,50 @@ export default function VerifyForm({ onVerify, isLoading, defaultValue = "" }: V
           disabled={isLoading}
         />
       </div>
-      
+
+      {/* Optional filters toggle */}
+      <button
+        type="button"
+        onClick={() => { setShowFilters(v => !v); if (showFilters) { setCategory(""); setSubCategory(""); } }}
+        className="flex items-center gap-1.5 text-[10px] text-outline hover:text-vivid-green transition-colors font-medium uppercase tracking-wider"
+      >
+        <span className="material-symbols-outlined text-sm">{showFilters ? "expand_less" : "tune"}</span>
+        {showFilters ? "Hide Filters" : "Filter by Category (optional)"}
+      </button>
+
+      {showFilters && (
+        <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div>
+            <label className="block text-[9px] font-bold uppercase tracking-[0.15em] text-outline mb-1.5 px-1">Category</label>
+            <select
+              value={category}
+              onChange={e => { setCategory(e.target.value); setSubCategory(""); }}
+              disabled={isLoading}
+              className="w-full h-10 px-3 bg-surface-container-low rounded-xl border-2 border-transparent focus:border-vivid-green/30 text-dark-green text-xs appearance-none cursor-pointer"
+            >
+              <option value="">Any</option>
+              {Object.keys(categoryStructure).map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[9px] font-bold uppercase tracking-[0.15em] text-outline mb-1.5 px-1">Sub-Category</label>
+            <select
+              value={subCategory}
+              onChange={e => setSubCategory(e.target.value)}
+              disabled={isLoading || !category}
+              className="w-full h-10 px-3 bg-surface-container-low rounded-xl border-2 border-transparent focus:border-vivid-green/30 text-dark-green text-xs appearance-none cursor-pointer disabled:opacity-40"
+            >
+              <option value="">Any</option>
+              {subCategories.map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
       <button
         type="submit"
         disabled={isLoading || !certId.trim()}

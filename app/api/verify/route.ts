@@ -21,6 +21,8 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const certId = (searchParams.get("certId") || "").toUpperCase().trim() || null;
+    const filterCategory = searchParams.get("category") || "";
+    const filterSubCategory = searchParams.get("subCategory") || "";
 
     if (!certId) {
       return NextResponse.json(
@@ -34,9 +36,18 @@ export async function GET(request: NextRequest) {
     const q = query(certificatesRef, where("uniqueCertId", "==", certId));
     const querySnapshot = await getDocs(q);
 
+    function validateCategoryMatch(certData: any): boolean {
+      if (filterCategory && certData.category !== filterCategory) return false;
+      if (filterSubCategory && certData.subCategory !== filterSubCategory) return false;
+      return true;
+    }
+
     if (!querySnapshot.empty) {
       const certDoc = querySnapshot.docs[0];
       const certData = await enrichDriveLink(certDoc.data() as any);
+      if (!validateCategoryMatch(certData)) {
+        return NextResponse.json({ error: "Certificate found but does not match the selected category/subcategory." }, { status: 404 });
+      }
       return NextResponse.json({ certificate: { id: certDoc.id, ...certData } });
     }
 
@@ -49,6 +60,9 @@ export async function GET(request: NextRequest) {
     if (altSnap && !altSnap.empty) {
       const altDoc = altSnap.docs[0];
       const certData = await enrichDriveLink(altDoc.data() as any);
+      if (!validateCategoryMatch(certData)) {
+        return NextResponse.json({ error: "Certificate found but does not match the selected category/subcategory." }, { status: 404 });
+      }
       return NextResponse.json({ certificate: { id: altDoc.id, ...certData } });
     }
 
@@ -96,6 +110,9 @@ export async function GET(request: NextRequest) {
           createdAt: pData.createdAt || "",
         };
 
+        if (!validateCategoryMatch(certificate)) {
+          return NextResponse.json({ error: "Certificate found but does not match the selected category/subcategory." }, { status: 404 });
+        }
         return NextResponse.json({ certificate });
       }
     }

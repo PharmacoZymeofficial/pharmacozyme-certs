@@ -80,6 +80,10 @@ export default function DatabaseManagementPage() {
   const [isSyncingSheet, setIsSyncingSheet] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [bulkDeleteLabel, setBulkDeleteLabel] = useState("");
+  const [isAddingParticipant, setIsAddingParticipant] = useState(false);
+  const [showIdFormatModal, setShowIdFormatModal] = useState(false);
+  const [idFormat, setIdFormat] = useState<"app" | "name">("app");
+  const [idFormatCode, setIdFormatCode] = useState("");
   
   // Undo/Redo history
   const [history, setHistory] = useState<Participant[][]>([]);
@@ -429,6 +433,7 @@ export default function DatabaseManagementPage() {
       return;
     }
 
+    setIsAddingParticipant(true);
     try {
       const response = await fetch("/api/participants", {
         method: "POST",
@@ -441,7 +446,6 @@ export default function DatabaseManagementPage() {
       });
 
       const data = await response.json();
-      console.log("Add participant response:", data);
 
       if (response.ok && data.success) {
         setNewParticipant({ name: "", email: "" });
@@ -460,6 +464,8 @@ export default function DatabaseManagementPage() {
       console.error("Add participant error:", err);
       toast.error("Error adding participant");
       sfx.error();
+    } finally {
+      setIsAddingParticipant(false);
     }
   };
 
@@ -815,47 +821,66 @@ export default function DatabaseManagementPage() {
   };
 
   // Generate certificate IDs for all participants
-  const handleGenerateIds = async () => {
+  const handleGenerateIds = () => {
     if (!selectedDatabase) return;
-    
-    const unassignedParticipants = participants.filter(p => !p.certificateId);
-    if (unassignedParticipants.length === 0) {
+    const unassigned = participants.filter(p => !p.certificateId);
+    if (unassigned.length === 0) {
       toast.info("All participants already have certificate IDs");
       return;
     }
+    // Detect existing code from sheet IDs (e.g. "Hamza-MDC-001" → "MDC")
+    const existingIds = participants.filter(p => p.certificateId).map(p => p.certificateId!);
+    const detectedCode = (() => {
+      for (const id of existingIds) {
+        const parts = id.split("-");
+        if (parts.length >= 3 && !/^\d{4}$/.test(parts[0])) return parts[1];
+      }
+      return subCategoryShortMap[selectedDatabase.subCategory] || selectedDatabase.subCategory.slice(0, 3).toUpperCase();
+    })();
+    setIdFormatCode(detectedCode);
+    setIdFormat("app");
+    setShowIdFormatModal(true);
+  };
 
-    const ok = await confirm({ title: "Generate IDs", message: `Generate certificate IDs for ${unassignedParticipants.length} participants?`, confirmText: "Generate" });
-    if (!ok) return;
-
+  const handleConfirmGenerateIds = async () => {
+    if (!selectedDatabase) return;
+    const unassignedParticipants = participants.filter(p => !p.certificateId);
+    setShowIdFormatModal(false);
     setIsGeneratingIds(true);
     const year = new Date().getFullYear();
     const subCatShort = subCategoryShortMap[selectedDatabase.subCategory] || selectedDatabase.subCategory.slice(0, 3).toUpperCase();
-    
+
     // Find starting serial number
-    let serialNumber = 1;
-    const existingCerts = participants.filter(p => p.certificateId && p.certificateId.includes(`-${year}-`));
-    serialNumber = existingCerts.length + 1;
+    const existingSerials = participants
+      .filter(p => p.certificateId)
+      .map(p => {
+        const parts = p.certificateId!.split("-");
+        const last = parts[parts.length - 1];
+        return parseInt(last, 10) || 0;
+      });
+    const maxSerial = existingSerials.length > 0 ? Math.max(...existingSerials) : 0;
 
     try {
       for (let i = 0; i < unassignedParticipants.length; i++) {
         const participant = unassignedParticipants[i];
-        const certId = `${year}-PZ-${subCatShort}-${String(serialNumber + i).padStart(4, "0")}`;
-        
+        const serial = String(maxSerial + i + 1).padStart(3, "0");
+        let certId: string;
+        if (idFormat === "app") {
+          certId = `${year}-PZ-${subCatShort}-${serial.padStart(4, "0")}`;
+        } else {
+          const firstName = participant.name.split(" ")[0];
+          certId = `${firstName}-${idFormatCode}-${serial}`;
+        }
+
         const response = await fetch(`/api/participants/${participant.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            certificateId: certId,
-            status: "pending",
-            databaseId: selectedDatabase?.id,
-          }),
+          body: JSON.stringify({ certificateId: certId, status: "pending", databaseId: selectedDatabase?.id }),
         });
-        
-        if (!response.ok) {
-          console.error("Failed to update participant:", participant.id);
-        }
+
+        if (!response.ok) console.error("Failed to update participant:", participant.id);
       }
-      
+
       sfx.success();
       toast.success(`Generated ${unassignedParticipants.length} certificate IDs!`);
       fetchParticipants(selectedDatabase.id!);
@@ -1105,6 +1130,64 @@ export default function DatabaseManagementPage() {
             <span className="material-symbols-outlined text-5xl text-red-500 animate-spin">progress_activity</span>
             <p className="font-bold text-brand-dark-green text-lg">{bulkDeleteLabel}...</p>
             <p className="text-sm text-on-surface-variant text-center">Please wait while we process all selected participants.</p>
+          </div>
+        </div>
+      )}
+
+      {/* ID Format Choice Modal */}
+      {showIdFormatModal && (
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="p-6 border-b border-green-50">
+              <h3 className="text-xl font-headline font-bold text-brand-dark-green">Choose ID Format</h3>
+              <p className="text-sm text-on-surface-variant mt-1">
+                Select how certificate IDs should be generated for {participants.filter(p => !p.certificateId).length} unassigned participant(s).
+              </p>
+            </div>
+            <div className="p-6 space-y-4">
+              <label className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${idFormat === "app" ? "border-brand-vivid-green bg-green-50" : "border-gray-100 hover:border-green-200"}`}>
+                <input type="radio" className="mt-1 accent-green-700" checked={idFormat === "app"} onChange={() => setIdFormat("app")} />
+                <div>
+                  <p className="font-bold text-sm text-brand-dark-green">App Format</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5">
+                    Auto-generated: <span className="font-mono bg-gray-100 px-1 rounded">{new Date().getFullYear()}-PZ-{subCategoryShortMap[selectedDatabase?.subCategory || ""] || "CRS"}-0001</span>
+                  </p>
+                </div>
+              </label>
+              <label className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${idFormat === "name" ? "border-brand-vivid-green bg-green-50" : "border-gray-100 hover:border-green-200"}`}>
+                <input type="radio" className="mt-1 accent-green-700" checked={idFormat === "name"} onChange={() => setIdFormat("name")} />
+                <div className="flex-1">
+                  <p className="font-bold text-sm text-brand-dark-green">Name-Based Format</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5 mb-2">
+                    Sheet-style: <span className="font-mono bg-gray-100 px-1 rounded">FirstName-CODE-001</span>
+                  </p>
+                  {idFormat === "name" && (
+                    <div>
+                      <label className="block text-xs font-bold text-brand-grass-green uppercase mb-1">Middle Code</label>
+                      <input
+                        type="text"
+                        value={idFormatCode}
+                        onChange={e => setIdFormatCode(e.target.value.toUpperCase())}
+                        placeholder="e.g. MDC"
+                        maxLength={6}
+                        className="w-full bg-surface-container-low border border-green-100 rounded-lg p-2 text-sm font-mono outline-none focus:border-brand-vivid-green"
+                      />
+                      <p className="text-xs text-on-surface-variant mt-1">
+                        Preview: <span className="font-mono">{participants.filter(p => !p.certificateId)[0]?.name.split(" ")[0] || "Name"}-{idFormatCode || "CODE"}-001</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </label>
+            </div>
+            <div className="p-6 border-t border-green-50 flex justify-end gap-3">
+              <button onClick={() => setShowIdFormatModal(false)} className="px-5 py-2.5 text-sm font-bold text-on-surface-variant hover:bg-green-50 rounded-xl">
+                Cancel
+              </button>
+              <button onClick={handleConfirmGenerateIds} disabled={idFormat === "name" && !idFormatCode.trim()} className="px-5 py-2.5 vivid-gradient-cta text-white rounded-xl font-bold text-sm disabled:opacity-50">
+                Generate IDs
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2179,11 +2262,16 @@ export default function DatabaseManagementPage() {
               </div>
             </div>
             <div className="p-6 border-t border-green-50 flex justify-end gap-3">
-              <button onClick={() => setShowParticipantModal(false)} className="px-6 py-3 text-sm font-bold text-on-surface-variant hover:bg-green-50 rounded-xl">
+              <button onClick={() => setShowParticipantModal(false)} disabled={isAddingParticipant} className="px-6 py-3 text-sm font-bold text-on-surface-variant hover:bg-green-50 rounded-xl disabled:opacity-50">
                 Cancel
               </button>
-              <button onClick={handleAddParticipant} className="px-6 py-3 vivid-gradient-cta text-white rounded-xl font-bold">
-                Add Participant
+              <button onClick={handleAddParticipant} disabled={isAddingParticipant} className="px-6 py-3 vivid-gradient-cta text-white rounded-xl font-bold disabled:opacity-70 flex items-center gap-2">
+                {isAddingParticipant ? (
+                  <>
+                    <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
+                    Adding...
+                  </>
+                ) : "Add Participant"}
               </button>
             </div>
           </div>

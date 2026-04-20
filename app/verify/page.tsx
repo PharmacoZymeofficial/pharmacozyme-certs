@@ -53,13 +53,16 @@ function VerifyContent() {
   const [error, setError] = useState<string | null>(null);
   const [hasAutoVerified, setHasAutoVerified] = useState(false);
 
-  const handleVerify = async (certId: string) => {
+  const handleVerify = async (certId: string, category?: string, subCategory?: string) => {
     setIsLoading(true);
     setError(null);
     setCertificate(null);
 
     try {
-      const response = await fetch(`/api/verify?certId=${encodeURIComponent(certId)}`);
+      const params = new URLSearchParams({ certId });
+      if (category) params.set("category", category);
+      if (subCategory) params.set("subCategory", subCategory);
+      const response = await fetch(`/api/verify?${params.toString()}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -120,19 +123,33 @@ function VerifyContent() {
         </section>
 
         {/* Verification Workflow */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 sm:mt-14">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 sm:mt-12">
+          {/* Section label */}
+          <div className="text-center mb-8 sm:mb-10">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-vivid-green/10 border border-vivid-green/20 mb-4">
+              <span className="material-symbols-outlined text-vivid-green text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>shield</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-vivid-green">Secure Verification Portal</span>
+            </div>
+            <h1 className="font-headline font-bold text-2xl sm:text-3xl lg:text-4xl text-dark-green mb-2">
+              Verify Your Certificate
+            </h1>
+            <p className="text-sm text-on-surface-variant max-w-md mx-auto">
+              Enter a certificate ID to instantly verify its authenticity against our tamper-proof blockchain records.
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12">
             {/* Form Side */}
-            <div className="lg:col-span-7 space-y-6 lg:space-y-8">
-              {/* Step 1: Input */}
-              <div className="bg-surface-container-lowest rounded-2xl p-5 sm:p-6 lg:p-8 border border-surface-container shadow-sm">
-                <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-vivid-green flex items-center justify-center text-white font-bold text-sm">
+            <div className="lg:col-span-7 space-y-5 lg:space-y-6">
+              {/* Input Card */}
+              <div className="bg-white rounded-2xl p-5 sm:p-7 lg:p-8 border border-outline-variant/20 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+                <div className="flex items-center gap-3 sm:gap-4 mb-6">
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-vivid-green to-dark-green flex items-center justify-center text-white shadow-sm">
                     <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
                   </div>
                   <div>
-                    <h2 className="text-lg sm:text-xl font-headline font-bold text-dark-green">Enter Certificate ID</h2>
-                    <p className="text-xs text-on-surface-variant">Type or paste the certificate ID number</p>
+                    <h2 className="text-base sm:text-lg font-headline font-bold text-dark-green">Enter Certificate ID</h2>
+                    <p className="text-[11px] text-on-surface-variant">Type or paste the certificate ID number</p>
                   </div>
                 </div>
                 <VerifyForm onVerify={handleVerify} isLoading={isLoading} defaultValue={urlCertId} />
@@ -146,7 +163,7 @@ function VerifyContent() {
             {/* Result Side */}
             <div className="lg:col-span-5">
               <div className="lg:sticky lg:top-24">
-                <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-outline mb-4 sm:mb-6 text-center lg:text-left">
+                <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-outline mb-4 sm:mb-5 text-center lg:text-left">
                   Verification Result
                 </h3>
 
@@ -160,17 +177,11 @@ function VerifyContent() {
                 ) : (
                   <EmptyResultCard />
                 )}
-
-                <div className="mt-4 sm:mt-6 p-4 sm:p-5 rounded-xl bg-primary-container/30 border-l-4 border-vivid-green">
-                  <p className="text-[10px] sm:text-[11px] text-on-surface-variant leading-relaxed italic">
-                    "This verification record is linked to our secure blockchain hash. Any unauthorized duplication or alteration is detectable by our system."
-                  </p>
-                </div>
               </div>
             </div>
           </div>
 
-          <div className="sm:hidden mt-6">
+          <div className="sm:hidden mt-5">
             <TrustBadges />
           </div>
         </section>
@@ -183,26 +194,37 @@ function VerifyContent() {
 
 function EmptyResultCard() {
   return (
-    <div className="bg-surface-container-lowest rounded-2xl overflow-hidden border border-outline-variant/20 shadow-sm">
-      <div className="relative h-36 sm:h-44 bg-dark-green overflow-hidden flex items-end p-6">
-        <div
-          className="absolute inset-0 opacity-10"
-          style={{ backgroundImage: "radial-gradient(circle at 70% 50%, #52b788 0%, transparent 60%)" }}
-        />
-        <div className="relative z-10">
-          <div className="text-primary-fixed font-headline font-semibold text-base sm:text-lg mb-1">MED-Q Excellence</div>
-          <div className="text-white/60 text-[9px] sm:text-[10px] uppercase tracking-widest font-medium">Digital Credentials</div>
+    <div className="bg-white rounded-2xl overflow-hidden border border-outline-variant/15 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+      <div className="relative h-44 sm:h-52 overflow-hidden" style={{ background: "linear-gradient(135deg, #0f2d1f 0%, #1b4332 40%, #2d6a4f 100%)" }}>
+        <div className="absolute inset-0 opacity-[0.06]" style={{
+          backgroundImage: "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
+          backgroundSize: "28px 28px"
+        }} />
+        <div className="absolute -bottom-8 -left-8 w-48 h-48 rounded-full opacity-20" style={{ background: "radial-gradient(circle, #52b788, transparent 70%)" }} />
+        <div className="absolute inset-0 p-5 sm:p-7 flex flex-col justify-end">
+          <div className="text-white/30 font-headline font-bold text-xl sm:text-2xl mb-1">— — —</div>
+          <div className="text-white/30 text-[9px] uppercase tracking-[0.2em] font-medium">PharmacoZyme Certificate</div>
         </div>
-        <div className="absolute top-4 right-4 px-3 py-1.5 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-          <span className="text-white text-[9px] font-bold tracking-widest uppercase">Awaiting ID</span>
+        <div className="absolute top-4 sm:top-5 right-4 sm:right-5 px-3 py-1.5 bg-white/10 backdrop-blur-md rounded-full border border-white/15">
+          <span className="text-white/50 text-[9px] font-bold tracking-widest uppercase">Awaiting ID</span>
+        </div>
+        <div className="absolute top-1/2 right-16 -translate-y-1/2 opacity-[0.04]">
+          <span className="material-symbols-outlined text-white" style={{ fontSize: "96px", fontVariationSettings: "'FILL' 1" }}>verified</span>
         </div>
       </div>
-      <div className="p-5 sm:p-6 space-y-4">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="h-4 bg-surface-container rounded-lg" style={{ width: `${[70, 50, 85][i]}%` }} />
-        ))}
-        <div className="pt-3 border-t border-surface-container">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-container border border-outline-variant/20">
+      <div className="p-5 sm:p-7 space-y-4">
+        <div className="space-y-2">
+          {[70, 45, 80].map((w, i) => (
+            <div key={i} className="h-3.5 bg-surface-container/70 rounded-full" style={{ width: `${w}%` }} />
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {[1, 2].map(i => (
+            <div key={i} className="h-10 bg-surface-container/50 rounded-xl" />
+          ))}
+        </div>
+        <div className="pt-2 border-t border-surface-container">
+          <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container/60 border border-outline-variant/15">
             <span className="material-symbols-outlined text-outline text-base">pending</span>
             <span className="text-outline font-bold text-[9px] tracking-[0.2em] uppercase">Enter ID to Verify</span>
           </div>
