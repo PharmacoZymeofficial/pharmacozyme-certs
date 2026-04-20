@@ -238,7 +238,7 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
         {/* Bulk Email Form */}
         <div className="lg:col-span-2">
-          <BulkEmailForm categories={categories} templates={templates} />
+          <BulkEmailForm />
         </div>
 
         {/* System Integrity */}

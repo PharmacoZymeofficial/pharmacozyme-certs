@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
-import { doc, setDoc, increment } from "firebase/firestore";
+import { doc, setDoc, increment, collection, addDoc } from "firebase/firestore";
+
+function isQuotaError(err: any): boolean {
+  const msg = (err?.message || "").toLowerCase();
+  return msg.includes("quota") || msg.includes("daily") || msg.includes("rate_limit") || msg.includes("too_many") || msg.includes("429");
+}
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://verify.pharmacozyme.com";
 const VERIFY_URL = process.env.NEXT_PUBLIC_VERIFY_URL || `${BASE_URL}/verify`;
@@ -58,9 +63,13 @@ export async function POST(request: NextRequest) {
 
     const results = [];
     const errors = [];
+    const quotaFailed: any[] = [];
+    let quotaHit = false;
 
     // Send emails one by one with attachments
     for (const recipient of recipients) {
+      if (quotaHit) { quotaFailed.push(recipient); continue; }
+
       try {
         const { email, name, certificateId, pdfBase64, driveLink } = recipient;
 
@@ -227,7 +236,12 @@ export async function POST(request: NextRequest) {
         results.push({ email, success: true, id: data.data?.id });
       } catch (err: any) {
         console.error(`Failed to send to ${recipient.email}:`, err);
-        // Retry once after 1.5s with same payload
+        if (isQuotaError(err)) {
+          quotaHit = true;
+          quotaFailed.push(recipient);
+          continue;
+        }
+        // Retry once after 1.5s for non-quota errors
         try {
           await new Promise(r => setTimeout(r, 1500));
           const retry = await resend!.emails.send({
@@ -240,6 +254,7 @@ export async function POST(request: NextRequest) {
           if (retry.error) throw new Error(retry.error.message);
           results.push({ email: recipient.email, success: true, id: retry.data?.id, retried: true });
         } catch (retryErr: any) {
+          if (isQuotaError(retryErr)) { quotaHit = true; quotaFailed.push(recipient); continue; }
           console.error(`Retry also failed for ${recipient.email}:`, retryErr);
           errors.push({ email: recipient.email, error: err.message });
         }
@@ -253,10 +268,31 @@ export async function POST(request: NextRequest) {
       } catch { /* non-fatal */ }
     }
 
+    // Auto-queue quota-failed recipients for next day 12:01 AM
+    let autoQueued = 0;
+    if (quotaFailed.length > 0) {
+      try {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(0, 1, 0, 0);
+        await addDoc(collection(db, "scheduled_emails"), {
+          recipients: quotaFailed,
+          subject: subject || "Your Certificate from PharmacoZyme",
+          message: message || "",
+          scheduledAt: tomorrow.toISOString(),
+          status: "pending",
+          autoQueued: true,
+          createdAt: new Date().toISOString(),
+        });
+        autoQueued = quotaFailed.length;
+      } catch { /* non-fatal */ }
+    }
+
     return NextResponse.json({
       success: results.length > 0,
       sent: results.length,
       failed: errors.length,
+      autoQueued,
       results,
       errors: errors.length > 0 ? errors : undefined,
     });

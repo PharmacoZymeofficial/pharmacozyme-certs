@@ -704,7 +704,7 @@ export default function DatabaseManagementPage() {
       }
       
       sfx.send();
-      toast.success(`Emails sent! ${result.sent || recipients.length} delivered${result.failed ? `, ${result.failed} failed` : ""}.`);
+      toast.success(`Emails sent! ${result.sent || recipients.length} delivered${result.failed ? `, ${result.failed} failed` : ""}${result.autoQueued ? ` • ${result.autoQueued} queued for tomorrow (quota reached)` : ""}.`);
     } catch (err) {
       console.error("Error sending emails:", err);
       toast.error("Failed to send emails. Check email configuration.");

@@ -2,15 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { Database, Participant } from "@/lib/types";
-import CertificateGenerator from "@/components/CertificateGenerator";
 import * as XLSX from "xlsx";
 
 interface BulkEmailFormProps {
-  categories: string[];
-  templates: string[];
+  onJobScheduled?: () => void;
 }
 
-export default function BulkEmailForm({ categories, templates }: BulkEmailFormProps) {
+export default function BulkEmailForm({ onJobScheduled }: BulkEmailFormProps) {
   const [step, setStep] = useState<"select" | "template" | "generate" | "send">("select");
   const [databases, setDatabases] = useState<Database[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -84,10 +82,6 @@ export default function BulkEmailForm({ categories, templates }: BulkEmailFormPr
     setStep("generate");
   };
 
-  const handleParticipantsChange = (ids: string[]) => {
-    setSelectedParticipants(ids);
-  };
-
   const handleSend = async () => {
     const targets = selectedParticipants.length > 0
       ? participants.filter(p => selectedParticipants.includes(p.id || ""))
@@ -109,6 +103,7 @@ export default function BulkEmailForm({ categories, templates }: BulkEmailFormPr
         });
         if (!res.ok) throw new Error((await res.json()).error);
         setSuccess(`Emails scheduled for ${new Date(scheduledAt).toLocaleString()}!`);
+        onJobScheduled?.();
       } else {
         const res = await fetch("/api/send-email", {
           method: "POST",
@@ -117,7 +112,8 @@ export default function BulkEmailForm({ categories, templates }: BulkEmailFormPr
         });
         const result = await res.json();
         if (!res.ok) throw new Error(result.error);
-        setSuccess(`Emails sent! ${result.sent} delivered${result.failed ? `, ${result.failed} failed` : ""}.`);
+        setSuccess(`Emails sent! ${result.sent} delivered${result.failed ? `, ${result.failed} failed` : ""}${result.autoQueued ? ` • ${result.autoQueued} queued for tomorrow (quota)` : ""}.`);
+        if (result.autoQueued) onJobScheduled?.();
         setEmailStats(prev => ({ ...prev, sent: prev.sent + (result.sent ?? 0), remaining: prev.remaining - (result.sent ?? 0) }));
       }
 
