@@ -20,7 +20,7 @@ export default function BulkEmailForm({ onJobScheduled }: BulkEmailFormProps) {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [emailStats, setEmailStats] = useState({ sent: 0, limit: 100, remaining: 100 });
+  const [emailStats, setEmailStats] = useState({ sent: 0, limit: 100, remaining: 100, source: "local" });
   const [scheduleMode, setScheduleMode] = useState(false);
   const [scheduledAt, setScheduledAt] = useState("");
   const [subject, setSubject] = useState("Your Certificate from PharmacoZyme");
@@ -29,7 +29,7 @@ export default function BulkEmailForm({ onJobScheduled }: BulkEmailFormProps) {
   useEffect(() => {
     fetchDatabases();
     fetchTemplates();
-    fetch("/api/email-stats").then(r => r.json()).then(d => setEmailStats({ sent: d.sent ?? 0, limit: d.limit ?? 100, remaining: d.remaining ?? 100 })).catch(() => {});
+    fetch("/api/email-stats").then(r => r.json()).then(d => setEmailStats({ sent: d.sent ?? 0, limit: d.limit ?? 100, remaining: d.remaining ?? 100, source: d.source ?? "local" })).catch(() => {});
   }, []);
 
   const fetchDatabases = async () => {
@@ -422,10 +422,13 @@ export default function BulkEmailForm({ onJobScheduled }: BulkEmailFormProps) {
             <div className="flex justify-between items-center mb-1.5">
               <span className="text-xs font-bold text-brand-dark-green flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>mail</span>
-                Daily Limit (Resend Free)
+                Daily Email Limit
+                <span className="text-[9px] font-normal text-on-surface-variant">
+                  {emailStats.source === "resend" ? "· live from Resend" : "· app-tracked"}
+                </span>
               </span>
               <span className={`text-xs font-bold ${emailStats.remaining <= 10 ? "text-red-600" : "text-brand-vivid-green"}`}>
-                {emailStats.remaining} / {emailStats.limit} remaining
+                {emailStats.sent} / {emailStats.limit} used
               </span>
             </div>
             <div className="w-full h-1.5 bg-white/60 rounded-full overflow-hidden">

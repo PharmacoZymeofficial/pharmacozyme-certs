@@ -63,7 +63,7 @@ export default function DatabaseManagementPage() {
   const [emailSubject, setEmailSubject] = useState("Your Certificate from PharmacoZyme");
   const [emailMessage, setEmailMessage] = useState("Dear [Name],\n\nCongratulations! Your certificate is now ready.\n\nYou can verify your certificate at: [VerificationLink]\n\nBest regards,\nPharmacoZyme Team");
   const [isSending, setIsSending] = useState(false);
-  const [emailStats, setEmailStats] = useState({ sent: 0, limit: 100, remaining: 100 });
+  const [emailStats, setEmailStats] = useState({ sent: 0, limit: 100, remaining: 100, source: "local" });
   const [scheduleMode, setScheduleMode] = useState(false);
   const [scheduledAt, setScheduledAt] = useState("");
   const [editingCertId, setEditingCertId] = useState<string | null>(null);
@@ -722,7 +722,7 @@ export default function DatabaseManagementPage() {
     try {
       const res = await fetch("/api/email-stats");
       const data = await res.json();
-      setEmailStats({ sent: data.sent ?? 0, limit: data.limit ?? 100, remaining: data.remaining ?? 100 });
+      setEmailStats({ sent: data.sent ?? 0, limit: data.limit ?? 100, remaining: data.remaining ?? 100, source: data.source ?? "local" });
     } catch { /* non-fatal */ }
   };
 
@@ -2598,10 +2598,13 @@ Ahmed Khan, ahmed@email.com"
                 <div className="flex justify-between items-center mb-1.5">
                   <span className="text-xs font-bold text-brand-dark-green flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>mail</span>
-                    Daily Email Limit (Resend Free)
+                    Daily Email Limit
+                    <span className="text-[9px] font-normal text-on-surface-variant">
+                      {emailStats.source === "resend" ? "· live from Resend" : "· app-tracked"}
+                    </span>
                   </span>
                   <span className={`text-xs font-bold ${emailStats.remaining <= 10 ? "text-red-600" : "text-brand-vivid-green"}`}>
-                    {emailStats.remaining} / {emailStats.limit} remaining
+                    {emailStats.sent} / {emailStats.limit} used
                   </span>
                 </div>
                 <div className="w-full h-1.5 bg-white/60 rounded-full overflow-hidden">

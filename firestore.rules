@@ -34,5 +34,15 @@ service cloud.firestore {
     match /categories/{categoryId} {
       allow read, write: if true;
     }
+
+    // Email tracking
+    match /email_stats/{dateId} {
+      allow read, write: if true;
+    }
+
+    // Scheduled email jobs
+    match /scheduled_emails/{jobId} {
+      allow read, write: if true;
+    }
   }
 }
