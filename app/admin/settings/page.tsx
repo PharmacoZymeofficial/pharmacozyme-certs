@@ -1,15 +1,109 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { db } from "@/lib/firebase";
+import { doc, getDoc, setDoc, collection, getDocs, updateDoc } from "firebase/firestore";
+import { useToast } from "@/components/Toast";
+import { useAdminUser } from "@/lib/auth-context";
+
+interface AdminRecord {
+  uid: string;
+  email: string;
+  displayName: string;
+  role: "super_admin" | "admin";
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
+}
 
 export default function SettingsPage() {
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [autoIssue, setAutoIssue] = useState(false);
-  const [requireApproval, setRequireApproval] = useState(true);
+  const { adminUser } = useAdminUser();
+  const toast = useToast();
+  const isSuperAdmin = adminUser?.role === "super_admin";
+
+  const [senderName, setSenderName] = useState("PharmacoZyme Certificates");
+  const [senderEmail, setSenderEmail] = useState("noreply@certs.pharmacozyme.com");
+  const [orgName, setOrgName] = useState("PharmacoZyme");
+  const [saving, setSaving] = useState(false);
+  const [loadingSettings, setLoadingSettings] = useState(true);
+
+  const [admins, setAdmins] = useState<AdminRecord[]>([]);
+  const [loadingAdmins, setLoadingAdmins] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+
+  const loadSettings = useCallback(async () => {
+    try {
+      const snap = await getDoc(doc(db, "settings", "global"));
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.senderName) setSenderName(data.senderName);
+        if (data.senderEmail) setSenderEmail(data.senderEmail);
+        if (data.orgName) setOrgName(data.orgName);
+      }
+    } catch { /* non-fatal */ } finally {
+      setLoadingSettings(false);
+    }
+  }, []);
+
+  const loadAdmins = useCallback(async () => {
+    if (!isSuperAdmin) return;
+    setLoadingAdmins(true);
+    try {
+      const snap = await getDocs(collection(db, "admins"));
+      const list = snap.docs.map(d => ({ uid: d.id, ...d.data() })) as AdminRecord[];
+      list.sort((a, b) => {
+        const order = { pending: 0, approved: 1, rejected: 2 };
+        return (order[a.status] ?? 1) - (order[b.status] ?? 1);
+      });
+      setAdmins(list);
+    } catch { /* non-fatal */ } finally {
+      setLoadingAdmins(false);
+    }
+  }, [isSuperAdmin]);
+
+  useEffect(() => { loadSettings(); }, [loadSettings]);
+  useEffect(() => { if (isSuperAdmin) loadAdmins(); }, [isSuperAdmin, loadAdmins]);
+
+  const saveSettings = async () => {
+    setSaving(true);
+    try {
+      await setDoc(doc(db, "settings", "global"), {
+        senderName: senderName.trim(),
+        senderEmail: senderEmail.trim(),
+        orgName: orgName.trim(),
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+      toast.success("Settings saved");
+    } catch {
+      toast.error("Failed to save settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAdminAction = async (uid: string, action: "approve" | "reject") => {
+    setApprovingId(uid);
+    try {
+      await updateDoc(doc(db, "admins", uid), {
+        status: action === "approve" ? "approved" : "rejected",
+        updatedAt: new Date().toISOString(),
+      });
+      setAdmins(prev => prev.map(a => a.uid === uid ? { ...a, status: action === "approve" ? "approved" : "rejected" } : a));
+      toast.success(`Admin ${action === "approve" ? "approved" : "rejected"}`);
+    } catch {
+      toast.error("Action failed");
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const statusBadge: Record<string, string> = {
+    approved: "bg-green-50 text-brand-vivid-green border border-green-200",
+    pending: "bg-amber-50 text-amber-600 border border-amber-200",
+    rejected: "bg-red-50 text-red-600 border border-red-200",
+  };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
-      {/* Header */}
       <header className="mb-6 lg:mb-8">
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-headline font-bold text-brand-dark-green tracking-tight mb-2">
           Settings
@@ -20,70 +114,21 @@ export default function SettingsPage() {
       </header>
 
       <div className="max-w-3xl space-y-6">
-        {/* General Settings */}
+        {/* Organisation Settings */}
         <div className="bg-white rounded-xl border border-green-100 shadow-sm overflow-hidden">
           <div className="p-4 sm:p-6 border-b border-green-50">
-            <h3 className="text-lg font-headline font-bold text-brand-dark-green">General Settings</h3>
+            <h3 className="text-lg font-headline font-bold text-brand-dark-green">Organisation</h3>
           </div>
-          <div className="p-4 sm:p-6 space-y-6">
-            {/* Email Notifications */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <p className="font-medium text-brand-dark-green">Email Notifications</p>
-                <p className="text-sm text-on-surface-variant">Receive email alerts for new certificate requests</p>
-              </div>
-              <button
-                onClick={() => setEmailNotifications(!emailNotifications)}
-                className={`relative w-12 h-6 rounded-full transition-colors ${
-                  emailNotifications ? "bg-brand-vivid-green" : "bg-gray-300"
-                }`}
-              >
-                <span
-                  className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                    emailNotifications ? "left-7" : "left-1"
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Auto Issue */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <p className="font-medium text-brand-dark-green">Auto Issue Certificates</p>
-                <p className="text-sm text-on-surface-variant">Automatically issue certificates upon course completion</p>
-              </div>
-              <button
-                onClick={() => setAutoIssue(!autoIssue)}
-                className={`relative w-12 h-6 rounded-full transition-colors ${
-                  autoIssue ? "bg-brand-vivid-green" : "bg-gray-300"
-                }`}
-              >
-                <span
-                  className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                    autoIssue ? "left-7" : "left-1"
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Require Approval */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <p className="font-medium text-brand-dark-green">Require Approval</p>
-                <p className="text-sm text-on-surface-variant">Certificates require admin approval before issuing</p>
-              </div>
-              <button
-                onClick={() => setRequireApproval(!requireApproval)}
-                className={`relative w-12 h-6 rounded-full transition-colors ${
-                  requireApproval ? "bg-brand-vivid-green" : "bg-gray-300"
-                }`}
-              >
-                <span
-                  className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                    requireApproval ? "left-7" : "left-1"
-                  }`}
-                />
-              </button>
+          <div className="p-4 sm:p-6 space-y-4">
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-brand-grass-green uppercase">Organisation Name</label>
+              <input
+                type="text"
+                value={orgName}
+                onChange={e => setOrgName(e.target.value)}
+                disabled={loadingSettings}
+                className="w-full bg-surface-container-low border border-green-100 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-brand-vivid-green/50"
+              />
             </div>
           </div>
         </div>
@@ -98,7 +143,9 @@ export default function SettingsPage() {
               <label className="block text-xs font-bold text-brand-grass-green uppercase">Sender Name</label>
               <input
                 type="text"
-                defaultValue="PharmacoZyme Certificates"
+                value={senderName}
+                onChange={e => setSenderName(e.target.value)}
+                disabled={loadingSettings}
                 className="w-full bg-surface-container-low border border-green-100 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-brand-vivid-green/50"
               />
             </div>
@@ -106,19 +153,109 @@ export default function SettingsPage() {
               <label className="block text-xs font-bold text-brand-grass-green uppercase">Sender Email</label>
               <input
                 type="email"
-                defaultValue="certificates@pharmacozyme.com"
+                value={senderEmail}
+                onChange={e => setSenderEmail(e.target.value)}
+                disabled={loadingSettings}
                 className="w-full bg-surface-container-low border border-green-100 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-brand-vivid-green/50"
               />
+              <p className="text-xs text-on-surface-variant">Must be a verified domain in your Resend account.</p>
             </div>
           </div>
         </div>
 
         {/* Save Button */}
         <div className="flex justify-end">
-          <button className="px-8 py-3 vivid-gradient-cta text-white rounded-xl font-bold shadow-lg transition-transform active:scale-95">
-            Save Changes
+          <button
+            onClick={saveSettings}
+            disabled={saving || loadingSettings}
+            className="px-8 py-3 vivid-gradient-cta text-white rounded-xl font-bold shadow-lg transition-transform active:scale-95 disabled:opacity-50 flex items-center gap-2"
+          >
+            {saving ? (
+              <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>Saving...</>
+            ) : (
+              <><span className="material-symbols-outlined text-sm">save</span>Save Changes</>
+            )}
           </button>
         </div>
+
+        {/* Admin Management — super admin only */}
+        {isSuperAdmin && (
+          <div className="bg-white rounded-xl border border-green-100 shadow-sm overflow-hidden">
+            <div className="p-4 sm:p-6 border-b border-green-50 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-headline font-bold text-brand-dark-green">Admin Management</h3>
+                <p className="text-xs text-on-surface-variant mt-0.5">Approve or reject admin access requests.</p>
+              </div>
+              <button
+                onClick={loadAdmins}
+                disabled={loadingAdmins}
+                className="flex items-center gap-1 text-xs text-brand-green hover:underline"
+              >
+                <span className={`material-symbols-outlined text-sm ${loadingAdmins ? "animate-spin" : ""}`}>refresh</span>
+                Refresh
+              </button>
+            </div>
+
+            <div className="divide-y divide-green-50">
+              {loadingAdmins ? (
+                <div className="p-8 flex justify-center">
+                  <span className="material-symbols-outlined animate-spin text-brand-vivid-green">progress_activity</span>
+                </div>
+              ) : admins.length === 0 ? (
+                <div className="p-8 text-center text-on-surface-variant text-sm">No admin accounts yet.</div>
+              ) : (
+                admins.map(admin => (
+                  <div key={admin.uid} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-green-50 border border-green-100 flex items-center justify-center flex-shrink-0">
+                        <span className="material-symbols-outlined text-sm text-brand-green">
+                          {admin.role === "super_admin" ? "admin_panel_settings" : "person"}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-brand-dark-green">{admin.displayName}</p>
+                        <p className="text-xs text-on-surface-variant">{admin.email}</p>
+                        <p className="text-[10px] text-on-surface-variant capitalize">{admin.role === "super_admin" ? "Super Admin" : "Admin"}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${statusBadge[admin.status] ?? ""}`}>
+                        {admin.status}
+                      </span>
+                      {admin.status === "pending" && admin.uid !== adminUser?.uid && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAdminAction(admin.uid, "approve")}
+                            disabled={approvingId === admin.uid}
+                            className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 transition-colors disabled:opacity-50"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleAdminAction(admin.uid, "reject")}
+                            disabled={approvingId === admin.uid}
+                            className="px-3 py-1.5 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors disabled:opacity-50"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      )}
+                      {admin.status === "approved" && admin.uid !== adminUser?.uid && (
+                        <button
+                          onClick={() => handleAdminAction(admin.uid, "reject")}
+                          disabled={approvingId === admin.uid}
+                          className="px-3 py-1.5 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors disabled:opacity-50"
+                        >
+                          Revoke
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

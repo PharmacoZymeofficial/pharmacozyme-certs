@@ -4,6 +4,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useConfirm } from "@/components/ConfirmModal";
+import { useAdminUser } from "@/lib/auth-context";
+import { getAuth, signOut } from "firebase/auth";
+import { app } from "@/lib/firebase";
 
 const navItems = [
   { href: "/admin", icon: "dashboard", label: "Dashboard" },
@@ -20,10 +23,15 @@ export default function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const confirm = useConfirm();
+  const { adminUser } = useAdminUser();
 
   const handleLogout = async () => {
     const ok = await confirm({ title: "Sign Out", message: "Sign out of the admin portal?", confirmText: "Sign Out", danger: true });
     if (!ok) return;
+    try {
+      const auth = getAuth(app!);
+      await signOut(auth);
+    } catch { /* ignore */ }
     await fetch("/api/admin/auth", { method: "DELETE" });
     router.push("/admin/login");
     router.refresh();
@@ -34,16 +42,16 @@ export default function AdminSidebar() {
       {/* Logo */}
       <Link href="/admin" className="px-6 mb-8 flex items-center gap-3 hover:opacity-90 transition-opacity">
         <div className="relative w-10 h-10">
-          <Image 
-            src="/pharmacozyme-logo.png" 
-            alt="PharmacoZyme Logo" 
+          <Image
+            src="/pharmacozyme-logo.png"
+            alt="PharmacoZyme Logo"
             fill
             className="object-contain"
           />
         </div>
         <div>
           <h1 className="text-xl font-headline font-bold text-white leading-tight">Admin Portal</h1>
-          <p className="text-[10px] text-green-300/70 uppercase tracking-[0.1em]">Pharmaceutical Education</p>
+          <p className="text-[10px] text-green-300/70 uppercase tracking-[0.1em]">Professional Certifier</p>
         </div>
       </Link>
 
@@ -51,7 +59,7 @@ export default function AdminSidebar() {
       <nav className="flex-1 px-2 space-y-1">
         {navItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
-          
+
           return (
             <Link
               key={item.href}
@@ -73,10 +81,23 @@ export default function AdminSidebar() {
 
       {/* Bottom Section */}
       <div className="px-4 pt-4 mt-auto border-t border-white/10">
-        {/* Issue Certificate Button - Links to Issue page */}
-        <Link 
-          href="/admin/issue" 
-          className="w-full py-3 vivid-gradient-cta text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-green-900/20 mb-6 transition-transform active:scale-95 hover:scale-[1.02]"
+        {/* Logged-in user */}
+        {adminUser && (
+          <div className="mb-4 px-2 flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-brand-vivid-green/20 border border-brand-vivid-green/30 flex items-center justify-center flex-shrink-0">
+              <span className="material-symbols-outlined text-sm text-brand-vivid-green">person</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-white truncate">{adminUser.displayName}</p>
+              <p className="text-[10px] text-green-300/60 capitalize">{adminUser.role === "super_admin" ? "Super Admin" : "Admin"}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Issue Certificate Button */}
+        <Link
+          href="/admin/issue"
+          className="w-full py-3 vivid-gradient-cta text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-green-900/20 mb-4 transition-transform active:scale-95 hover:scale-[1.02]"
         >
           <span className="material-symbols-outlined text-sm">add</span>
           Issue Certificate

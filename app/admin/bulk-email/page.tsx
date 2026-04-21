@@ -19,6 +19,7 @@ export default function BulkEmailPage() {
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [sendingNowId, setSendingNowId] = useState<string | null>(null);
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -39,6 +40,25 @@ export default function BulkEmailPage() {
       setJobs(prev => prev.map(j => j.id === id ? { ...j, status: "cancelled" } : j));
     } catch { /* non-fatal */ } finally {
       setCancellingId(null);
+    }
+  };
+
+  const handleSendNow = async (id: string) => {
+    setSendingNowId(id);
+    try {
+      const res = await fetch(`/api/scheduled-emails/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send_now" }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setJobs(prev => prev.map(j => j.id === id ? { ...j, status: "sent", sentAt: new Date().toISOString() } : j));
+      } else {
+        alert(data.error || "Failed to send");
+      }
+    } catch { /* non-fatal */ } finally {
+      setSendingNowId(null);
     }
   };
 
@@ -71,7 +91,7 @@ export default function BulkEmailPage() {
             <div className="p-4 sm:p-6 border-b border-green-50 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-headline font-bold text-brand-dark-green">Scheduled Sends</h3>
-                <p className="text-xs text-on-surface-variant mt-0.5">{pending.length} pending • processed hourly</p>
+                <p className="text-xs text-on-surface-variant mt-0.5">{pending.length} pending • auto-sent at midnight UTC</p>
               </div>
               <span className="material-symbols-outlined text-brand-vivid-green" style={{ fontVariationSettings: "'FILL' 1" }}>schedule_send</span>
             </div>
@@ -99,18 +119,32 @@ export default function BulkEmailPage() {
                         </span>
                       </p>
                     </div>
-                    <button
-                      onClick={() => handleCancel(job.id)}
-                      disabled={cancellingId === job.id}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl border-2 border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold transition-colors disabled:opacity-50 flex-shrink-0"
-                    >
-                      {cancellingId === job.id ? (
-                        <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                      ) : (
-                        <span className="material-symbols-outlined text-sm">cancel</span>
-                      )}
-                      Cancel
-                    </button>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => handleSendNow(job.id)}
+                        disabled={sendingNowId === job.id || cancellingId === job.id}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl border-2 border-green-200 text-brand-vivid-green hover:bg-green-50 text-xs font-bold transition-colors disabled:opacity-50"
+                      >
+                        {sendingNowId === job.id ? (
+                          <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                        ) : (
+                          <span className="material-symbols-outlined text-sm">send</span>
+                        )}
+                        Send Now
+                      </button>
+                      <button
+                        onClick={() => handleCancel(job.id)}
+                        disabled={cancellingId === job.id || sendingNowId === job.id}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl border-2 border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold transition-colors disabled:opacity-50"
+                      >
+                        {cancellingId === job.id ? (
+                          <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                        ) : (
+                          <span className="material-symbols-outlined text-sm">cancel</span>
+                        )}
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

@@ -7,6 +7,7 @@ import CertificateTable from "@/components/CertificateTable";
 import BulkEmailForm from "@/components/BulkEmailForm";
 import SystemIntegrity from "@/components/SystemIntegrity";
 import { Certificate } from "@/lib/types";
+import { useAdminUser } from "@/lib/auth-context";
 
 const categories = [
   "All Certificates",
@@ -31,6 +32,7 @@ const templates = [
 ];
 
 export default function AdminDashboard() {
+  const { adminUser } = useAdminUser();
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -208,8 +210,12 @@ export default function AdminDashboard() {
         {/* Admin Profile */}
         <div className="flex items-center gap-3 sm:gap-4">
           <div className="text-right hidden sm:block">
-            <p className="text-sm font-bold text-brand-dark-green">Dr. Julian Thorne</p>
-            <p className="text-[10px] text-brand-grass-green font-bold uppercase tracking-widest">Chief Registrar</p>
+            <p className="text-sm font-bold text-brand-dark-green">
+              {adminUser?.displayName || "Administrator"}
+            </p>
+            <p className="text-[10px] text-brand-grass-green font-bold uppercase tracking-widest">
+              {adminUser?.role === "super_admin" ? "Super Admin" : "Admin"}
+            </p>
           </div>
           <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl overflow-hidden ring-2 ring-brand-vivid-green/20 shadow-md flex-shrink-0">
             <Image 

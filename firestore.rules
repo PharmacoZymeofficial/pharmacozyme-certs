@@ -44,5 +44,15 @@ service cloud.firestore {
     match /scheduled_emails/{jobId} {
       allow read, write: if true;
     }
+
+    // Admin user accounts and approval status
+    match /admins/{adminId} {
+      allow read, write: if true;
+    }
+
+    // Global app settings
+    match /settings/{settingId} {
+      allow read, write: if true;
+    }
   }
 }

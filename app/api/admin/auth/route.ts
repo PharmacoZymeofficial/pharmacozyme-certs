@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const ADMIN_COOKIE = "pz_admin_auth";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "pharmacozyme2026";
+const SUPER_ADMIN_EMAIL = "pharmacozymeofficial@gmail.com";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
@@ -25,6 +26,17 @@ function checkRateLimit(ip: string): { allowed: boolean; retryAfter?: number } {
   return { allowed: true };
 }
 
+function setCookieWithUser(response: NextResponse, user: object) {
+  const encoded = Buffer.from(JSON.stringify(user)).toString("base64");
+  response.cookies.set(ADMIN_COOKIE, encoded, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 7,
+    path: "/",
+  });
+}
+
 export async function POST(request: NextRequest) {
   const ip = getIp(request);
   const rateCheck = checkRateLimit(ip);
@@ -35,23 +47,37 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { password } = await request.json();
+  const body = await request.json();
 
-  if (password !== ADMIN_PASSWORD) {
-    return NextResponse.json({ error: "Invalid password" }, { status: 401 });
+  // Firebase Auth flow: client sends uid + email after successful Firebase sign-in
+  if (body.uid && body.email) {
+    const { uid, email, displayName } = body;
+    const role: "super_admin" | "admin" = email === SUPER_ADMIN_EMAIL ? "super_admin" : "admin";
+    const user = { uid, email, displayName: displayName || email.split("@")[0], role };
+    rateLimitMap.delete(ip);
+    const response = NextResponse.json({ success: true, user });
+    setCookieWithUser(response, user);
+    return response;
   }
 
-  rateLimitMap.delete(ip);
+  // Legacy password flow
+  if (body.password) {
+    if (body.password !== ADMIN_PASSWORD) {
+      return NextResponse.json({ error: "Invalid password" }, { status: 401 });
+    }
+    rateLimitMap.delete(ip);
+    const user = {
+      uid: "legacy",
+      email: "admin@pharmacozyme.com",
+      displayName: "Administrator",
+      role: "super_admin" as const,
+    };
+    const response = NextResponse.json({ success: true });
+    setCookieWithUser(response, user);
+    return response;
+  }
 
-  const response = NextResponse.json({ success: true });
-  response.cookies.set(ADMIN_COOKIE, "authenticated", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-    path: "/",
-  });
-  return response;
+  return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 }
 
 export async function DELETE() {
