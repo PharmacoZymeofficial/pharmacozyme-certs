@@ -8,7 +8,7 @@ export function proxy(request: NextRequest) {
   // Protect all /admin routes except /admin/login
   if (pathname.startsWith("/admin") && !pathname.startsWith("/admin/login")) {
     const authCookie = request.cookies.get(ADMIN_COOKIE);
-    if (!authCookie || authCookie.value !== "authenticated") {
+    if (!authCookie?.value) {
       const loginUrl = new URL("/admin/login", request.url);
       loginUrl.searchParams.set("from", pathname);
       return NextResponse.redirect(loginUrl);
