@@ -99,37 +99,38 @@ function VerifyContent() {
       <Navbar />
 
       <main className="flex-1 pb-20">
-        {/* ── HERO: Full viewport with form overlaid ── */}
-        <section className="relative w-full overflow-hidden" style={{ minHeight: "100svh" }}>
-          {/* Video background */}
+        {/* ── HERO ── */}
+        <section className="relative w-full overflow-hidden" style={{ height: "100svh" }}>
+          {/* Video — desktop */}
           <video
             className="hidden sm:block absolute inset-0 w-full h-full object-cover"
             src="/videos/hero-pc.mp4"
             autoPlay loop muted playsInline
           />
+          {/* Video — mobile */}
           <video
             className="sm:hidden absolute inset-0 w-full h-full object-cover"
             src="/videos/hero-mobile.mp4"
             autoPlay loop muted playsInline
           />
 
-          {/* Gradient: light tint on top, heavier at bottom only where card sits */}
-          <div className="absolute inset-0"
-            style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.1) 40%, rgba(6,15,8,0.82) 78%, rgba(6,15,8,0.97) 100%)" }} />
+          {/* Mobile: very light tint only — no heavy bottom gradient */}
+          <div className="absolute inset-0 sm:hidden" style={{ background: "rgba(0,0,0,0.12)" }} />
 
-          {/* Hero content — pinned to bottom */}
-          <div className="relative z-10 flex flex-col items-end justify-end min-h-[100svh] px-4 pb-6 sm:pb-8">
+          {/* Desktop: heavier gradient at bottom where card sits */}
+          <div className="absolute inset-0 hidden sm:block"
+            style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.08) 40%, rgba(6,15,8,0.82) 78%, rgba(6,15,8,0.97) 100%)" }} />
 
-            {/* Glassmorphism form card */}
-            <div className="w-full max-w-xl mx-auto rounded-2xl sm:rounded-3xl overflow-hidden"
+          {/* Desktop card pinned to bottom — hidden on mobile */}
+          <div className="hidden sm:flex relative z-10 flex-col justify-end h-full px-4 pb-8">
+            <div className="w-full max-w-xl mx-auto rounded-3xl overflow-hidden"
               style={{
-                background: "rgba(10,26,16,0.75)",
+                background: "rgba(10,26,16,0.78)",
                 backdropFilter: "blur(24px)",
                 border: "1px solid rgba(82,183,136,0.2)",
                 boxShadow: "0 8px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(82,183,136,0.1)"
               }}>
-
-              <div className="p-5 sm:p-7">
+              <div className="p-7">
                 <div className="flex items-center gap-3 mb-5">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center"
                     style={{ background: "linear-gradient(135deg, #52b788, #1b4332)" }}>
@@ -140,16 +141,34 @@ function VerifyContent() {
                     <p className="text-[11px] text-[#52b788]/50">Type or paste the ID to begin verification</p>
                   </div>
                 </div>
-
-                {/* Inject verify form here — the form renders on the dark glass card */}
                 <VerifyForm onVerify={handleVerify} isLoading={isLoading} defaultValue={urlCertId} dark />
               </div>
             </div>
-
-            {/* Trust badges */}
             <div className="mt-5 w-full max-w-xl mx-auto opacity-60">
               <TrustBadges dark />
             </div>
+          </div>
+        </section>
+
+        {/* ── MOBILE: Form card in its own section below the hero ── */}
+        <section className="sm:hidden bg-surface px-4 py-6">
+          <div className="rounded-2xl overflow-hidden border border-green-100 shadow-sm bg-white">
+            <div className="p-5">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                  style={{ background: "linear-gradient(135deg, #52b788, #1b4332)" }}>
+                  <span className="material-symbols-outlined text-white text-base" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                </div>
+                <div>
+                  <p className="text-brand-dark-green font-bold text-sm">Enter Certificate ID</p>
+                  <p className="text-[11px] text-on-surface-variant">Type or paste the ID to begin verification</p>
+                </div>
+              </div>
+              <VerifyForm onVerify={handleVerify} isLoading={isLoading} defaultValue={urlCertId} />
+            </div>
+          </div>
+          <div className="mt-5 opacity-70">
+            <TrustBadges />
           </div>
         </section>
 
