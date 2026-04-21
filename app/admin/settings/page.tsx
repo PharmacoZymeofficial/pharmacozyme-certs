@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, setDoc, collection, getDocs, updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, getDocs, updateDoc, deleteDoc } from "firebase/firestore";
 import { useToast } from "@/components/Toast";
 import { useAdminUser } from "@/lib/auth-context";
 
@@ -80,15 +80,23 @@ export default function SettingsPage() {
     }
   };
 
-  const handleAdminAction = async (uid: string, action: "approve" | "reject") => {
+  const handleAdminAction = async (uid: string, action: "approve" | "reject" | "reactivate" | "delete") => {
     setApprovingId(uid);
     try {
-      await updateDoc(doc(db, "admins", uid), {
-        status: action === "approve" ? "approved" : "rejected",
-        updatedAt: new Date().toISOString(),
-      });
-      setAdmins(prev => prev.map(a => a.uid === uid ? { ...a, status: action === "approve" ? "approved" : "rejected" } : a));
-      toast.success(`Admin ${action === "approve" ? "approved" : "rejected"}`);
+      if (action === "delete") {
+        await deleteDoc(doc(db, "admins", uid));
+        setAdmins(prev => prev.filter(a => a.uid !== uid));
+        toast.success("Admin deleted");
+      } else if (action === "reactivate") {
+        await updateDoc(doc(db, "admins", uid), { status: "pending", updatedAt: new Date().toISOString() });
+        setAdmins(prev => prev.map(a => a.uid === uid ? { ...a, status: "pending" } : a));
+        toast.success("Admin reactivated — pending approval");
+      } else {
+        const newStatus = action === "approve" ? "approved" : "rejected";
+        await updateDoc(doc(db, "admins", uid), { status: newStatus, updatedAt: new Date().toISOString() });
+        setAdmins(prev => prev.map(a => a.uid === uid ? { ...a, status: newStatus } : a));
+        toast.success(`Admin ${newStatus}`);
+      }
     } catch {
       toast.error("Action failed");
     } finally {
@@ -241,13 +249,40 @@ export default function SettingsPage() {
                         </div>
                       )}
                       {admin.status === "approved" && admin.uid !== adminUser?.uid && (
-                        <button
-                          onClick={() => handleAdminAction(admin.uid, "reject")}
-                          disabled={approvingId === admin.uid}
-                          className="px-3 py-1.5 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors disabled:opacity-50"
-                        >
-                          Revoke
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAdminAction(admin.uid, "reject")}
+                            disabled={approvingId === admin.uid}
+                            className="px-3 py-1.5 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors disabled:opacity-50"
+                          >
+                            Revoke
+                          </button>
+                          <button
+                            onClick={() => handleAdminAction(admin.uid, "delete")}
+                            disabled={approvingId === admin.uid}
+                            className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-200 transition-colors disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                      {admin.status === "rejected" && admin.uid !== adminUser?.uid && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAdminAction(admin.uid, "reactivate")}
+                            disabled={approvingId === admin.uid}
+                            className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-xs font-bold hover:bg-amber-100 transition-colors disabled:opacity-50"
+                          >
+                            Make Admin
+                          </button>
+                          <button
+                            onClick={() => handleAdminAction(admin.uid, "delete")}
+                            disabled={approvingId === admin.uid}
+                            className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-200 transition-colors disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>

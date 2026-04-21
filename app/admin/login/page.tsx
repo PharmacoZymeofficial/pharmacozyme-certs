@@ -4,7 +4,7 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { app } from "@/lib/firebase";
 import { db } from "@/lib/firebase";
 
@@ -185,7 +185,63 @@ function LoginForm() {
         setPassword("");
       }
     } catch (err: any) {
-      setError(handleFirebaseError(err.code || ""));
+      if (err.code === "auth/email-already-in-use") {
+        // Account exists — try to sign in with provided credentials to check Firestore status
+        try {
+          const auth = getAuth(app!);
+          const cred = await signInWithEmailAndPassword(auth, email, password);
+          const user = cred.user;
+          const adminDoc = await getDoc(doc(db, "admins", user.uid));
+
+          if (!adminDoc.exists()) {
+            // Auth account exists but no Firestore record — create pending
+            await updateProfile(user, { displayName: displayName.trim() });
+            await setDoc(doc(db, "admins", user.uid), {
+              email: user.email,
+              displayName: displayName.trim(),
+              role: "admin",
+              status: "pending",
+              createdAt: new Date().toISOString(),
+            });
+            await auth.signOut();
+            setInfo("Request submitted. Awaiting super admin approval.");
+            setMode("signin");
+            setPassword("");
+          } else {
+            const status = adminDoc.data().status;
+            if (status === "rejected") {
+              // Re-request: reset to pending
+              await updateDoc(doc(db, "admins", user.uid), {
+                status: "pending",
+                displayName: displayName.trim(),
+                updatedAt: new Date().toISOString(),
+              });
+              await auth.signOut();
+              setInfo("Re-request submitted. Awaiting super admin approval.");
+              setMode("signin");
+              setPassword("");
+            } else if (status === "pending") {
+              await auth.signOut();
+              setInfo("Your account is already awaiting approval.");
+              setMode("signin");
+            } else {
+              // Approved — redirect
+              const role = user.email === SUPER_ADMIN_EMAIL ? "super_admin" : "admin";
+              const data = adminDoc.data();
+              const res = await fetch("/api/admin/auth", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ uid: user.uid, email: user.email, displayName: data.displayName, role }),
+              });
+              if (res.ok) { router.push(from); router.refresh(); }
+            }
+          }
+        } catch {
+          setError("Account already exists. Sign in instead.");
+        }
+      } else {
+        setError(handleFirebaseError(err.code || ""));
+      }
     } finally {
       setIsLoading(false);
     }
