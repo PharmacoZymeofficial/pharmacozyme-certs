@@ -113,41 +113,15 @@ function VerifyContent() {
             autoPlay loop muted playsInline
           />
 
-          {/* Dark gradient overlay */}
+          {/* Gradient: light tint on top, heavier at bottom only where card sits */}
           <div className="absolute inset-0"
-            style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(6,15,8,0.75) 60%, rgba(6,15,8,0.95) 100%)" }} />
+            style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.1) 40%, rgba(6,15,8,0.82) 78%, rgba(6,15,8,0.97) 100%)" }} />
 
-          {/* Subtle grid */}
-          <div className="absolute inset-0 opacity-[0.025]" style={{
-            backgroundImage: "linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)",
-            backgroundSize: "40px 40px"
-          }} />
-
-          {/* Hero content */}
-          <div className="relative z-10 flex flex-col items-center justify-center min-h-[100svh] px-4 pb-8 pt-24">
-
-            {/* Badge */}
-            <div className="flex items-center gap-2 px-4 py-1.5 rounded-full mb-6"
-              style={{ background: "rgba(82,183,136,0.12)", border: "1px solid rgba(82,183,136,0.25)", backdropFilter: "blur(8px)" }}>
-              <span className="material-symbols-outlined text-[#52b788] text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>shield</span>
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#52b788]">Secure Verification Portal</span>
-            </div>
-
-            {/* Heading */}
-            <h1 className="font-bold text-3xl sm:text-5xl lg:text-6xl text-white text-center mb-3 leading-tight"
-              style={{ textShadow: "0 2px 20px rgba(0,0,0,0.5)" }}>
-              Verify Your
-              <br />
-              <span style={{ background: "linear-gradient(90deg, #52b788 0%, #95d5b2 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                Certificate
-              </span>
-            </h1>
-            <p className="text-sm sm:text-base text-white/55 text-center max-w-md mb-10">
-              Instantly authenticate any PharmacoZyme certificate against our tamper-proof records.
-            </p>
+          {/* Hero content — pinned to bottom */}
+          <div className="relative z-10 flex flex-col items-end justify-end min-h-[100svh] px-4 pb-6 sm:pb-8">
 
             {/* Glassmorphism form card */}
-            <div className="w-full max-w-xl rounded-2xl sm:rounded-3xl overflow-hidden"
+            <div className="w-full max-w-xl mx-auto rounded-2xl sm:rounded-3xl overflow-hidden"
               style={{
                 background: "rgba(10,26,16,0.75)",
                 backdropFilter: "blur(24px)",
@@ -172,21 +146,10 @@ function VerifyContent() {
               </div>
             </div>
 
-            {/* Trust badges below form */}
-            <div className="mt-8 w-full max-w-xl opacity-70">
+            {/* Trust badges */}
+            <div className="mt-5 w-full max-w-xl mx-auto opacity-60">
               <TrustBadges dark />
             </div>
-
-            {/* Scroll cue */}
-            {(certificate || error) && (
-              <button
-                onClick={() => resultRef.current?.scrollIntoView({ behavior: "smooth" })}
-                className="mt-8 flex flex-col items-center gap-1.5 text-[#52b788]/60 hover:text-[#52b788] transition-colors cursor-pointer"
-              >
-                <span className="text-xs font-medium uppercase tracking-widest">View Result</span>
-                <span className="material-symbols-outlined text-lg animate-bounce">expand_more</span>
-              </button>
-            )}
           </div>
         </section>
 
