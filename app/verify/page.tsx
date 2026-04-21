@@ -114,8 +114,8 @@ function VerifyContent() {
             autoPlay loop muted playsInline
           />
 
-          {/* Mobile: very light tint only — no heavy bottom gradient */}
-          <div className="absolute inset-0 sm:hidden" style={{ background: "rgba(0,0,0,0.12)" }} />
+          {/* Mobile: light tint + dark fade at bottom */}
+          <div className="absolute inset-0 sm:hidden" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.08) 50%, rgba(6,15,8,0.85) 88%, rgba(6,15,8,1) 100%)" }} />
 
           {/* Desktop: heavier gradient at bottom where card sits */}
           <div className="absolute inset-0 hidden sm:block"
