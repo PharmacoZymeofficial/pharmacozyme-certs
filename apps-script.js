@@ -52,6 +52,9 @@ function doPost(e) {
       case "deleteRowsByCertIds":
         result = deleteRowsByCertIds(payload);
         break;
+      case "getFolder":
+        result = getFolder(payload);
+        break;
       default:
         throw new Error("Unknown action: " + action);
     }
@@ -351,6 +354,17 @@ function getOrCreateFolder(folderName) {
   }
   
   return subFolder;
+}
+
+function getFolder(payload) {
+  const { databaseName } = payload;
+  if (!databaseName) throw new Error("databaseName is required");
+  const folder = getOrCreateFolder(databaseName);
+  return {
+    success: true,
+    folderId: folder.getId(),
+    folderUrl: "https://drive.google.com/drive/folders/" + folder.getId(),
+  };
 }
 
 function deletePDF(payload) {

@@ -81,6 +81,7 @@ export default function DatabaseManagementPage() {
   const [bulkTargetAction, setBulkTargetAction] = useState<"generate" | "send" | null>(null);
   const [isDeletingDatabase, setIsDeletingDatabase] = useState(false);
   const [isSyncingSheet, setIsSyncingSheet] = useState(false);
+  const [isFindingFolder, setIsFindingFolder] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [bulkDeleteLabel, setBulkDeleteLabel] = useState("");
   const [isAddingParticipant, setIsAddingParticipant] = useState(false);
@@ -860,6 +861,33 @@ export default function DatabaseManagementPage() {
     }
   };
 
+  const handleFindDriveFolder = async () => {
+    if (!selectedDatabase?.id || !selectedDatabase?.name) return;
+    setIsFindingFolder(true);
+    try {
+      const res = await fetch("/api/databases/drive-folder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ databaseId: selectedDatabase.id, databaseName: selectedDatabase.name }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        sfx.success();
+        toast.success("Drive folder linked!");
+        fetchDatabases(true);
+        setSelectedDatabase(prev => prev ? { ...prev, driveFolderId: data.folderId, driveFolderUrl: data.folderUrl } : prev);
+      } else {
+        toast.error(data.error || "Could not find Drive folder");
+        sfx.error();
+      }
+    } catch {
+      toast.error("Error finding Drive folder");
+      sfx.error();
+    } finally {
+      setIsFindingFolder(false);
+    }
+  };
+
   // Generate certificate IDs for all participants
   const handleGenerateIds = () => {
     if (!selectedDatabase) return;
@@ -1370,8 +1398,7 @@ export default function DatabaseManagementPage() {
                 <p className="text-on-surface-variant">
                   {selectedDatabase.category} • {selectedDatabase.subCategory} • {selectedDatabase.topic}
                 </p>
-                {(selectedDatabase.linkedSheet && selectedDatabase.sheetId) || selectedDatabase.driveFolderId ? (
-                  <div className="flex items-center gap-3 mt-2 flex-wrap">
+                <div className="flex items-center gap-3 mt-2 flex-wrap">
                     {selectedDatabase.linkedSheet && selectedDatabase.sheetId && (
                       <>
                         <a
@@ -1394,7 +1421,7 @@ export default function DatabaseManagementPage() {
                         </button>
                       </>
                     )}
-                    {selectedDatabase.driveFolderId && (
+                    {selectedDatabase.driveFolderId ? (
                       <>
                         <a
                           href={`https://drive.google.com/drive/folders/${selectedDatabase.driveFolderId}`}
@@ -1417,9 +1444,19 @@ export default function DatabaseManagementPage() {
                           Copy Link
                         </button>
                       </>
+                    ) : (
+                      <button
+                        onClick={handleFindDriveFolder}
+                        disabled={isFindingFolder}
+                        className="inline-flex items-center gap-1.5 text-xs text-blue-700 font-medium bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
+                      >
+                        <span className={`material-symbols-outlined text-sm ${isFindingFolder ? "animate-spin" : ""}`}>
+                          {isFindingFolder ? "progress_activity" : "folder_open"}
+                        </span>
+                        {isFindingFolder ? "Finding..." : "Link Drive Folder"}
+                      </button>
                     )}
-                  </div>
-                ) : null}
+                </div>
               </div>
               <div className="flex gap-2">
                 <button

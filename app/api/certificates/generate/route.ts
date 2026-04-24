@@ -162,14 +162,13 @@ export async function POST(request: NextRequest) {
         const participantsSnap = await getDocs(participantsRef);
         const allParticipants = participantsSnap.docs.map(doc => doc.data() as any);
         
-        // Sort by certificate ID serial number
+        // Sort by numeric serial at end of certificate ID (e.g. "Hamza-MDC-001" → 1)
+        const getSerial = (id: string) => { const m = id?.match(/(\d+)$/); return m ? parseInt(m[1], 10) : 0; };
         const sortedParticipants = [...allParticipants].sort((a, b) => {
           if (!a.certificateId && !b.certificateId) return 0;
           if (!a.certificateId) return 1;
           if (!b.certificateId) return -1;
-          const aId = a.certificateId || "";
-          const bId = b.certificateId || "";
-          return aId.localeCompare(bId);
+          return getSerial(a.certificateId) - getSerial(b.certificateId);
         });
         
         await callAppsScript("syncData", {
