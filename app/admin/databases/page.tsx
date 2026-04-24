@@ -257,6 +257,7 @@ export default function DatabaseManagementPage() {
   const [selectedSheetTab, setSelectedSheetTab] = useState("");
   const [subDatabases, setSubDatabases] = useState<string[]>([]);
   const [isLoadingTabs, setIsLoadingTabs] = useState(false);
+  const [tabFetchError, setTabFetchError] = useState(false);
   const [showSheetModal, setShowSheetModal] = useState(false);
 
   const fetchDatabases = useCallback(async (quiet = false) => {
@@ -408,17 +409,21 @@ export default function DatabaseManagementPage() {
   const fetchSheetTabs = async (sheetId: string) => {
     if (!sheetId) return;
     setIsLoadingTabs(true);
+    setTabFetchError(false);
+    setExistingSheetTabs([]);
+    setSelectedSheetTab("");
     try {
       const response = await fetch(`/api/sheets?action=getTabs&spreadsheetId=${sheetId}`);
       const data = await response.json();
-      if (data.success && data.tabs) {
+      if (data.success && data.tabs && data.tabs.length > 0) {
         setExistingSheetTabs(data.tabs);
-        if (data.tabs.length > 0) {
-          setSelectedSheetTab(data.tabs[0]);
-        }
+        setSelectedSheetTab(data.tabs[0]);
+      } else {
+        setTabFetchError(true);
       }
     } catch (err) {
       console.error("Error fetching sheet tabs:", err);
+      setTabFetchError(true);
     } finally {
       setIsLoadingTabs(false);
     }
@@ -1443,6 +1448,16 @@ export default function DatabaseManagementPage() {
                           <span className="material-symbols-outlined text-sm">content_copy</span>
                           Copy Link
                         </button>
+                        <button
+                          onClick={handleFindDriveFolder}
+                          disabled={isFindingFolder}
+                          className="inline-flex items-center gap-1.5 text-xs text-blue-700 font-medium bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
+                        >
+                          <span className={`material-symbols-outlined text-sm ${isFindingFolder ? "animate-spin" : ""}`}>
+                            {isFindingFolder ? "progress_activity" : "sync"}
+                          </span>
+                          {isFindingFolder ? "Updating..." : "Update"}
+                        </button>
                       </>
                     ) : (
                       <button
@@ -2284,20 +2299,39 @@ export default function DatabaseManagementPage() {
                           <label className="block text-xs font-bold text-brand-grass-green uppercase mb-2">
                             Google Sheet URL
                           </label>
-                          <input
-                            type="text"
-                            value={existingSheetId}
-                            onChange={(e) => {
-                              const extracted = extractSheetIdFromUrl(e.target.value);
-                              setExistingSheetId(extracted);
-                              if (extracted.length > 10) {
-                                fetchSheetTabs(extracted);
-                              }
-                            }}
-                            placeholder="Paste Google Sheet URL or ID"
-                            className="w-full bg-white border border-green-100 rounded-xl p-3 text-sm outline-none"
-                          />
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={existingSheetId}
+                              onChange={(e) => {
+                                const extracted = extractSheetIdFromUrl(e.target.value);
+                                setExistingSheetId(extracted);
+                                setTabFetchError(false);
+                                setExistingSheetTabs([]);
+                                setSelectedSheetTab("");
+                              }}
+                              placeholder="Paste Google Sheet URL or ID"
+                              className="flex-1 bg-white border border-green-100 rounded-xl p-3 text-sm outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => existingSheetId && fetchSheetTabs(existingSheetId)}
+                              disabled={!existingSheetId || isLoadingTabs}
+                              className="px-3 py-2 bg-brand-vivid-green text-white rounded-xl text-xs font-bold disabled:opacity-50 flex items-center gap-1"
+                            >
+                              <span className={`material-symbols-outlined text-sm ${isLoadingTabs ? "animate-spin" : ""}`}>
+                                {isLoadingTabs ? "progress_activity" : "refresh"}
+                              </span>
+                              {isLoadingTabs ? "Loading..." : "Fetch Tabs"}
+                            </button>
+                          </div>
                         </div>
+                        {tabFetchError && (
+                          <p className="text-xs text-red-500 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-sm">error</span>
+                            Could not load tabs. Check the Sheet ID and try again.
+                          </p>
+                        )}
                         {existingSheetTabs.length > 0 && (
                           <div>
                             <label className="block text-xs font-bold text-brand-grass-green uppercase mb-2">
