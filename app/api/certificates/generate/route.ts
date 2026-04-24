@@ -99,6 +99,12 @@ export async function POST(request: NextRequest) {
             if (uploadResult.success) {
               driveLink = uploadResult.webContentLink || "";
               driveFileId = uploadResult.fileId || "";
+              if (uploadResult.folderId) {
+                updateDoc(dbRef, {
+                  driveFolderId: uploadResult.folderId,
+                  driveFolderUrl: uploadResult.folderUrl || `https://drive.google.com/drive/folders/${uploadResult.folderId}`,
+                }).catch(() => {});
+              }
             }
           } catch (driveErr) {
             console.error("Failed to upload PDF to Drive:", driveErr);

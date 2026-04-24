@@ -12,6 +12,8 @@ export interface Database {
   linkedSheet?: boolean;
   sheetId?: string;
   sheetTabName?: string;
+  driveFolderId?: string;
+  driveFolderUrl?: string;
 }
 
 export interface Participant {

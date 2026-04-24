@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { AVAILABLE_FONTS, getGoogleFontsUrl } from "@/lib/fonts";
 
 interface PositionConfig {
   x: number;
   y: number;
   size?: number;
   color?: string;
+  font?: string;
 }
 
 interface Positions {
@@ -219,6 +221,22 @@ export default function TemplatesPage() {
     observer.observe(previewRef.current);
     return () => observer.disconnect();
   }, [editingTemplate]);
+
+  // Dynamically load selected Google Fonts for live preview
+  useEffect(() => {
+    const fonts = [positions.name.font, positions.certId.font].filter(Boolean) as string[];
+    const url = getGoogleFontsUrl(fonts);
+    if (!url) return;
+    const id = "pz-template-fonts";
+    let link = document.getElementById(id) as HTMLLinkElement | null;
+    if (!link) {
+      link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      document.head.appendChild(link);
+    }
+    link.href = url;
+  }, [positions.name.font, positions.certId.font]);
 
   const fetchTemplates = async () => {
     try {
@@ -647,6 +665,10 @@ export default function TemplatesPage() {
                       <span className="text-xs font-mono">{positions.name.color || "#1b4332"}</span>
                     </div>
                   </div>
+                  <FontSelect
+                    value={positions.name.font || ""}
+                    onChange={v => setPositions({ ...positions, name: { ...positions.name, font: v } })}
+                  />
                   <div className="flex gap-2 pt-1">
                     <button onClick={() => setPositions({ ...positions, name: { ...positions.name, x: 50 } })}
                       className="flex-1 py-1 text-[11px] bg-white border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">
@@ -683,6 +705,10 @@ export default function TemplatesPage() {
                       <span className="text-xs font-mono">{positions.certId.color || "#333333"}</span>
                     </div>
                   </div>
+                  <FontSelect
+                    value={positions.certId.font || ""}
+                    onChange={v => setPositions({ ...positions, certId: { ...positions.certId, font: v } })}
+                  />
                   <div className="flex gap-2 pt-1">
                     <button onClick={() => setPositions({ ...positions, certId: { ...positions.certId, x: 50 } })}
                       className="flex-1 py-1 text-[11px] bg-white border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">
@@ -810,6 +836,7 @@ export default function TemplatesPage() {
                     color={positions.name.color || "#1b4332"}
                     label={testData.name}
                     fontSize={positions.name.size ?? 48}
+                    fontFamily={positions.name.font}
                     isActive={activeDrag === 'name' || activeResize === 'name'}
                     onMouseDown={(e) => startDrag(e, 'name')}
                     onResize={(e) => startResize(e, 'name')}
@@ -823,6 +850,7 @@ export default function TemplatesPage() {
                     color={positions.certId.color || "#333333"}
                     label={testData.certId}
                     fontSize={positions.certId.size ?? 12}
+                    fontFamily={positions.certId.font}
                     isActive={activeDrag === 'certId' || activeResize === 'certId'}
                     onMouseDown={(e) => startDrag(e, 'certId')}
                     onResize={(e) => startResize(e, 'certId')}
@@ -957,6 +985,30 @@ export default function TemplatesPage() {
   );
 }
 
+// ── FontSelect: font family dropdown with live preview ───────────────────────
+function FontSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <label className="text-xs text-on-surface-variant block mb-1">Font</label>
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="w-full bg-white border border-green-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-brand-vivid-green cursor-pointer"
+        style={{ fontFamily: value || "inherit" }}
+      >
+        {AVAILABLE_FONTS.map(f => (
+          <option key={f.value} value={f.value}>{f.label}</option>
+        ))}
+      </select>
+      {value && (
+        <p className="mt-1 text-[11px] text-on-surface-variant truncate" style={{ fontFamily: value }}>
+          Preview: {value}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── SliderField: slider + number input combined ──────────────────────────────
 function SliderField({ label, min, max, step, value, onChange }: {
   label: string; min: number; max: number; step: number;
@@ -997,12 +1049,12 @@ function getContrastColor(hex: string): string {
 // ── DraggableMarker: visually scaled to match PDF output ────────────────────
 function DraggableMarker({
   x, y, color, label, isActive, onMouseDown, onResize, isQR, size, fontSize,
-  pdfWidth, containerWidth,
+  fontFamily, pdfWidth, containerWidth,
 }: {
   x: number; y: number; color: string; label?: string; isActive: boolean;
   onMouseDown: (e: React.MouseEvent) => void;
   onResize?: (e: React.MouseEvent) => void;
-  isQR?: boolean; size?: number; fontSize?: number;
+  isQR?: boolean; size?: number; fontSize?: number; fontFamily?: string;
   pdfWidth: number; containerWidth: number;
 }) {
   // scale = rendered px per PDF point — makes markers visually match PDF output
@@ -1051,6 +1103,7 @@ function DraggableMarker({
             style={{
               padding: `${Math.max(2, textPx * 0.15)}px ${Math.max(6, textPx * 0.4)}px`,
               fontSize: textPx,
+              fontFamily: fontFamily || "inherit",
               backgroundColor: markerColor,
               color: textColor,
               border: isActive ? '2px solid #22c55e' : '2px solid rgba(255,255,255,0.8)',

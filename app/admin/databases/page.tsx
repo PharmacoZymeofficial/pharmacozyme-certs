@@ -1340,6 +1340,19 @@ export default function DatabaseManagementPage() {
                     Linked to Google Sheets
                   </div>
                 )}
+                {(db as any).driveFolderId && (
+                  <a
+                    href={`https://drive.google.com/drive/folders/${(db as any).driveFolderId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    className="flex items-center gap-1 mt-1 text-xs text-blue-600 font-medium hover:text-blue-800 hover:underline"
+                  >
+                    <span className="material-symbols-outlined text-sm">folder_open</span>
+                    Drive Folder
+                    <span className="material-symbols-outlined text-[10px]">open_in_new</span>
+                  </a>
+                )}
               </div>
             ))}
           </div>
@@ -1357,28 +1370,56 @@ export default function DatabaseManagementPage() {
                 <p className="text-on-surface-variant">
                   {selectedDatabase.category} • {selectedDatabase.subCategory} • {selectedDatabase.topic}
                 </p>
-                {selectedDatabase.linkedSheet && selectedDatabase.sheetId && (
+                {(selectedDatabase.linkedSheet && selectedDatabase.sheetId) || selectedDatabase.driveFolderId ? (
                   <div className="flex items-center gap-3 mt-2 flex-wrap">
-                    <a
-                      href={`https://docs.google.com/spreadsheets/d/${selectedDatabase.sheetId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium hover:text-emerald-800 hover:underline"
-                    >
-                      <span className="material-symbols-outlined text-sm">table_chart</span>
-                      Open Sheet
-                      <span className="material-symbols-outlined text-xs">open_in_new</span>
-                    </a>
-                    <button
-                      onClick={handleSyncFromSheet}
-                      disabled={isSyncingSheet}
-                      className="inline-flex items-center gap-1.5 text-xs text-emerald-700 font-medium bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50"
-                    >
-                      <span className="material-symbols-outlined text-sm">sync</span>
-                      Refresh from Sheet
-                    </button>
+                    {selectedDatabase.linkedSheet && selectedDatabase.sheetId && (
+                      <>
+                        <a
+                          href={`https://docs.google.com/spreadsheets/d/${selectedDatabase.sheetId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium hover:text-emerald-800 hover:underline"
+                        >
+                          <span className="material-symbols-outlined text-sm">table_chart</span>
+                          Open Sheet
+                          <span className="material-symbols-outlined text-xs">open_in_new</span>
+                        </a>
+                        <button
+                          onClick={handleSyncFromSheet}
+                          disabled={isSyncingSheet}
+                          className="inline-flex items-center gap-1.5 text-xs text-emerald-700 font-medium bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                        >
+                          <span className="material-symbols-outlined text-sm">sync</span>
+                          Refresh from Sheet
+                        </button>
+                      </>
+                    )}
+                    {selectedDatabase.driveFolderId && (
+                      <>
+                        <a
+                          href={`https://drive.google.com/drive/folders/${selectedDatabase.driveFolderId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs text-blue-600 font-medium hover:text-blue-800 hover:underline"
+                        >
+                          <span className="material-symbols-outlined text-sm">folder_open</span>
+                          Open Drive Folder
+                          <span className="material-symbols-outlined text-xs">open_in_new</span>
+                        </a>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(`https://drive.google.com/drive/folders/${selectedDatabase.driveFolderId}`);
+                            toast.success("Drive folder link copied!");
+                          }}
+                          className="inline-flex items-center gap-1.5 text-xs text-blue-700 font-medium bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-sm">content_copy</span>
+                          Copy Link
+                        </button>
+                      </>
+                    )}
                   </div>
-                )}
+                ) : null}
               </div>
               <div className="flex gap-2">
                 <button

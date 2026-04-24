@@ -311,7 +311,9 @@ function uploadPDF(payload) {
     fileId: file.getId(),
     fileName: file.getName(),
     webViewLink: file.getUrl(),
-    webContentLink: file.getUrl()
+    webContentLink: file.getUrl(),
+    folderId: folder.getId(),
+    folderUrl: "https://drive.google.com/drive/folders/" + folder.getId(),
   };
 }
 

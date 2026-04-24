@@ -3,6 +3,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import QRCode from "qrcode";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { loadFontBytes } from "@/lib/fonts";
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -16,17 +17,17 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   return { r: 0.1, g: 0.26, b: 0.2 };
 }
 
-function getTemplatePositions(width: number, height: number, positions?: { name: { x: number; y: number; size?: number; color?: string }; certId: { x: number; y: number; size?: number; color?: string }; qr: { x: number; y: number; size: number } }) {
+function getTemplatePositions(width: number, height: number, positions?: { name: { x: number; y: number; size?: number; color?: string; font?: string }; certId: { x: number; y: number; size?: number; color?: string; font?: string }; qr: { x: number; y: number; size: number } }) {
   if (positions) {
     const qrSizeValue = positions.qr.size || 12;
     const qrDimension = (Math.min(width, height) * qrSizeValue) / 100;
-    
+
     return {
-      namePos: { x: (width * positions.name.x) / 100, y: height - (height * positions.name.y) / 100, size: positions.name.size || 48, color: hexToRgb(positions.name.color || "#1b4332") },
-      certIdPos: { x: (width * positions.certId.x) / 100, y: height - (height * positions.certId.y) / 100, size: positions.certId.size || 12, color: hexToRgb(positions.certId.color || "#333333") },
-      qrPos: { 
-        x: (width * positions.qr.x) / 100, 
-        y: height - (height * positions.qr.y) / 100, 
+      namePos: { x: (width * positions.name.x) / 100, y: height - (height * positions.name.y) / 100, size: positions.name.size || 48, color: hexToRgb(positions.name.color || "#1b4332"), font: positions.name.font || null },
+      certIdPos: { x: (width * positions.certId.x) / 100, y: height - (height * positions.certId.y) / 100, size: positions.certId.size || 12, color: hexToRgb(positions.certId.color || "#333333"), font: positions.certId.font || null },
+      qrPos: {
+        x: (width * positions.qr.x) / 100,
+        y: height - (height * positions.qr.y) / 100,
         width: qrDimension,
         height: qrDimension
       }
@@ -78,37 +79,45 @@ export async function POST(request: NextRequest) {
     const { width, height } = page.getSize();
     console.log("PDF size:", width, "x", height);
     
-    // Get fonts
-    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    
     // Get positions
     const positions = getTemplatePositions(width, height, templatePositions);
     console.log("Calculated positions:", JSON.stringify(positions, null, 2));
-    
+
+    // Embed fonts — use custom Google Font if specified, else fall back to Helvetica
+    const [nameFontBytes, certIdFontBytes] = await Promise.all([
+      positions.namePos.font ? loadFontBytes(positions.namePos.font) : Promise.resolve(null),
+      positions.certIdPos.font ? loadFontBytes(positions.certIdPos.font) : Promise.resolve(null),
+    ]);
+    const nameFont = nameFontBytes
+      ? await pdfDoc.embedFont(nameFontBytes)
+      : await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const certIdFont = certIdFontBytes
+      ? await pdfDoc.embedFont(certIdFontBytes)
+      : await pdfDoc.embedFont(StandardFonts.Helvetica);
+
     // Name - with correct color
     const nameText = testData?.name || "John Doe";
     const nameFontSize = positions.namePos.size || 48;
     const nameColor = positions.namePos.color || { r: 0.1, g: 0.26, b: 0.2 };
-    
+
     page.drawText(nameText, {
-      x: positions.namePos.x - (boldFont.widthOfTextAtSize(nameText, nameFontSize) / 2),
+      x: positions.namePos.x - (nameFont.widthOfTextAtSize(nameText, nameFontSize) / 2),
       y: positions.namePos.y,
       size: nameFontSize,
-      font: boldFont,
+      font: nameFont,
       color: rgb(nameColor.r, nameColor.g, nameColor.b),
     });
-    
+
     // Certificate ID - with correct color
     const idText = testData?.certId || "2026-PZ-CRS-0001";
     const idFontSize = positions.certIdPos.size || 12;
     const idColor = positions.certIdPos.color || { r: 0.2, g: 0.2, b: 0.2 };
-    
+
     page.drawText(idText, {
-      x: positions.certIdPos.x - (regularFont.widthOfTextAtSize(idText, idFontSize) / 2),
+      x: positions.certIdPos.x - (certIdFont.widthOfTextAtSize(idText, idFontSize) / 2),
       y: positions.certIdPos.y,
       size: idFontSize,
-      font: regularFont,
+      font: certIdFont,
       color: rgb(idColor.r, idColor.g, idColor.b),
     });
 

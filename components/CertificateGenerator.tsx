@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Document, Page, Text, View, StyleSheet, PDFDownloadLink, Image, Font } from "@react-pdf/renderer";
 import QRCode from "qrcode";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { loadFontBytes } from "@/lib/fonts";
 import { useToast } from "@/components/Toast";
 import { sfx } from "@/lib/sfx";
 
@@ -296,18 +297,18 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
 }
 
 // Default positions for template overlay (can be adjusted per template)
-function getTemplatePositions(width: number, height: number, positions?: { name: { x: number; y: number; size?: number; color?: string }; certId: { x: number; y: number; size?: number; color?: string }; qr: { x: number; y: number; size: number } }) {
+function getTemplatePositions(width: number, height: number, positions?: { name: { x: number; y: number; size?: number; color?: string; font?: string }; certId: { x: number; y: number; size?: number; color?: string; font?: string }; qr: { x: number; y: number; size: number } }) {
   if (positions) {
     // QR size is stored as percentage (1-25), convert to actual dimension
     const qrSizeValue = positions.qr.size || 12;
     const qrDimension = (Math.min(width, height) * qrSizeValue) / 100;
-    
+
     return {
-      namePos: { x: (width * positions.name.x) / 100, y: height - (height * positions.name.y) / 100, size: positions.name.size || 48, color: hexToRgb(positions.name.color || "#1b4332") },
-      certIdPos: { x: (width * positions.certId.x) / 100, y: height - (height * positions.certId.y) / 100, size: positions.certId.size || 12, color: hexToRgb(positions.certId.color || "#333333") },
-      qrPos: { 
-        x: (width * positions.qr.x) / 100, 
-        y: height - (height * positions.qr.y) / 100, 
+      namePos: { x: (width * positions.name.x) / 100, y: height - (height * positions.name.y) / 100, size: positions.name.size || 48, color: hexToRgb(positions.name.color || "#1b4332"), font: positions.name.font || null },
+      certIdPos: { x: (width * positions.certId.x) / 100, y: height - (height * positions.certId.y) / 100, size: positions.certId.size || 12, color: hexToRgb(positions.certId.color || "#333333"), font: positions.certId.font || null },
+      qrPos: {
+        x: (width * positions.qr.x) / 100,
+        y: height - (height * positions.qr.y) / 100,
         width: qrDimension,
         height: qrDimension
       }
@@ -342,20 +343,28 @@ async function generateCertificateWithTemplate(
     const page = pdfDoc.getPage(0);
     const { width, height } = page.getSize();
     
-    // Get fonts
-    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    
     // Get template positions (custom or defaults)
     const positions = getTemplatePositions(width, height, templatePositions);
-    
+
+    // Embed fonts — use custom Google Font if specified, else fall back to Helvetica
+    const [nameFontBytes, certIdFontBytes] = await Promise.all([
+      positions.namePos.font ? loadFontBytes(positions.namePos.font) : Promise.resolve(null),
+      positions.certIdPos.font ? loadFontBytes(positions.certIdPos.font) : Promise.resolve(null),
+    ]);
+    const boldFont = nameFontBytes
+      ? await pdfDoc.embedFont(nameFontBytes)
+      : await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const regularFont = certIdFontBytes
+      ? await pdfDoc.embedFont(certIdFontBytes)
+      : await pdfDoc.embedFont(StandardFonts.Helvetica);
+
     // ===== 1. Replace/Overlay Name =====
     const nameText = certificateData.recipientName;
     const nameFontSize = positions.namePos.size || 48;
     const nameX = positions.namePos.x;
     const nameY = positions.namePos.y;
     const nameColor = positions.namePos.color || { r: 0.1, g: 0.26, b: 0.2 };
-    
+
     page.drawText(nameText, {
       x: nameX - (boldFont.widthOfTextAtSize(nameText, nameFontSize) / 2),
       y: nameY,
@@ -363,14 +372,14 @@ async function generateCertificateWithTemplate(
       font: boldFont,
       color: rgb(nameColor.r, nameColor.g, nameColor.b),
     });
-    
+
     // ===== 2. Replace/Overlay Certificate ID =====
     const idText = certificateData.uniqueCertId;
     const idFontSize = positions.certIdPos.size || 12;
     const idX = positions.certIdPos.x;
     const idY = positions.certIdPos.y;
     const idColor = positions.certIdPos.color || { r: 0.2, g: 0.2, b: 0.2 };
-    
+
     page.drawText(idText, {
       x: idX - (regularFont.widthOfTextAtSize(idText, idFontSize) / 2),
       y: idY,
