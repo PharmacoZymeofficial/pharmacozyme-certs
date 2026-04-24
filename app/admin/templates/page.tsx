@@ -58,7 +58,13 @@ export default function TemplatesPage() {
   const [generatingPreview, setGeneratingPreview] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  // Actual PDF page dimensions — drives the correct aspect ratio for the preview canvas
+  const [templateDimensions, setTemplateDimensions] = useState<{ width: number; height: number }>({ width: 595, height: 842 });
   const previewRef = useRef<HTMLDivElement>(null);
+  // Tracks the initial state when a resize drag starts (delta-based resize)
+  const resizeStartRef = useRef<{ clientX: number; clientY: number; startSize: number } | null>(null);
+  // Tracks rendered pixel size of the preview container for accurate marker scaling
+  const containerSizeRef = useRef<{ width: number; height: number }>({ width: 500, height: 707 });
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -111,6 +117,10 @@ export default function TemplatesPage() {
   const startResize = (e: React.MouseEvent, type: 'name' | 'certId' | 'qr') => {
     e.preventDefault();
     e.stopPropagation();
+    const startSize = type === 'qr' ? (positions.qr.size ?? 12)
+      : type === 'name' ? (positions.name.size ?? 48)
+      : (positions.certId.size ?? 12);
+    resizeStartRef.current = { clientX: e.clientX, clientY: e.clientY, startSize };
     setActiveResize(type);
   };
 
@@ -150,41 +160,19 @@ export default function TemplatesPage() {
       }
     }
     
-    // Handle resizing - calculate size based on distance from marker center
-    if (activeResize && previewRef.current) {
-      let centerX: number, centerY: number;
-      
-      if (activeResize === 'qr') {
-        centerX = positions.qr.x;
-        centerY = positions.qr.y;
-      } else if (activeResize === 'name') {
-        centerX = positions.name.x;
-        centerY = positions.name.y;
-      } else {
-        centerX = positions.certId.x;
-        centerY = positions.certId.y;
-      }
-      
-      // Calculate distance from center to cursor
-      const distance = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
-      
-      // Map distance to size - scale it properly
+    // Handle resizing — delta from drag-start position (drag right/down = bigger, left/up = smaller)
+    if (activeResize && resizeStartRef.current) {
+      const { clientX: startX, clientY: startY, startSize } = resizeStartRef.current;
+      const delta = ((e.clientX - startX) + (e.clientY - startY)) / 2;
       let newSize: number;
       if (activeResize === 'qr') {
-        newSize = Math.max(1, Math.min(25, Math.round(distance * 0.8)));
+        newSize = Math.max(1, Math.min(25, Math.round(startSize + delta * 0.08)));
       } else if (activeResize === 'name') {
-        newSize = Math.max(1, Math.min(80, Math.round(distance * 1.5)));
+        newSize = Math.max(8, Math.min(80, Math.round(startSize + delta * 0.25)));
       } else {
-        newSize = Math.max(1, Math.min(24, Math.round(distance * 0.6)));
+        newSize = Math.max(6, Math.min(24, Math.round(startSize + delta * 0.08)));
       }
-      
-      if (activeResize === 'qr') {
-        setPositions(prev => ({ ...prev, qr: { ...prev.qr, size: newSize } }));
-      } else if (activeResize === 'name') {
-        setPositions(prev => ({ ...prev, name: { ...prev.name, size: newSize } }));
-      } else if (activeResize === 'certId') {
-        setPositions(prev => ({ ...prev, certId: { ...prev.certId, size: newSize } }));
-      }
+      setPositions(prev => ({ ...prev, [activeResize]: { ...prev[activeResize], size: newSize } }));
     }
   };
 
@@ -204,6 +192,33 @@ export default function TemplatesPage() {
   useEffect(() => {
     fetchTemplates();
   }, []);
+
+  // Fetch actual PDF page dimensions whenever a template is opened for editing
+  useEffect(() => {
+    if (!editingTemplate) return;
+    setTemplateDimensions({ width: 595, height: 842 }); // reset to portrait default
+    fetch(`/api/templates/${editingTemplate.id}/dimensions`)
+      .then(r => r.json())
+      .then(({ width, height }) => {
+        if (width > 0 && height > 0) setTemplateDimensions({ width, height });
+      })
+      .catch(() => {});
+  }, [editingTemplate?.id]);
+
+  // Track the preview container's rendered pixel size for marker scaling
+  useEffect(() => {
+    if (!previewRef.current || !editingTemplate) return;
+    const observer = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        containerSizeRef.current = {
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        };
+      }
+    });
+    observer.observe(previewRef.current);
+    return () => observer.disconnect();
+  }, [editingTemplate]);
 
   const fetchTemplates = async () => {
     try {
@@ -605,170 +620,105 @@ export default function TemplatesPage() {
                 </div>
               </div>
 
-              {/* Position Sliders */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Position Controls */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
                 {/* Name Position */}
-                <div className="bg-green-50 p-4 rounded-xl">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="material-symbols-outlined text-brand-green">person</span>
-                    <span className="font-bold text-brand-dark-green">Name Position</span>
+                <div className="bg-green-50 p-4 rounded-xl space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-brand-green text-base">person</span>
+                    <span className="font-bold text-brand-dark-green text-sm">Name</span>
                   </div>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs text-on-surface-variant">Horizontal (%)</label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={positions.name.x}
-                        onChange={(e) => setPositions({ ...positions, name: { ...positions.name, x: Number(e.target.value) } })}
-                        className="w-full"
-                      />
-                      <span className="text-xs font-mono">{positions.name.x}%</span>
+                  <SliderField label="Horizontal (%)" min={0} max={100} step={0.5}
+                    value={positions.name.x}
+                    onChange={v => setPositions({ ...positions, name: { ...positions.name, x: v } })} />
+                  <SliderField label="Vertical (%)" min={0} max={100} step={0.5}
+                    value={positions.name.y}
+                    onChange={v => setPositions({ ...positions, name: { ...positions.name, y: v } })} />
+                  <SliderField label="Font Size (pt)" min={8} max={80} step={1}
+                    value={positions.name.size ?? 48}
+                    onChange={v => setPositions({ ...positions, name: { ...positions.name, size: v } })} />
+                  <div>
+                    <label className="text-xs text-on-surface-variant">Color</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <input type="color" value={positions.name.color || "#1b4332"}
+                        onChange={e => setPositions({ ...positions, name: { ...positions.name, color: e.target.value } })}
+                        className="w-8 h-8 rounded cursor-pointer border-0" />
+                      <span className="text-xs font-mono">{positions.name.color || "#1b4332"}</span>
                     </div>
-                    <div>
-                      <label className="text-xs text-on-surface-variant">Vertical (%)</label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={positions.name.y}
-                        onChange={(e) => setPositions({ ...positions, name: { ...positions.name, y: Number(e.target.value) } })}
-                        className="w-full"
-                      />
-                      <span className="text-xs font-mono">{positions.name.y}%</span>
-                    </div>
-                    <div>
-                      <label className="text-xs text-on-surface-variant">Font Size</label>
-                      <input
-                        type="range"
-                        min="1"
-                        max="80"
-                        value={positions.name.size || 48}
-                        onChange={(e) => setPositions({ ...positions, name: { ...positions.name, size: Number(e.target.value) } })}
-                        className="w-full"
-                      />
-                      <span className="text-xs font-mono">{positions.name.size || 48}px</span>
-                    </div>
-                    <div>
-                      <label className="text-xs text-on-surface-variant">Color</label>
-                      <div className="flex items-center gap-2 mt-1">
-                        <input
-                          type="color"
-                          value={positions.name.color || "#1b4332"}
-                          onChange={(e) => setPositions({ ...positions, name: { ...positions.name, color: e.target.value } })}
-                          className="w-8 h-8 rounded cursor-pointer border-0"
-                        />
-                        <span className="text-xs font-mono">{positions.name.color || "#1b4332"}</span>
-                      </div>
-                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={() => setPositions({ ...positions, name: { ...positions.name, x: 50 } })}
+                      className="flex-1 py-1 text-[11px] bg-white border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">
+                      Center H
+                    </button>
+                    <button onClick={() => setPositions({ ...positions, name: { ...positions.name, y: 50 } })}
+                      className="flex-1 py-1 text-[11px] bg-white border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">
+                      Center V
+                    </button>
                   </div>
                 </div>
 
                 {/* Certificate ID Position */}
-                <div className="bg-green-50 p-4 rounded-xl">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="material-symbols-outlined text-brand-green">badge</span>
-                    <span className="font-bold text-brand-dark-green">Certificate ID</span>
+                <div className="bg-green-50 p-4 rounded-xl space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-brand-green text-base">badge</span>
+                    <span className="font-bold text-brand-dark-green text-sm">Certificate ID</span>
                   </div>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs text-on-surface-variant">Horizontal (%)</label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={positions.certId.x}
-                        onChange={(e) => setPositions({ ...positions, certId: { ...positions.certId, x: Number(e.target.value) } })}
-                        className="w-full"
-                      />
-                      <span className="text-xs font-mono">{positions.certId.x}%</span>
+                  <SliderField label="Horizontal (%)" min={0} max={100} step={0.5}
+                    value={positions.certId.x}
+                    onChange={v => setPositions({ ...positions, certId: { ...positions.certId, x: v } })} />
+                  <SliderField label="Vertical (%)" min={0} max={100} step={0.5}
+                    value={positions.certId.y}
+                    onChange={v => setPositions({ ...positions, certId: { ...positions.certId, y: v } })} />
+                  <SliderField label="Font Size (pt)" min={6} max={24} step={0.5}
+                    value={positions.certId.size ?? 12}
+                    onChange={v => setPositions({ ...positions, certId: { ...positions.certId, size: v } })} />
+                  <div>
+                    <label className="text-xs text-on-surface-variant">Color</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <input type="color" value={positions.certId.color || "#333333"}
+                        onChange={e => setPositions({ ...positions, certId: { ...positions.certId, color: e.target.value } })}
+                        className="w-8 h-8 rounded cursor-pointer border-0" />
+                      <span className="text-xs font-mono">{positions.certId.color || "#333333"}</span>
                     </div>
-                    <div>
-                      <label className="text-xs text-on-surface-variant">Vertical (%)</label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={positions.certId.y}
-                        onChange={(e) => setPositions({ ...positions, certId: { ...positions.certId, y: Number(e.target.value) } })}
-                        className="w-full"
-                      />
-                      <span className="text-xs font-mono">{positions.certId.y}%</span>
-                    </div>
-                    <div>
-                      <label className="text-xs text-on-surface-variant">Font Size</label>
-                      <input
-                        type="range"
-                        min="1"
-                        max="24"
-                        value={positions.certId.size || 12}
-                        onChange={(e) => setPositions({ ...positions, certId: { ...positions.certId, size: Number(e.target.value) } })}
-                        className="w-full"
-                      />
-                      <span className="text-xs font-mono">{positions.certId.size || 12}px</span>
-                    </div>
-                    <div>
-                      <label className="text-xs text-on-surface-variant">Color</label>
-                      <div className="flex items-center gap-2 mt-1">
-                        <input
-                          type="color"
-                          value={positions.certId.color || "#333333"}
-                          onChange={(e) => setPositions({ ...positions, certId: { ...positions.certId, color: e.target.value } })}
-                          className="w-8 h-8 rounded cursor-pointer border-0"
-                        />
-                        <span className="text-xs font-mono">{positions.certId.color || "#333333"}</span>
-                      </div>
-                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={() => setPositions({ ...positions, certId: { ...positions.certId, x: 50 } })}
+                      className="flex-1 py-1 text-[11px] bg-white border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">
+                      Center H
+                    </button>
+                    <button onClick={() => setPositions({ ...positions, certId: { ...positions.certId, y: 50 } })}
+                      className="flex-1 py-1 text-[11px] bg-white border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">
+                      Center V
+                    </button>
                   </div>
                 </div>
 
                 {/* QR Code Position */}
-                <div className="bg-green-50 p-4 rounded-xl">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="material-symbols-outlined text-brand-green">qr_code_2</span>
-                    <span className="font-bold text-brand-dark-green">QR Code</span>
+                <div className="bg-green-50 p-4 rounded-xl space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-brand-green text-base">qr_code_2</span>
+                    <span className="font-bold text-brand-dark-green text-sm">QR Code</span>
                   </div>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs text-on-surface-variant">Horizontal (%)</label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={positions.qr.x}
-                        onChange={(e) => setPositions({ ...positions, qr: { ...positions.qr, x: Number(e.target.value) } })}
-                        className="w-full"
-                      />
-                      <span className="text-xs font-mono">{positions.qr.x}%</span>
-                    </div>
-                    <div>
-                      <label className="text-xs text-on-surface-variant">Vertical (%)</label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={positions.qr.y}
-                        onChange={(e) => setPositions({ ...positions, qr: { ...positions.qr, y: Number(e.target.value) } })}
-                        className="w-full"
-                      />
-                      <span className="text-xs font-mono">{positions.qr.y}%</span>
-                    </div>
-                    <div>
-                      <label className="text-xs text-on-surface-variant">Size (%)</label>
-                      <input
-                        type="range"
-                        min="1"
-                        max="25"
-                        value={positions.qr.size || 12}
-                        onChange={(e) => setPositions({ ...positions, qr: { ...positions.qr, size: Number(e.target.value) } })}
-                        className="w-full"
-                      />
-                      <span className="text-xs font-mono">{positions.qr.size || 12}%</span>
-                    </div>
-                  </div>
-                  <div className="mt-2 w-8 h-8 bg-brand-dark-green rounded flex items-center justify-center">
-                    <span className="material-symbols-outlined text-white text-sm">qr_code_2</span>
+                  <SliderField label="Horizontal (%)" min={0} max={100} step={0.5}
+                    value={positions.qr.x}
+                    onChange={v => setPositions({ ...positions, qr: { ...positions.qr, x: v } })} />
+                  <SliderField label="Vertical (%)" min={0} max={100} step={0.5}
+                    value={positions.qr.y}
+                    onChange={v => setPositions({ ...positions, qr: { ...positions.qr, y: v } })} />
+                  <SliderField label="Size (%)" min={1} max={25} step={0.5}
+                    value={positions.qr.size ?? 12}
+                    onChange={v => setPositions({ ...positions, qr: { ...positions.qr, size: v } })} />
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={() => setPositions({ ...positions, qr: { ...positions.qr, x: 50 } })}
+                      className="flex-1 py-1 text-[11px] bg-white border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">
+                      Center H
+                    </button>
+                    <button onClick={() => setPositions({ ...positions, qr: { ...positions.qr, y: 50 } })}
+                      className="flex-1 py-1 text-[11px] bg-white border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">
+                      Center V
+                    </button>
                   </div>
                 </div>
               </div>
@@ -813,15 +763,26 @@ export default function TemplatesPage() {
                   </div>
                 )}
                 
+                {/* Aspect ratio now matches the actual PDF page — portrait or landscape */}
                 <div
-                  className="relative w-full bg-white rounded-xl overflow-hidden border-2 border-green-200 cursor-crosshair"
-                  style={{ aspectRatio: "1.414 / 1" }}
+                  className="relative w-full bg-white rounded-xl overflow-hidden border-2 border-green-200 cursor-crosshair select-none"
+                  style={{ aspectRatio: `${templateDimensions.width} / ${templateDimensions.height}` }}
                   ref={previewRef}
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}
                   onMouseUp={handleMouseUp}
                   onMouseLeave={handleMouseUp}
                 >
+                  {/* Crosshair guides visible while dragging */}
+                  {activeDrag && (() => {
+                    const pos = activeDrag === 'name' ? positions.name : activeDrag === 'certId' ? positions.certId : positions.qr;
+                    return (
+                      <>
+                        <div className="absolute inset-y-0 pointer-events-none z-40 border-l border-dashed border-brand-vivid-green/40" style={{ left: `${pos.x}%` }} />
+                        <div className="absolute inset-x-0 pointer-events-none z-40 border-t border-dashed border-brand-vivid-green/40" style={{ top: `${pos.y}%` }} />
+                      </>
+                    );
+                  })()}
                   {loadingTemplate && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 z-50">
                       <span className="material-symbols-outlined animate-spin text-4xl text-brand-green mb-2">progress_activity</span>
@@ -845,40 +806,40 @@ export default function TemplatesPage() {
                   
                   {/* Draggable Name marker */}
                   <DraggableMarker
-                    x={positions.name.x}
-                    y={positions.name.y}
+                    x={positions.name.x} y={positions.name.y}
                     color={positions.name.color || "#1b4332"}
                     label={testData.name}
-                    fontSize={positions.name.size || 48}
-                    size={positions.name.size || 48}
+                    fontSize={positions.name.size ?? 48}
                     isActive={activeDrag === 'name' || activeResize === 'name'}
                     onMouseDown={(e) => startDrag(e, 'name')}
                     onResize={(e) => startResize(e, 'name')}
+                    pdfWidth={templateDimensions.width}
+                    containerWidth={containerSizeRef.current.width}
                   />
 
                   {/* Draggable Cert ID marker */}
                   <DraggableMarker
-                    x={positions.certId.x}
-                    y={positions.certId.y}
+                    x={positions.certId.x} y={positions.certId.y}
                     color={positions.certId.color || "#333333"}
                     label={testData.certId}
-                    fontSize={positions.certId.size || 12}
-                    size={positions.certId.size || 12}
+                    fontSize={positions.certId.size ?? 12}
                     isActive={activeDrag === 'certId' || activeResize === 'certId'}
                     onMouseDown={(e) => startDrag(e, 'certId')}
                     onResize={(e) => startResize(e, 'certId')}
+                    pdfWidth={templateDimensions.width}
+                    containerWidth={containerSizeRef.current.width}
                   />
 
                   {/* Draggable QR marker */}
                   <DraggableMarker
-                    x={positions.qr.x}
-                    y={positions.qr.y}
-                    color="bg-blue-500"
-                    isQR={true}
-                    size={positions.qr.size || 12}
+                    x={positions.qr.x} y={positions.qr.y}
+                    color="#3b82f6"
+                    isQR size={positions.qr.size ?? 12}
                     isActive={activeDrag === 'qr' || activeResize === 'qr'}
                     onMouseDown={(e) => startDrag(e, 'qr')}
                     onResize={(e) => startResize(e, 'qr')}
+                    pdfWidth={templateDimensions.width}
+                    containerWidth={containerSizeRef.current.width}
                   />
                 </div>
               </div>
@@ -996,84 +957,119 @@ export default function TemplatesPage() {
   );
 }
 
-// Helper to get contrasting color for marker background
-function getContrastColor(hexColor: string): string {
-  const hex = hexColor.replace('#', '');
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
-  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-  return brightness > 128 ? '#1b4332' : '#ffffff';
+// ── SliderField: slider + number input combined ──────────────────────────────
+function SliderField({ label, min, max, step, value, onChange }: {
+  label: string; min: number; max: number; step: number;
+  value: number; onChange: (v: number) => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <label className="text-xs text-on-surface-variant">{label}</label>
+        <input
+          type="number" min={min} max={max} step={step}
+          value={Math.round(value * 10) / 10}
+          onChange={e => {
+            const v = Number(e.target.value);
+            if (!isNaN(v)) onChange(Math.max(min, Math.min(max, v)));
+          }}
+          className="w-16 text-xs font-mono text-right border border-green-200 rounded px-1.5 py-0.5 outline-none focus:border-brand-vivid-green bg-white"
+        />
+      </div>
+      <input
+        type="range" min={min} max={max} step={step} value={value}
+        onChange={e => onChange(Number(e.target.value))}
+        className="w-full accent-brand-vivid-green"
+      />
+    </div>
+  );
 }
 
-// Draggable Marker Component - visual sizes match actual PDF output
-function DraggableMarker({ 
-  x, y, color, label, isActive, onMouseDown, onResize, isQR, size, fontSize 
-}: { 
-  x: number; y: number; color: string; label?: string; isActive: boolean; onMouseDown: (e: React.MouseEvent) => void; onResize?: (e: React.MouseEvent) => void; isQR?: boolean; size?: number; fontSize?: number 
+// ── Contrast helper ──────────────────────────────────────────────────────────
+function getContrastColor(hex: string): string {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.substr(0, 2), 16);
+  const g = parseInt(h.substr(2, 2), 16);
+  const b = parseInt(h.substr(4, 2), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000 > 128 ? '#1b4332' : '#ffffff';
+}
+
+// ── DraggableMarker: visually scaled to match PDF output ────────────────────
+function DraggableMarker({
+  x, y, color, label, isActive, onMouseDown, onResize, isQR, size, fontSize,
+  pdfWidth, containerWidth,
+}: {
+  x: number; y: number; color: string; label?: string; isActive: boolean;
+  onMouseDown: (e: React.MouseEvent) => void;
+  onResize?: (e: React.MouseEvent) => void;
+  isQR?: boolean; size?: number; fontSize?: number;
+  pdfWidth: number; containerWidth: number;
 }) {
-  // For QR: size in UI is in %, we multiply by 3.5 to show approximate visual size
-  // For text: fontSize directly maps to px size
-  const markerSize = isQR ? (size || 12) * 3.5 : (fontSize || 14);
+  // scale = rendered px per PDF point — makes markers visually match PDF output
+  const scale = containerWidth > 0 ? containerWidth / pdfWidth : 1;
+
   const markerColor = color || "#1b4332";
   const textColor = getContrastColor(markerColor);
-  
+
+  // QR: size is % of min(pdfW, pdfH) → convert to px in the preview
+  const qrPx = Math.max(24, ((size ?? 12) / 100) * pdfWidth * scale);
+  // Text: fontSize is in PDF points → convert to preview px
+  const textPx = Math.max(10, (fontSize ?? 14) * scale);
+
   return (
     <div
-      className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-shadow ${
-        isActive ? 'z-50' : 'z-10'
-      }`}
+      className={`absolute -translate-x-1/2 -translate-y-1/2 ${isActive ? 'z-50' : 'z-10'}`}
       style={{ left: `${x}%`, top: `${y}%` }}
       onMouseDown={onMouseDown}
     >
       {isQR ? (
-        <div className="relative">
-          <div 
-            className="rounded-lg flex items-center justify-center shadow-lg border-2 border-white"
-            style={{ 
-              width: `${markerSize}px`, 
-              height: `${markerSize}px`, 
+        <div className="relative" style={{ width: qrPx, height: qrPx }}>
+          <div
+            className="w-full h-full rounded-lg flex items-center justify-center shadow-lg"
+            style={{
               backgroundColor: '#3b82f6',
-              minWidth: '20px',
-              minHeight: '20px'
+              border: isActive ? '2px solid #22c55e' : '2px solid white',
+              opacity: isActive ? 1 : 0.85,
             }}
           >
-            <span className="material-symbols-outlined text-white text-xs">qr_code_2</span>
+            <span className="material-symbols-outlined text-white" style={{ fontSize: Math.max(12, qrPx * 0.4) }}>qr_code_2</span>
           </div>
           {onResize && (
-            <div 
-              className="absolute -bottom-2 -right-2 w-5 h-5 bg-brand-vivid-green border-2 border-white rounded-full cursor-se-resize flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
-              onMouseDown={onResize}
-              title="Drag to resize"
+            <div
+              className="absolute -bottom-2.5 -right-2.5 w-5 h-5 bg-brand-vivid-green border-2 border-white rounded-full cursor-se-resize flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+              onMouseDown={e => { e.stopPropagation(); onResize(e); }}
+              title="Drag ↘ to resize"
             >
-              <span className="text-white text-[10px] font-bold">⤡</span>
+              <span className="text-white text-[9px] font-bold leading-none">⤡</span>
             </div>
           )}
         </div>
       ) : (
         <div className="relative flex flex-col items-center">
-          <div 
-            className="rounded-lg shadow-lg border-2 border-white"
-            style={{ 
-              padding: '4px 12px', 
-              fontSize: `${fontSize || 14}px`, 
-              minWidth: '60px', 
-              backgroundColor: markerColor, 
-              color: textColor 
+          <div
+            className="rounded-lg shadow-lg whitespace-nowrap font-bold"
+            style={{
+              padding: `${Math.max(2, textPx * 0.15)}px ${Math.max(6, textPx * 0.4)}px`,
+              fontSize: textPx,
+              backgroundColor: markerColor,
+              color: textColor,
+              border: isActive ? '2px solid #22c55e' : '2px solid rgba(255,255,255,0.8)',
+              opacity: isActive ? 1 : 0.85,
             }}
           >
-            <span className="font-bold whitespace-nowrap">{label}</span>
+            {label}
           </div>
           {onResize && (
-            <div 
-              className="absolute -bottom-2 -right-2 w-5 h-5 bg-brand-vivid-green border-2 border-white rounded-full cursor-se-resize flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
-              onMouseDown={onResize}
-              title="Drag to resize"
+            <div
+              className="absolute -bottom-2.5 -right-2.5 w-5 h-5 bg-brand-vivid-green border-2 border-white rounded-full cursor-se-resize flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+              onMouseDown={e => { e.stopPropagation(); onResize(e); }}
+              title="Drag ↘ to resize"
             >
-              <span className="text-white text-[10px] font-bold">⤡</span>
+              <span className="text-white text-[9px] font-bold leading-none">⤡</span>
             </div>
           )}
-          <div className="w-3 h-3 rounded-full mt-1 shadow border border-white" style={{ backgroundColor: markerColor }}></div>
+          {/* Center dot */}
+          <div className="w-2 h-2 rounded-full mt-1 shadow border border-white/80" style={{ backgroundColor: markerColor }} />
         </div>
       )}
     </div>
