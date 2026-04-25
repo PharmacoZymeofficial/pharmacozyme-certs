@@ -103,42 +103,40 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      const participantsRef = collection(db, "databases", databaseId, "participants");
+
+      // Fetch existing participants ONCE and index by email
+      const existingSnap = await getDocs(participantsRef);
+      const existingByEmail = new Map<string, any>();
+      for (const d of existingSnap.docs) {
+        const email = (d.data().email || "").toLowerCase().trim();
+        if (email) existingByEmail.set(email, d);
+      }
+
       let synced = 0;
 
       for (const p of result.data) {
         if (!p.name) continue;
 
-        // Check if participant with same certificateId exists
-        const participantsRef = collection(db, "databases", databaseId, "participants");
-        const existingSnap = await getDocs(participantsRef);
+        const emailKey = (p.email || "").toLowerCase().trim();
+        const existing = emailKey ? existingByEmail.get(emailKey) : undefined;
 
-        const existing = existingSnap.docs.find(d => d.data().certificateId === p.certificateId);
+        const fields = {
+          name: p.name,
+          email: p.email || "",
+          certificateId: p.certificateId || "",
+          certificateUrl: p.certificateUrl || "",
+          status: p.status || "pending",
+          issueDate: p.issueDate || "",
+          emailSent: p.emailSent || false,
+          driveLink: p.driveLink || "",
+        };
 
         if (existing) {
-          // Update existing
-          await updateDoc(existing.ref, {
-            name: p.name,
-            email: p.email,
-            certificateId: p.certificateId || "",
-            certificateUrl: p.certificateUrl || "",
-            status: p.status || "pending",
-            issueDate: p.issueDate || "",
-            emailSent: p.emailSent || false,
-            driveLink: p.driveLink || "",
-          });
+          await updateDoc(existing.ref, fields);
         } else {
-          // Create new
-          await addDoc(participantsRef, {
-            name: p.name,
-            email: p.email,
-            certificateId: p.certificateId || "",
-            certificateUrl: p.certificateUrl || "",
-            status: p.status || "pending",
-            issueDate: p.issueDate || "",
-            emailSent: p.emailSent || false,
-            driveLink: p.driveLink || "",
-            createdAt: new Date().toISOString(),
-          });
+          const newRef = await addDoc(participantsRef, { ...fields, createdAt: new Date().toISOString() });
+          if (emailKey) existingByEmail.set(emailKey, { ref: newRef });
         }
         synced++;
       }
