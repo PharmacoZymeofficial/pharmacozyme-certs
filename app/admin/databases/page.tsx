@@ -70,7 +70,10 @@ export default function DatabaseManagementPage() {
   const [emailSubject, setEmailSubject] = useState("Your Certificate from PharmacoZyme");
   const [emailMessage, setEmailMessage] = useState("Dear [Name],\n\nCongratulations! Your certificate is now ready.\n\nYou can verify your certificate at: [VerificationLink]\n\nBest regards,\nPharmacoZyme Team");
   const [isSending, setIsSending] = useState(false);
-  const [emailStats, setEmailStats] = useState({ sent: 0, limit: 100, remaining: 100, source: "local" });
+  const [emailStats, setEmailStats] = useState<{
+    sent: number; limit: number; remaining: number; source: string;
+    accounts?: Record<string, { sent: number; limit: number; remaining: number; label: string; email: string }>;
+  }>({ sent: 0, limit: 100, remaining: 100, source: "local" });
   const [scheduleMode, setScheduleMode] = useState(false);
   const [scheduledAt, setScheduledAt] = useState("");
   const [selectedSenderIndex, setSelectedSenderIndex] = useState(0);
@@ -83,6 +86,7 @@ export default function DatabaseManagementPage() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [sortBy, setSortBy] = useState<"name" | "email" | "certId" | "date" | "status">("certId");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [participantSearch, setParticipantSearch] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [showBulkTargetModal, setShowBulkTargetModal] = useState(false);
@@ -1569,6 +1573,25 @@ export default function DatabaseManagementPage() {
                   </button>
                 </div>
 
+                {/* Search */}
+                <div className="mb-3">
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+                    <input
+                      type="text"
+                      placeholder="Search by name, email, or certificate ID…"
+                      value={participantSearch}
+                      onChange={e => setParticipantSearch(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 bg-white border border-green-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-vivid-green/40"
+                    />
+                    {participantSearch && (
+                      <button onClick={() => setParticipantSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-brand-dark-green">
+                        <span className="material-symbols-outlined text-sm">close</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 {/* Sorting */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-4 text-sm">
@@ -1829,7 +1852,15 @@ export default function DatabaseManagementPage() {
                     </thead>
                     <tbody className="divide-y divide-green-50">
                       {(() => {
-                        const sorted = [...participants].sort((a, b) => {
+                        const q = participantSearch.toLowerCase();
+                        const filtered = q
+                          ? participants.filter(p =>
+                              (p.name || "").toLowerCase().includes(q) ||
+                              (p.email || "").toLowerCase().includes(q) ||
+                              (p.certificateId || "").toLowerCase().includes(q)
+                            )
+                          : participants;
+                        const sorted = [...filtered].sort((a, b) => {
                           let aVal = "", bVal = "";
                           if (sortBy === "certId") {
                             aVal = a.certificateId || "";
@@ -2716,28 +2747,52 @@ Ahmed Khan, ahmed@email.com"
               </button>
             </div>
 
-            {/* Daily limit banner */}
-            <div className="px-6 pt-5">
-              <div className={`rounded-xl p-3 border ${emailStats.remaining <= 10 ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}`}>
-                <div className="flex justify-between items-center mb-1.5">
-                  <span className="text-xs font-bold text-brand-dark-green flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>mail</span>
-                    Daily Email Limit
-                    <span className="text-[9px] font-normal text-on-surface-variant">
-                      {emailStats.source === "resend" ? "· live from Resend" : "· app-tracked"}
-                    </span>
-                  </span>
-                  <span className={`text-xs font-bold ${emailStats.remaining <= 10 ? "text-red-600" : "text-brand-vivid-green"}`}>
-                    {emailStats.sent} / {emailStats.limit} used
-                  </span>
-                </div>
-                <div className="w-full h-1.5 bg-white/60 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${emailStats.remaining <= 10 ? "bg-red-500" : "bg-brand-vivid-green"}`}
-                    style={{ width: `${(emailStats.remaining / emailStats.limit) * 100}%` }}
-                  />
-                </div>
-              </div>
+            {/* Daily limit banner — per-account */}
+            <div className="px-6 pt-5 space-y-2">
+              {emailStats.accounts
+                ? Object.values(emailStats.accounts).map(acct => (
+                    <div key={acct.email} className={`rounded-xl p-3 border ${acct.remaining <= 10 ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}`}>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-xs font-bold text-brand-dark-green flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>mail</span>
+                          {acct.label}
+                          <span className="text-[9px] font-normal text-on-surface-variant font-mono">{acct.email}</span>
+                        </span>
+                        <span className={`text-xs font-bold ${acct.remaining <= 10 ? "text-red-600" : "text-brand-vivid-green"}`}>
+                          {acct.sent} / {acct.limit} used
+                        </span>
+                      </div>
+                      <div className="w-full h-1.5 bg-white/60 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${acct.remaining <= 10 ? "bg-red-500" : "bg-brand-vivid-green"}`}
+                          style={{ width: `${Math.min(100, (acct.sent / acct.limit) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))
+                : (
+                  <div className={`rounded-xl p-3 border ${emailStats.remaining <= 10 ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}`}>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className="text-xs font-bold text-brand-dark-green flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>mail</span>
+                        Daily Email Limit
+                        <span className="text-[9px] font-normal text-on-surface-variant">
+                          {emailStats.source === "resend" ? "· live from Resend" : "· app-tracked"}
+                        </span>
+                      </span>
+                      <span className={`text-xs font-bold ${emailStats.remaining <= 10 ? "text-red-600" : "text-brand-vivid-green"}`}>
+                        {emailStats.sent} / {emailStats.limit} used
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 bg-white/60 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${emailStats.remaining <= 10 ? "bg-red-500" : "bg-brand-vivid-green"}`}
+                        style={{ width: `${(emailStats.remaining / emailStats.limit) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )
+              }
             </div>
 
             <div className="p-6 space-y-6">

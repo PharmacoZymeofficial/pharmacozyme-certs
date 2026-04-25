@@ -15,6 +15,7 @@ const navItems = [
   { href: "/admin/templates", icon: "style", label: "Templates" },
   { href: "/admin/categories", icon: "category", label: "Categories" },
   { href: "/admin/bulk-email", icon: "forward_to_inbox", label: "Bulk Email" },
+  { href: "/admin/history", icon: "history", label: "History" },
   { href: "/admin/reports", icon: "analytics", label: "Reports" },
   { href: "/admin/settings", icon: "settings", label: "Settings" },
 ];

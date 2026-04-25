@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
 import { doc, setDoc, increment, collection, addDoc } from "firebase/firestore";
+import { getAdminFromCookieHeader, logActivity } from "@/lib/activity";
 import nodemailer from "nodemailer";
 
 // Gmail accounts — passwords stored in env vars
@@ -195,8 +196,13 @@ export async function POST(request: NextRequest) {
       if (results.length > 0) {
         try {
           const today = new Date().toISOString().split("T")[0];
-          await setDoc(doc(db, "email_stats", today), { sent: increment(results.length) }, { merge: true });
+          const gmailKey = `gmail_${gmailEmail.split("@")[0].replace(/\./g, "_")}`;
+          await setDoc(doc(db, "email_stats", today), { sent: increment(results.length), [gmailKey]: increment(results.length) }, { merge: true });
         } catch { /* non-fatal */ }
+
+        // Log activity
+        const { adminName, adminEmail: adminEmailVal } = getAdminFromCookieHeader(request.headers.get("cookie") || "");
+        await logActivity({ type: "email_sent", adminName, adminEmail: adminEmailVal, count: results.length, details: `Sent ${results.length} email(s) via ${gmailEmail}` });
       }
 
       return NextResponse.json({
@@ -319,6 +325,9 @@ export async function POST(request: NextRequest) {
         const today = new Date().toISOString().split("T")[0];
         await setDoc(doc(db, "email_stats", today), { sent: increment(results.length) }, { merge: true });
       } catch { /* non-fatal */ }
+
+      const { adminName, adminEmail: adminEmailVal } = getAdminFromCookieHeader(request.headers.get("cookie") || "");
+      await logActivity({ type: "email_sent", adminName, adminEmail: adminEmailVal, count: results.length, details: `Sent ${results.length} email(s) via Resend` });
     }
 
     // Auto-queue quota-failed recipients for next day 12:01 AM

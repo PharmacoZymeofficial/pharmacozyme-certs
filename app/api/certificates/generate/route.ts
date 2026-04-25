@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, doc, updateDoc, getDocs, getDoc, writeBatch } from "firebase/firestore";
 import { v4 as uuidv4 } from "uuid";
+import { getAdminFromCookieHeader, logActivity } from "@/lib/activity";
 
 const APPS_SCRIPT_URL = process.env.GOOGLE_APPS_SCRIPT_URL || "";
 
@@ -191,6 +192,19 @@ export async function POST(request: NextRequest) {
       } catch (syncErr) {
         console.error("Failed to sync to Sheets:", syncErr);
       }
+    }
+
+    if (results.success > 0) {
+      const { adminName, adminEmail } = getAdminFromCookieHeader(request.headers.get("cookie") || "");
+      await logActivity({
+        type: "cert_generated",
+        adminName,
+        adminEmail,
+        databaseId,
+        databaseName: dbData?.name || topic || "",
+        count: results.success,
+        details: `Generated ${results.success} certificate(s) for "${dbData?.name || topic || "Unknown"}"`,
+      });
     }
 
     return NextResponse.json({
