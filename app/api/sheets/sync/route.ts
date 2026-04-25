@@ -20,11 +20,20 @@ async function callAppsScript(action: string, payload: any) {
 
   const text = await response.text();
   console.log("Apps Script response:", text.substring(0, 300));
-  
+
   try {
     return JSON.parse(text);
   } catch {
-    throw new Error(`Invalid JSON: ${text.substring(0, 200)}`);
+    if (text.includes("<!DOCTYPE") || text.includes("<html")) {
+      throw new Error(
+        "Apps Script returned an HTML error page. Likely causes: " +
+        "(1) URL ends in /dev instead of /exec, " +
+        "(2) Web app access is not set to 'Anyone', " +
+        "(3) Script not redeployed after code change. " +
+        `HTTP status: ${response.status}`
+      );
+    }
+    throw new Error(`Apps Script returned invalid JSON: ${text.substring(0, 150)}`);
   }
 }
 

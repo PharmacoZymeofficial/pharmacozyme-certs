@@ -1025,7 +1025,8 @@ export default function DatabaseManagementPage() {
           body: JSON.stringify({ databaseId: selectedDatabase.id, mode: "updateCertIds", updates: certIdUpdates }),
         }).then(r => r.json()).then(d => {
           if (d.updated) toast.info(`Sheet updated: ${d.updated} IDs synced.`);
-        }).catch(() => {});
+          else if (d.error) toast.error(`Sheet sync failed — check Apps Script deployment: ${d.error.substring(0, 80)}`);
+        }).catch(() => toast.error("Sheet sync failed — Apps Script unreachable"));
       }
     } catch (err) {
       console.error("Error generating IDs:", err);
