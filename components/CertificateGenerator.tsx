@@ -267,15 +267,12 @@ const CertificatePDF = ({ certificate }: { certificate: CertificateData }) => {
   );
 };
 
-async function generateQRCode(data: string): Promise<string> {
+async function generateQRCode(data: string, darkColor = "#1b4332", lightColor = "#ffffff"): Promise<string> {
   try {
     return await QRCode.toDataURL(data, {
       width: 200,
       margin: 1,
-      color: {
-        dark: "#1b4332",
-        light: "#ffffff",
-      },
+      color: { dark: darkColor, light: lightColor },
     });
   } catch (err) {
     console.error("QR generation error:", err);
@@ -423,9 +420,9 @@ interface CertificateTemplate {
   name: string;
   fileUrl: string;
   positions?: {
-    name: { x: number; y: number };
-    certId: { x: number; y: number };
-    qr: { x: number; y: number; size: number };
+    name: { x: number; y: number; size?: number; color?: string; font?: string };
+    certId: { x: number; y: number; size?: number; color?: string; font?: string };
+    qr: { x: number; y: number; size: number; darkColor?: string; lightColor?: string; transparentBg?: boolean };
   };
 }
 
@@ -562,7 +559,9 @@ export default function CertificateGenerator({ database, participants, onGenerat
         const claimBase = verificationBase.replace(/\/verify$/, "");
         const verificationUrl = `${claimBase}/claim?id=${certId}`;
         const certificateClaimUrl = verificationUrl;
-        const qrCodeDataUrl = await generateQRCode(verificationUrl);
+        const qrDark = templateData?.positions?.qr?.darkColor || "#1b4332";
+        const qrLight = templateData?.positions?.qr?.transparentBg ? "#00000000" : (templateData?.positions?.qr?.lightColor || "#ffffff");
+        const qrCodeDataUrl = await generateQRCode(verificationUrl, qrDark, qrLight);
 
         let pdfBytes: Uint8Array | undefined;
         

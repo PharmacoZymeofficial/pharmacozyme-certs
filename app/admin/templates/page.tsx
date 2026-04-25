@@ -14,7 +14,7 @@ interface PositionConfig {
 interface Positions {
   name: PositionConfig;
   certId: PositionConfig;
-  qr: PositionConfig;
+  qr: PositionConfig & { darkColor?: string; lightColor?: string; transparentBg?: boolean };
 }
 
 interface CertificateTemplate {
@@ -47,7 +47,7 @@ export default function TemplatesPage() {
   const [positions, setPositions] = useState<Positions>({
     name: { x: 50, y: 45, size: 48, color: "#1b4332" },
     certId: { x: 50, y: 30, size: 12, color: "#333333" },
-    qr: { x: 85, y: 60, size: 12 },
+    qr: { x: 85, y: 60, size: 12, darkColor: "#000000", lightColor: "#ffffff", transparentBg: false },
   });
   const [savingPositions, setSavingPositions] = useState(false);
   const [testData, setTestData] = useState({
@@ -457,10 +457,14 @@ export default function TemplatesPage() {
                   onClick={() => {
                     setLoadingTemplate(true);
                     setEditingTemplate(template);
-                    setPositions(template.positions || {
+                    setPositions(template.positions ? {
+                      name: { ...{ x: 50, y: 45, size: 48 }, ...template.positions.name },
+                      certId: { ...{ x: 50, y: 30, size: 12, color: "#333333" }, ...template.positions.certId },
+                      qr: { ...{ x: 85, y: 60, size: 12, darkColor: "#000000", lightColor: "#ffffff", transparentBg: false }, ...template.positions.qr },
+                    } : {
                       name: { x: 50, y: 45, size: 48 },
                       certId: { x: 50, y: 30, size: 12, color: "#333333" },
-                      qr: { x: 85, y: 60, size: 12 },
+                      qr: { x: 85, y: 60, size: 12, darkColor: "#000000", lightColor: "#ffffff", transparentBg: false },
                     });
                   }}
                   className="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2 border border-green-200 text-brand-grass-green rounded-lg text-sm font-medium hover:bg-green-50 transition-colors"
@@ -736,6 +740,32 @@ export default function TemplatesPage() {
                   <SliderField label="Size (%)" min={1} max={25} step={0.5}
                     value={positions.qr.size ?? 12}
                     onChange={v => setPositions({ ...positions, qr: { ...positions.qr, size: v } })} />
+                  <div>
+                    <label className="text-xs text-on-surface-variant">Dot Color</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <input type="color" value={positions.qr.darkColor || "#000000"}
+                        onChange={e => setPositions({ ...positions, qr: { ...positions.qr, darkColor: e.target.value } })}
+                        className="w-8 h-8 rounded cursor-pointer border-0" />
+                      <span className="text-xs font-mono">{positions.qr.darkColor || "#000000"}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-on-surface-variant">Background</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <input type="checkbox" id="qr-transparent" checked={positions.qr.transparentBg ?? false}
+                        onChange={e => setPositions({ ...positions, qr: { ...positions.qr, transparentBg: e.target.checked } })}
+                        className="w-4 h-4 accent-brand-vivid-green" />
+                      <label htmlFor="qr-transparent" className="text-xs text-on-surface-variant cursor-pointer">Transparent</label>
+                    </div>
+                    {!positions.qr.transparentBg && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <input type="color" value={positions.qr.lightColor || "#ffffff"}
+                          onChange={e => setPositions({ ...positions, qr: { ...positions.qr, lightColor: e.target.value } })}
+                          className="w-8 h-8 rounded cursor-pointer border-0" />
+                        <span className="text-xs font-mono">{positions.qr.lightColor || "#ffffff"}</span>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex gap-2 pt-1">
                     <button onClick={() => setPositions({ ...positions, qr: { ...positions.qr, x: 50 } })}
                       className="flex-1 py-1 text-[11px] bg-white border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">

@@ -17,7 +17,7 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   return { r: 0.1, g: 0.26, b: 0.2 };
 }
 
-function getTemplatePositions(width: number, height: number, positions?: { name: { x: number; y: number; size?: number; color?: string; font?: string }; certId: { x: number; y: number; size?: number; color?: string; font?: string }; qr: { x: number; y: number; size: number } }) {
+function getTemplatePositions(width: number, height: number, positions?: { name: { x: number; y: number; size?: number; color?: string; font?: string }; certId: { x: number; y: number; size?: number; color?: string; font?: string }; qr: { x: number; y: number; size: number; darkColor?: string; lightColor?: string; transparentBg?: boolean } }) {
   if (positions) {
     const qrSizeValue = positions.qr.size || 12;
     const qrDimension = (Math.min(width, height) * qrSizeValue) / 100;
@@ -29,7 +29,9 @@ function getTemplatePositions(width: number, height: number, positions?: { name:
         x: (width * positions.qr.x) / 100,
         y: height - (height * positions.qr.y) / 100,
         width: qrDimension,
-        height: qrDimension
+        height: qrDimension,
+        darkColor: positions.qr.darkColor || "#000000",
+        lightColor: positions.qr.transparentBg ? "#00000000" : (positions.qr.lightColor || "#ffffff"),
       }
     };
   }
@@ -137,10 +139,12 @@ export async function POST(request: NextRequest) {
     
     try {
       // Generate QR code as PNG
+      const qrDarkColor = positions.qrPos.darkColor || "#000000";
+      const qrLightColor = (positions.qrPos as any).lightColor || "#ffffff";
       const qrDataUrl = await QRCode.toDataURL("https://verify.pharmacozyme.com/verify?id=TEST-123", {
         width: Math.round(qrSize),
         margin: 1,
-        color: { dark: "#000000", light: "#ffffff" }
+        color: { dark: qrDarkColor, light: qrLightColor }
       });
       
       // Embed QR code image

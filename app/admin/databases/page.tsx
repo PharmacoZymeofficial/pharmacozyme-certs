@@ -8,6 +8,13 @@ import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ConfirmModal";
 import { sfx } from "@/lib/sfx";
 
+const SENDER_IDENTITIES = [
+  { name: "PharmacoZyme Certificates", email: "" },
+  { name: "PharmacoZyme Official", email: "pharmacozymeofficial@gmail.com" },
+  { name: "PZ Academy", email: "pz.academy9@gmail.com" },
+  { name: "Team PharmacoZyme", email: "teampharmacozyme@gmail.com" },
+];
+
 const categoryStructure = {
   General: {
     Courses: ["Module 1", "Module 2", "Module 3", "Module 4", "Course Completion"],
@@ -66,6 +73,7 @@ export default function DatabaseManagementPage() {
   const [emailStats, setEmailStats] = useState({ sent: 0, limit: 100, remaining: 100, source: "local" });
   const [scheduleMode, setScheduleMode] = useState(false);
   const [scheduledAt, setScheduledAt] = useState("");
+  const [selectedSenderIndex, setSelectedSenderIndex] = useState(0);
   const [editingCertId, setEditingCertId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editingEmail, setEditingEmail] = useState<string | null>(null);
@@ -661,6 +669,7 @@ export default function DatabaseManagementPage() {
     
     try {
       // Call the email API
+      const sender = SENDER_IDENTITIES[selectedSenderIndex];
       const response = await fetch("/api/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -668,6 +677,8 @@ export default function DatabaseManagementPage() {
           recipients: emailRecipients,
           subject: emailSubject,
           message: emailMessage,
+          senderName: sender.name,
+          ...(sender.email ? { gmailEmail: sender.email } : {}),
         }),
       });
       
@@ -2760,6 +2771,25 @@ Ahmed Khan, ahmed@email.com"
                   />
                 </div>
               )}
+
+              <div>
+                <label className="block text-xs font-bold text-brand-grass-green uppercase mb-2">Send As</label>
+                <select
+                  value={selectedSenderIndex}
+                  onChange={(e) => setSelectedSenderIndex(Number(e.target.value))}
+                  className="w-full bg-surface-container-low border border-green-100 rounded-xl p-3 text-sm outline-none"
+                >
+                  {SENDER_IDENTITIES.map((s, i) => (
+                    <option key={i} value={i}>{s.name}{s.email ? ` (${s.email})` : " (default)"}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-on-surface-variant mt-1">
+                  {SENDER_IDENTITIES[selectedSenderIndex].email
+                    ? <>Sends directly from <span className="font-mono">{SENDER_IDENTITIES[selectedSenderIndex].email}</span> via Gmail.</>
+                    : <>Sends via Resend from <span className="font-mono">noreply@certs.pharmacozyme.com</span>.</>
+                  }
+                </p>
+              </div>
 
               <div>
                 <label className="block text-xs font-bold text-brand-grass-green uppercase mb-2">Subject</label>

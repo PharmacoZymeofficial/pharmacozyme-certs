@@ -42,10 +42,10 @@ export async function loadFontBytes(fontName: string): Promise<Uint8Array | null
     if (!fontRes.ok) return null;
     const buf = await fontRes.arrayBuffer();
     const bytes = new Uint8Array(buf);
-    // Reject non-TTF/OTF formats (WOFF starts with "wOFF", WOFF2 "wOF2", EOT is not TTF/OTF)
-    const isTTF = (bytes[0] === 0x00 && bytes[1] === 0x01) || (bytes[0] === 0x74 && bytes[1] === 0x72);
-    const isOTF = bytes[0] === 0x4F && bytes[1] === 0x54 && bytes[2] === 0x54 && bytes[3] === 0x4F;
-    if (!isTTF && !isOTF) return null;
+    // Reject WOFF and WOFF2 (not supported by pdf-lib); accept TTF, OTF, and variable fonts
+    const isWOFF  = bytes[0] === 0x77 && bytes[1] === 0x4F && bytes[2] === 0x46 && bytes[3] === 0x46; // "wOFF"
+    const isWOFF2 = bytes[0] === 0x77 && bytes[1] === 0x4F && bytes[2] === 0x46 && bytes[3] === 0x32; // "wOF2"
+    if (isWOFF || isWOFF2) return null;
     return bytes;
   } catch {
     return null;
