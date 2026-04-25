@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, doc, updateDoc, getDocs, getDoc, writeBatch } from "firebase/firestore";
+import { collection, doc, addDoc, updateDoc, getDocs, getDoc, writeBatch } from "firebase/firestore";
 import { v4 as uuidv4 } from "uuid";
 import { getAdminFromCookieHeader, logActivity } from "@/lib/activity";
 
@@ -66,7 +66,6 @@ export async function POST(request: NextRequest) {
     const spreadsheetId = dbData?.sheetId;
     const tabName = dbData?.sheetTabName || "Participants";
 
-    // Use nested subcollection
     const certificatesRef = collection(db, "certificates");
     const participantsRef = collection(db, "databases", databaseId, "participants");
 
@@ -76,83 +75,106 @@ export async function POST(request: NextRequest) {
       certificates: [] as any[],
     };
 
-    for (const participant of participants) {
-      try {
-        // Generate unique certificate ID
-        const certId = `PZ-${new Date().getFullYear()}-${uuidv4().split('-')[0].toUpperCase()}`;
-        const blockchainHash = `0x${uuidv4().replace(/-/g, "")}`;
-        const verificationUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://verify.pharmacozyme.com"}/verify/${certId}`;
+    const issueDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
-        let driveLink = "";
-        let driveFileId = "";
+    if (!generatePdf || !pdfData) {
+      // Fast path: batch all Firestore writes (no Drive uploads needed)
+      const certEntries: Array<{ certRef: any; participantRef: any; certificate: any }> = [];
 
-        // Upload PDF to Drive if requested and sheet is linked
-        if (generatePdf && pdfData && hasSheet && APPS_SCRIPT_URL) {
-          try {
-            const fileName = `${participant.name.replace(/[^a-zA-Z0-9]/g, "_")}_${certId}.pdf`;
-            const uploadResult = await callAppsScript("uploadPDF", {
-              spreadsheetId,
-              pdfData,
-              fileName,
-              databaseName: dbData?.name || topic,
-            });
-            
-            if (uploadResult.success) {
-              driveLink = uploadResult.webContentLink || "";
-              driveFileId = uploadResult.fileId || "";
-              if (uploadResult.folderId) {
-                updateDoc(dbRef, {
-                  driveFolderId: uploadResult.folderId,
-                  driveFolderUrl: uploadResult.folderUrl || `https://drive.google.com/drive/folders/${uploadResult.folderId}`,
-                }).catch(() => {});
-              }
-            }
-          } catch (driveErr) {
-            console.error("Failed to upload PDF to Drive:", driveErr);
-          }
+      for (const participant of participants) {
+        try {
+          const certId = `PZ-${new Date().getFullYear()}-${uuidv4().split('-')[0].toUpperCase()}`;
+          const blockchainHash = `0x${uuidv4().replace(/-/g, "")}`;
+          const verificationUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://verify.pharmacozyme.com"}/verify/${certId}`;
+          const certRef = doc(certificatesRef);
+          const certificate = {
+            databaseId, participantId: participant.id,
+            uniqueCertId: certId, recipientName: participant.name, recipientEmail: participant.email,
+            category, subCategory, topic, certType: certificateType || topic,
+            issueDate, status: "generated", qrCode: verificationUrl,
+            pdfUrl: "", driveFileId: "", blockchainHash, verificationUrl,
+            createdAt: new Date().toISOString(),
+          };
+          certEntries.push({ certRef, participantRef: doc(participantsRef, participant.id), certificate });
+          results.certificates.push({ id: certRef.id, ...certificate });
+          results.success++;
+        } catch (err) {
+          console.error("Failed to prepare certificate for:", participant.name, err);
+          results.failed++;
         }
+      }
 
-        const certificate = {
-          databaseId,
-          participantId: participant.id,
-          uniqueCertId: certId,
-          recipientName: participant.name,
-          recipientEmail: participant.email,
-          category,
-          subCategory,
-          topic,
-          certType: certificateType || topic,
-          issueDate: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-          status: "generated",
-          qrCode: verificationUrl,
-          pdfUrl: driveLink || "",
-          driveFileId: driveFileId,
-          blockchainHash,
-          verificationUrl,
-          createdAt: new Date().toISOString(),
-        };
+      // Commit in chunks of 250 participants (= 500 Firestore ops per batch)
+      const CHUNK = 250;
+      for (let i = 0; i < certEntries.length; i += CHUNK) {
+        const batch = writeBatch(db);
+        for (const { certRef, participantRef, certificate } of certEntries.slice(i, i + CHUNK)) {
+          batch.set(certRef, certificate);
+          batch.update(participantRef, {
+            certificateId: certificate.uniqueCertId,
+            certificateUrl: certificate.verificationUrl,
+            status: "generated",
+            driveLink: "",
+            driveFileId: "",
+            issueDate: certificate.issueDate,
+          });
+        }
+        await batch.commit();
+      }
 
-        const docRef = await addDoc(certificatesRef, certificate);
+    } else {
+      // Slow path: per-participant Drive upload then Firestore write
+      for (const participant of participants) {
+        try {
+          const certId = `PZ-${new Date().getFullYear()}-${uuidv4().split('-')[0].toUpperCase()}`;
+          const blockchainHash = `0x${uuidv4().replace(/-/g, "")}`;
+          const verificationUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://verify.pharmacozyme.com"}/verify/${certId}`;
 
-        // Update participant with certificate ID and Drive link
-        const participantRef = doc(participantsRef, participant.id);
-        await updateDoc(participantRef, {
-          certificateId: certId,
-          certificateUrl: verificationUrl,
-          status: "generated",
-          driveLink: driveLink || "",
-          driveFileId: driveFileId || "",
-          issueDate: certificate.issueDate,
-        });
+          let driveLink = "";
+          let driveFileId = "";
 
-        results.certificates.push({
-          id: docRef.id,
-          ...certificate,
-        });
-        results.success++;
-      } catch (err) {
-        console.error("Failed to generate certificate for:", participant.name, err);
-        results.failed++;
+          if (hasSheet && APPS_SCRIPT_URL) {
+            try {
+              const fileName = `${participant.name.replace(/[^a-zA-Z0-9]/g, "_")}_${certId}.pdf`;
+              const uploadResult = await callAppsScript("uploadPDF", {
+                spreadsheetId, pdfData, fileName, databaseName: dbData?.name || topic,
+              });
+              if (uploadResult.success) {
+                driveLink = uploadResult.webContentLink || "";
+                driveFileId = uploadResult.fileId || "";
+                if (uploadResult.folderId) {
+                  updateDoc(dbRef, {
+                    driveFolderId: uploadResult.folderId,
+                    driveFolderUrl: uploadResult.folderUrl || `https://drive.google.com/drive/folders/${uploadResult.folderId}`,
+                  }).catch(() => {});
+                }
+              }
+            } catch (driveErr) {
+              console.error("Failed to upload PDF to Drive:", driveErr);
+            }
+          }
+
+          const certificate = {
+            databaseId, participantId: participant.id,
+            uniqueCertId: certId, recipientName: participant.name, recipientEmail: participant.email,
+            category, subCategory, topic, certType: certificateType || topic,
+            issueDate, status: "generated", qrCode: verificationUrl,
+            pdfUrl: driveLink, driveFileId, blockchainHash, verificationUrl,
+            createdAt: new Date().toISOString(),
+          };
+
+          const docRef = await addDoc(certificatesRef, certificate);
+          await updateDoc(doc(participantsRef, participant.id), {
+            certificateId: certId, certificateUrl: verificationUrl,
+            status: "generated", driveLink, driveFileId, issueDate,
+          });
+
+          results.certificates.push({ id: docRef.id, ...certificate });
+          results.success++;
+        } catch (err) {
+          console.error("Failed to generate certificate for:", participant.name, err);
+          results.failed++;
+        }
       }
     }
 

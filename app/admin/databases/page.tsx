@@ -949,8 +949,13 @@ export default function DatabaseManagementPage() {
     const maxSerial = existingSerials.length > 0 ? Math.max(...existingSerials) : 0;
 
     try {
+      // Sort by createdAt ascending so sheet row order (first imported = lowest serial)
+      const ordered = [...unassignedParticipants].sort((a, b) =>
+        new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
+      );
+
       // Build all ID assignments locally, then send in one batch request
-      const updates = unassignedParticipants.map((participant, i) => {
+      const updates = ordered.map((participant, i) => {
         const serial = String(maxSerial + i + 1).padStart(3, "0");
         let certId: string;
         if (idFormat === "app") {
@@ -976,6 +981,13 @@ export default function DatabaseManagementPage() {
       sfx.success();
       toast.success(`Generated ${unassignedParticipants.length} certificate IDs!`);
       fetchParticipants(selectedDatabase.id!);
+
+      // Sync IDs to Google Sheet (separate call so it doesn't block or timeout)
+      fetch("/api/sheets/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ databaseId: selectedDatabase?.id, mode: "firebaseToSheets" }),
+      }).catch(() => {});
     } catch (err) {
       console.error("Error generating IDs:", err);
       toast.error("Error generating certificate IDs");
