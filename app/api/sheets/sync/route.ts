@@ -151,6 +151,15 @@ export async function POST(request: NextRequest) {
         synced,
       });
 
+    } else if (mode === "updateCertIds") {
+      // Fast targeted update: only writes column A (cert ID) matched by email.
+      const updates = body.updates as Array<{ email: string; certificateId: string }>;
+      if (!updates || updates.length === 0) {
+        return NextResponse.json({ success: true, updated: 0 });
+      }
+      const result = await callAppsScript("updateCertIds", { spreadsheetId, tabName, updates });
+      return NextResponse.json({ success: true, updated: result.updated ?? 0 });
+
     } else {
       return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
     }

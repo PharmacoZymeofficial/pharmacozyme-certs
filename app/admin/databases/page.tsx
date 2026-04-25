@@ -885,15 +885,20 @@ export default function DatabaseManagementPage() {
     if (!selectedDatabase?.linkedSheet || !selectedDatabase?.id) return;
     setIsSyncingSheet(true);
     try {
+      // Use targeted cert-ID-only update (fast: 3 batch calls vs full rewrite)
+      const certIdUpdates = participants
+        .filter(p => p.certificateId && p.email)
+        .map(p => ({ email: p.email, certificateId: p.certificateId }));
+
       const response = await fetch("/api/sheets/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ databaseId: selectedDatabase.id, mode: "firebaseToSheets" }),
+        body: JSON.stringify({ databaseId: selectedDatabase.id, mode: "updateCertIds", updates: certIdUpdates }),
       });
       const data = await response.json();
       if (response.ok) {
         sfx.success();
-        toast.success(`Pushed to sheet! ${data.synced ?? ""} rows written.`);
+        toast.success(`Sheet updated! ${data.updated ?? 0} certificate IDs synced.`);
       } else {
         toast.error(data.error || "Failed to push to sheet");
         sfx.error();
@@ -1007,12 +1012,21 @@ export default function DatabaseManagementPage() {
       toast.success(`Generated ${unassignedParticipants.length} certificate IDs!`);
       fetchParticipants(selectedDatabase.id!);
 
-      // Sync IDs to Google Sheet (separate call so it doesn't block or timeout)
-      fetch("/api/sheets/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ databaseId: selectedDatabase?.id, mode: "firebaseToSheets" }),
-      }).catch(() => {});
+      // Auto-sync cert IDs to sheet (fast targeted column-A update)
+      if (selectedDatabase?.linkedSheet) {
+        const certIdUpdates = updates.map(u => {
+          const p = participants.find(x => x.id === u.id);
+          return { email: p?.email || "", certificateId: u.certificateId };
+        }).filter(u => u.email);
+
+        fetch("/api/sheets/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ databaseId: selectedDatabase.id, mode: "updateCertIds", updates: certIdUpdates }),
+        }).then(r => r.json()).then(d => {
+          if (d.updated) toast.info(`Sheet updated: ${d.updated} IDs synced.`);
+        }).catch(() => {});
+      }
     } catch (err) {
       console.error("Error generating IDs:", err);
       toast.error("Error generating certificate IDs");

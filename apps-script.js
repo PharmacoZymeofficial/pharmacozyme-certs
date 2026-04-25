@@ -55,6 +55,9 @@ function doPost(e) {
       case "getFolder":
         result = getFolder(payload);
         break;
+      case "updateCertIds":
+        result = updateCertIds(payload);
+        break;
       default:
         throw new Error("Unknown action: " + action);
     }
@@ -369,11 +372,11 @@ function getFolder(payload) {
 
 function deletePDF(payload) {
   const { fileId } = payload;
-  
+
   if (!fileId) {
     throw new Error("File ID is required");
   }
-  
+
   try {
     const file = DriveApp.getFileById(fileId);
     DriveApp.removeFile(file);
@@ -381,4 +384,46 @@ function deletePDF(payload) {
   } catch (error) {
     return { success: false, error: error.message };
   }
+}
+
+// Fast targeted update: only writes column A (Certificate ID) matched by email.
+// 3 batch API calls regardless of row count — no full-sheet rewrite needed.
+function updateCertIds(payload) {
+  const { spreadsheetId, tabName, updates } = payload;
+  if (!updates || updates.length === 0) return { success: true, updated: 0 };
+
+  const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+  const sheet = spreadsheet.getSheetByName(tabName);
+  if (!sheet) throw new Error("Sheet tab not found: " + tabName);
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return { success: true, updated: 0 };
+
+  const rowCount = lastRow - 1;
+
+  // Batch read: column A (cert IDs) and column C (emails)
+  const certIdCol = sheet.getRange(2, 1, rowCount, 1).getValues();
+  const emailCol  = sheet.getRange(2, 3, rowCount, 1).getValues();
+
+  // Build email → certId map from the incoming updates
+  const emailToCertId = {};
+  updates.forEach(function(upd) {
+    const email = (upd.email || "").toLowerCase().trim();
+    if (email) emailToCertId[email] = upd.certificateId;
+  });
+
+  // Apply updates to the certId column array
+  var updated = 0;
+  for (var i = 0; i < rowCount; i++) {
+    const email = (emailCol[i][0] || "").toLowerCase().trim();
+    if (emailToCertId[email] !== undefined) {
+      certIdCol[i][0] = emailToCertId[email];
+      updated++;
+    }
+  }
+
+  // Batch write: one call for the whole column
+  sheet.getRange(2, 1, rowCount, 1).setValues(certIdCol);
+
+  return { success: true, updated: updated };
 }
