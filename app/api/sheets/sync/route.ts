@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc } from "firebase/firestore";
 
 const APPS_SCRIPT_URL = process.env.GOOGLE_APPS_SCRIPT_URL || "";
 
@@ -105,12 +105,14 @@ export async function POST(request: NextRequest) {
 
       const participantsRef = collection(db, "databases", databaseId, "participants");
 
-      // Fetch existing participants ONCE and index by email
+      // Fetch existing participants ONCE and index by name+email (same key as CSV import)
       const existingSnap = await getDocs(participantsRef);
-      const existingByEmail = new Map<string, any>();
+      const existingByKey = new Map<string, any>();
       for (const d of existingSnap.docs) {
-        const email = (d.data().email || "").toLowerCase().trim();
-        if (email) existingByEmail.set(email, d);
+        const data = d.data();
+        const name = (data.name || "").toLowerCase().trim();
+        const email = (data.email || "").toLowerCase().trim();
+        if (name || email) existingByKey.set(`${name}_${email}`, d);
       }
 
       let synced = 0;
@@ -118,8 +120,10 @@ export async function POST(request: NextRequest) {
       for (const p of result.data) {
         if (!p.name) continue;
 
+        const nameKey = (p.name || "").toLowerCase().trim();
         const emailKey = (p.email || "").toLowerCase().trim();
-        const existing = emailKey ? existingByEmail.get(emailKey) : undefined;
+        const key = `${nameKey}_${emailKey}`;
+        const existing = existingByKey.get(key);
 
         const fields = {
           name: p.name,
@@ -136,7 +140,7 @@ export async function POST(request: NextRequest) {
           await updateDoc(existing.ref, fields);
         } else {
           const newRef = await addDoc(participantsRef, { ...fields, createdAt: new Date().toISOString() });
-          if (emailKey) existingByEmail.set(emailKey, { ref: newRef });
+          existingByKey.set(key, { ref: newRef });
         }
         synced++;
       }
