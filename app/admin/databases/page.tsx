@@ -1690,17 +1690,17 @@ export default function DatabaseManagementPage() {
                                 setBulkDeleteLabel("Deleting PDFs");
                                 setIsBulkDeleting(true);
                                 try {
-                                  for (const id of selectedParticipants) {
-                                    const participant = participants.find(p => p.id === id);
-                                    if (participant?.driveFileId) {
-                                      await fetch(`/api/drive-upload?fileId=${participant.driveFileId}`, { method: "DELETE" });
-                                    }
-                                    await fetch(`/api/participants/${id}`, {
-                                      method: "PUT",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ certificateUrl: "", driveLink: "", driveFileId: "", status: "pending", databaseId: selectedDatabase?.id }),
-                                    });
-                                  }
+                                  // Delete Drive files in parallel (independent)
+                                  await Promise.all(selectedParticipants.map(id => {
+                                    const p = participants.find(x => x.id === id);
+                                    return p?.driveFileId ? fetch(`/api/drive-upload?fileId=${p.driveFileId}`, { method: "DELETE" }) : Promise.resolve();
+                                  }));
+                                  // Batch-clear PDF fields in Firestore
+                                  await fetch("/api/participants/batch-update", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ databaseId: selectedDatabase?.id, participantIds: selectedParticipants, fields: { certificateUrl: "", driveLink: "", driveFileId: "", status: "pending" } }),
+                                  });
                                   sfx.delete();
                                   toast.success(`Deleted PDFs for ${selectedParticipants.length} participants`);
                                   setSelectedParticipants([]);
@@ -1722,13 +1722,11 @@ export default function DatabaseManagementPage() {
                                 setBulkDeleteLabel("Deleting Certificate IDs");
                                 setIsBulkDeleting(true);
                                 try {
-                                  for (const id of selectedParticipants) {
-                                    await fetch(`/api/participants/${id}`, {
-                                      method: "PUT",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ certificateId: "", serialNumber: null, status: "pending", verificationUrl: "", databaseId: selectedDatabase?.id }),
-                                    });
-                                  }
+                                  await fetch("/api/participants/batch-update", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ databaseId: selectedDatabase?.id, participantIds: selectedParticipants, fields: { certificateId: "", serialNumber: null, status: "pending", verificationUrl: "" } }),
+                                  });
                                   sfx.delete();
                                   toast.success(`Deleted Certificate IDs for ${selectedParticipants.length} participants`);
                                   setSelectedParticipants([]);
@@ -1750,17 +1748,17 @@ export default function DatabaseManagementPage() {
                                 setBulkDeleteLabel("Deleting IDs + PDFs");
                                 setIsBulkDeleting(true);
                                 try {
-                                  for (const id of selectedParticipants) {
-                                    const participant = participants.find(p => p.id === id);
-                                    if (participant?.driveFileId) {
-                                      await fetch(`/api/drive-upload?fileId=${participant.driveFileId}`, { method: "DELETE" });
-                                    }
-                                    await fetch(`/api/participants/${id}`, {
-                                      method: "PUT",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ certificateId: "", certificateUrl: "", driveLink: "", driveFileId: "", status: "pending", databaseId: selectedDatabase?.id }),
-                                    });
-                                  }
+                                  // Delete Drive files in parallel
+                                  await Promise.all(selectedParticipants.map(id => {
+                                    const p = participants.find(x => x.id === id);
+                                    return p?.driveFileId ? fetch(`/api/drive-upload?fileId=${p.driveFileId}`, { method: "DELETE" }) : Promise.resolve();
+                                  }));
+                                  // Batch-clear all cert+pdf fields
+                                  await fetch("/api/participants/batch-update", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ databaseId: selectedDatabase?.id, participantIds: selectedParticipants, fields: { certificateId: "", certificateUrl: "", driveLink: "", driveFileId: "", status: "pending" } }),
+                                  });
                                   sfx.delete();
                                   toast.success(`Deleted ID + PDF for ${selectedParticipants.length} participants`);
                                   setSelectedParticipants([]);
