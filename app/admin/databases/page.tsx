@@ -949,8 +949,8 @@ export default function DatabaseManagementPage() {
     const maxSerial = existingSerials.length > 0 ? Math.max(...existingSerials) : 0;
 
     try {
-      for (let i = 0; i < unassignedParticipants.length; i++) {
-        const participant = unassignedParticipants[i];
+      // Build all ID assignments locally, then send in one batch request
+      const updates = unassignedParticipants.map((participant, i) => {
         const serial = String(maxSerial + i + 1).padStart(3, "0");
         let certId: string;
         if (idFormat === "app") {
@@ -959,14 +959,18 @@ export default function DatabaseManagementPage() {
           const firstName = participant.name.split(" ")[0];
           certId = `${firstName}-${idFormatCode}-${serial}`;
         }
+        return { id: participant.id, certificateId: certId, status: "pending" };
+      });
 
-        const response = await fetch(`/api/participants/${participant.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ certificateId: certId, status: "pending", databaseId: selectedDatabase?.id }),
-        });
+      const response = await fetch("/api/participants/batch-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ databaseId: selectedDatabase?.id, updates }),
+      });
 
-        if (!response.ok) console.error("Failed to update participant:", participant.id);
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Batch update failed");
       }
 
       sfx.success();
