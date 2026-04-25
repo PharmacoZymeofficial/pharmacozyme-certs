@@ -602,7 +602,7 @@ export default function TemplatesPage() {
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
           style={{ overflow: 'auto' }}
         >
-          <div className="bg-white w-full max-w-4xl rounded-xl shadow-2xl my-8 max-h-[95vh] overflow-hidden flex flex-col">
+          <div className="bg-white w-full max-w-6xl rounded-xl shadow-2xl my-4 max-h-[96vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-green-50 flex justify-between items-center">
               <div>
                 <h3 className="text-xl font-headline font-bold text-brand-dark-green">Edit Overlay Positions</h3>
@@ -616,184 +616,162 @@ export default function TemplatesPage() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-auto p-6">
-              {/* Test Data */}
-              <div className="mb-4 p-4 bg-green-50 rounded-xl">
-                <p className="text-xs font-bold text-brand-grass-green uppercase mb-3">Test Data</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs text-on-surface-variant mb-1">Name</label>
-                    <input
-                      type="text"
-                      value={testData.name}
-                      onChange={(e) => setTestData({ ...testData, name: e.target.value })}
-                      className="w-full bg-white border border-green-200 rounded-lg px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-on-surface-variant mb-1">Certificate ID</label>
-                    <input
-                      type="text"
-                      value={testData.certId}
-                      onChange={(e) => setTestData({ ...testData, certId: e.target.value })}
-                      className="w-full bg-white border border-green-200 rounded-lg px-3 py-2 text-sm"
-                    />
-                  </div>
-                </div>
-              </div>
+            {/* SPLIT PANEL: left controls, right preview */}
+            <div className="flex-1 flex overflow-hidden min-h-0">
 
-              {/* Position Controls */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* LEFT PANEL — Controls (always visible, independently scrollable) */}
+              <div className="w-72 flex-shrink-0 overflow-y-auto border-r border-green-100 bg-slate-50/40">
+                <div className="p-3 space-y-3">
 
-                {/* Name Position */}
-                <div className="bg-green-50 p-4 rounded-xl space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-brand-green text-base">person</span>
-                    <span className="font-bold text-brand-dark-green text-sm">Name</span>
-                  </div>
-                  <SliderField label="Horizontal (%)" min={0} max={100} step={0.5}
-                    value={positions.name.x}
-                    onChange={v => setPositions({ ...positions, name: { ...positions.name, x: v } })} />
-                  <SliderField label="Vertical (%)" min={0} max={100} step={0.5}
-                    value={positions.name.y}
-                    onChange={v => setPositions({ ...positions, name: { ...positions.name, y: v } })} />
-                  <SliderField label="Font Size (pt)" min={8} max={80} step={1}
-                    value={positions.name.size ?? 48}
-                    onChange={v => setPositions({ ...positions, name: { ...positions.name, size: v } })} />
-                  <div>
-                    <label className="text-xs text-on-surface-variant">Color</label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <input type="color" value={positions.name.color || "#1b4332"}
-                        onChange={e => setPositions({ ...positions, name: { ...positions.name, color: e.target.value } })}
-                        className="w-8 h-8 rounded cursor-pointer border-0" />
-                      <span className="text-xs font-mono">{positions.name.color || "#1b4332"}</span>
-                    </div>
-                  </div>
-                  <FontSelect
-                    value={positions.name.font || ""}
-                    onChange={v => setPositions({ ...positions, name: { ...positions.name, font: v } })}
-                  />
-                  <div className="flex gap-2 pt-1">
-                    <button onClick={() => setPositions({ ...positions, name: { ...positions.name, x: 50 } })}
-                      className="flex-1 py-1 text-[11px] bg-white border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">
-                      Center H
-                    </button>
-                    <button onClick={() => setPositions({ ...positions, name: { ...positions.name, y: 50 } })}
-                      className="flex-1 py-1 text-[11px] bg-white border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">
-                      Center V
-                    </button>
-                  </div>
-                </div>
-
-                {/* Certificate ID Position */}
-                <div className="bg-green-50 p-4 rounded-xl space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-brand-green text-base">badge</span>
-                    <span className="font-bold text-brand-dark-green text-sm">Certificate ID</span>
-                  </div>
-                  <SliderField label="Horizontal (%)" min={0} max={100} step={0.5}
-                    value={positions.certId.x}
-                    onChange={v => setPositions({ ...positions, certId: { ...positions.certId, x: v } })} />
-                  <SliderField label="Vertical (%)" min={0} max={100} step={0.5}
-                    value={positions.certId.y}
-                    onChange={v => setPositions({ ...positions, certId: { ...positions.certId, y: v } })} />
-                  <SliderField label="Font Size (pt)" min={6} max={24} step={0.5}
-                    value={positions.certId.size ?? 12}
-                    onChange={v => setPositions({ ...positions, certId: { ...positions.certId, size: v } })} />
-                  <div>
-                    <label className="text-xs text-on-surface-variant">Color</label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <input type="color" value={positions.certId.color || "#333333"}
-                        onChange={e => setPositions({ ...positions, certId: { ...positions.certId, color: e.target.value } })}
-                        className="w-8 h-8 rounded cursor-pointer border-0" />
-                      <span className="text-xs font-mono">{positions.certId.color || "#333333"}</span>
-                    </div>
-                  </div>
-                  <FontSelect
-                    value={positions.certId.font || ""}
-                    onChange={v => setPositions({ ...positions, certId: { ...positions.certId, font: v } })}
-                  />
-                  <div className="flex gap-2 pt-1">
-                    <button onClick={() => setPositions({ ...positions, certId: { ...positions.certId, x: 50 } })}
-                      className="flex-1 py-1 text-[11px] bg-white border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">
-                      Center H
-                    </button>
-                    <button onClick={() => setPositions({ ...positions, certId: { ...positions.certId, y: 50 } })}
-                      className="flex-1 py-1 text-[11px] bg-white border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">
-                      Center V
-                    </button>
-                  </div>
-                </div>
-
-                {/* QR Code Position */}
-                <div className="bg-green-50 p-4 rounded-xl space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-brand-green text-base">qr_code_2</span>
-                    <span className="font-bold text-brand-dark-green text-sm">QR Code</span>
-                  </div>
-                  <SliderField label="Horizontal (%)" min={0} max={100} step={0.5}
-                    value={positions.qr.x}
-                    onChange={v => setPositions({ ...positions, qr: { ...positions.qr, x: v } })} />
-                  <SliderField label="Vertical (%)" min={0} max={100} step={0.5}
-                    value={positions.qr.y}
-                    onChange={v => setPositions({ ...positions, qr: { ...positions.qr, y: v } })} />
-                  <SliderField label="Size (%)" min={1} max={25} step={0.5}
-                    value={positions.qr.size ?? 12}
-                    onChange={v => setPositions({ ...positions, qr: { ...positions.qr, size: v } })} />
-                  <div>
-                    <label className="text-xs text-on-surface-variant">Dot Color</label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <input type="color" value={positions.qr.darkColor || "#000000"}
-                        onChange={e => setPositions({ ...positions, qr: { ...positions.qr, darkColor: e.target.value } })}
-                        className="w-8 h-8 rounded cursor-pointer border-0" />
-                      <span className="text-xs font-mono">{positions.qr.darkColor || "#000000"}</span>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs text-on-surface-variant">Background</label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <input type="checkbox" id="qr-transparent" checked={positions.qr.transparentBg ?? false}
-                        onChange={e => setPositions({ ...positions, qr: { ...positions.qr, transparentBg: e.target.checked } })}
-                        className="w-4 h-4 accent-brand-vivid-green" />
-                      <label htmlFor="qr-transparent" className="text-xs text-on-surface-variant cursor-pointer">Transparent</label>
-                    </div>
-                    {!positions.qr.transparentBg && (
-                      <div className="flex items-center gap-2 mt-1">
-                        <input type="color" value={positions.qr.lightColor || "#ffffff"}
-                          onChange={e => setPositions({ ...positions, qr: { ...positions.qr, lightColor: e.target.value } })}
-                          className="w-8 h-8 rounded cursor-pointer border-0" />
-                        <span className="text-xs font-mono">{positions.qr.lightColor || "#ffffff"}</span>
+                  {/* Test Data */}
+                  <div className="p-3 bg-green-50 rounded-xl">
+                    <p className="text-xs font-bold text-brand-grass-green uppercase mb-2">Test Data</p>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="block text-xs text-on-surface-variant mb-1">Name</label>
+                        <input type="text" value={testData.name}
+                          onChange={(e) => setTestData({ ...testData, name: e.target.value })}
+                          className="w-full bg-white border border-green-200 rounded-lg px-3 py-1.5 text-sm" />
                       </div>
-                    )}
+                      <div>
+                        <label className="block text-xs text-on-surface-variant mb-1">Certificate ID</label>
+                        <input type="text" value={testData.certId}
+                          onChange={(e) => setTestData({ ...testData, certId: e.target.value })}
+                          className="w-full bg-white border border-green-200 rounded-lg px-3 py-1.5 text-sm" />
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex gap-2 pt-1">
-                    <button onClick={() => setPositions({ ...positions, qr: { ...positions.qr, x: 50 } })}
-                      className="flex-1 py-1 text-[11px] bg-white border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">
-                      Center H
-                    </button>
-                    <button onClick={() => setPositions({ ...positions, qr: { ...positions.qr, y: 50 } })}
-                      className="flex-1 py-1 text-[11px] bg-white border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">
-                      Center V
-                    </button>
+
+                  {/* Name Position */}
+                  <div className="bg-white border border-green-100 p-3 rounded-xl space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-brand-green text-base">person</span>
+                      <span className="font-bold text-brand-dark-green text-sm">Name</span>
+                    </div>
+                    <SliderField label="Horizontal (%)" min={0} max={100} step={0.5}
+                      value={positions.name.x}
+                      onChange={v => setPositions({ ...positions, name: { ...positions.name, x: v } })} />
+                    <SliderField label="Vertical (%)" min={0} max={100} step={0.5}
+                      value={positions.name.y}
+                      onChange={v => setPositions({ ...positions, name: { ...positions.name, y: v } })} />
+                    <SliderField label="Font Size (pt)" min={1} max={80} step={1}
+                      value={positions.name.size ?? 48}
+                      onChange={v => setPositions({ ...positions, name: { ...positions.name, size: v } })} />
+                    <div>
+                      <label className="text-xs text-on-surface-variant">Color</label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <input type="color" value={positions.name.color || "#1b4332"}
+                          onChange={e => setPositions({ ...positions, name: { ...positions.name, color: e.target.value } })}
+                          className="w-8 h-8 rounded cursor-pointer border-0" />
+                        <span className="text-xs font-mono">{positions.name.color || "#1b4332"}</span>
+                      </div>
+                    </div>
+                    <FontSelect value={positions.name.font || ""}
+                      onChange={v => setPositions({ ...positions, name: { ...positions.name, font: v } })} />
+                    <div className="flex gap-2">
+                      <button onClick={() => setPositions({ ...positions, name: { ...positions.name, x: 50 } })}
+                        className="flex-1 py-1 text-[11px] bg-green-50 border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">Center H</button>
+                      <button onClick={() => setPositions({ ...positions, name: { ...positions.name, y: 50 } })}
+                        className="flex-1 py-1 text-[11px] bg-green-50 border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">Center V</button>
+                    </div>
                   </div>
+
+                  {/* Certificate ID Position */}
+                  <div className="bg-white border border-green-100 p-3 rounded-xl space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-brand-green text-base">badge</span>
+                      <span className="font-bold text-brand-dark-green text-sm">Certificate ID</span>
+                    </div>
+                    <SliderField label="Horizontal (%)" min={0} max={100} step={0.5}
+                      value={positions.certId.x}
+                      onChange={v => setPositions({ ...positions, certId: { ...positions.certId, x: v } })} />
+                    <SliderField label="Vertical (%)" min={0} max={100} step={0.5}
+                      value={positions.certId.y}
+                      onChange={v => setPositions({ ...positions, certId: { ...positions.certId, y: v } })} />
+                    <SliderField label="Font Size (pt)" min={1} max={24} step={0.5}
+                      value={positions.certId.size ?? 12}
+                      onChange={v => setPositions({ ...positions, certId: { ...positions.certId, size: v } })} />
+                    <div>
+                      <label className="text-xs text-on-surface-variant">Color</label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <input type="color" value={positions.certId.color || "#333333"}
+                          onChange={e => setPositions({ ...positions, certId: { ...positions.certId, color: e.target.value } })}
+                          className="w-8 h-8 rounded cursor-pointer border-0" />
+                        <span className="text-xs font-mono">{positions.certId.color || "#333333"}</span>
+                      </div>
+                    </div>
+                    <FontSelect value={positions.certId.font || ""}
+                      onChange={v => setPositions({ ...positions, certId: { ...positions.certId, font: v } })} />
+                    <div className="flex gap-2">
+                      <button onClick={() => setPositions({ ...positions, certId: { ...positions.certId, x: 50 } })}
+                        className="flex-1 py-1 text-[11px] bg-green-50 border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">Center H</button>
+                      <button onClick={() => setPositions({ ...positions, certId: { ...positions.certId, y: 50 } })}
+                        className="flex-1 py-1 text-[11px] bg-green-50 border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">Center V</button>
+                    </div>
+                  </div>
+
+                  {/* QR Code Position */}
+                  <div className="bg-white border border-green-100 p-3 rounded-xl space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-brand-green text-base">qr_code_2</span>
+                      <span className="font-bold text-brand-dark-green text-sm">QR Code</span>
+                    </div>
+                    <SliderField label="Horizontal (%)" min={0} max={100} step={0.5}
+                      value={positions.qr.x}
+                      onChange={v => setPositions({ ...positions, qr: { ...positions.qr, x: v } })} />
+                    <SliderField label="Vertical (%)" min={0} max={100} step={0.5}
+                      value={positions.qr.y}
+                      onChange={v => setPositions({ ...positions, qr: { ...positions.qr, y: v } })} />
+                    <SliderField label="Size (%)" min={1} max={25} step={0.5}
+                      value={positions.qr.size ?? 12}
+                      onChange={v => setPositions({ ...positions, qr: { ...positions.qr, size: v } })} />
+                    <div>
+                      <label className="text-xs text-on-surface-variant">Dot Color</label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <input type="color" value={positions.qr.darkColor || "#000000"}
+                          onChange={e => setPositions({ ...positions, qr: { ...positions.qr, darkColor: e.target.value } })}
+                          className="w-8 h-8 rounded cursor-pointer border-0" />
+                        <span className="text-xs font-mono">{positions.qr.darkColor || "#000000"}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-on-surface-variant">Background</label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <input type="checkbox" id="qr-transparent" checked={positions.qr.transparentBg ?? false}
+                          onChange={e => setPositions({ ...positions, qr: { ...positions.qr, transparentBg: e.target.checked } })}
+                          className="w-4 h-4 accent-brand-vivid-green" />
+                        <label htmlFor="qr-transparent" className="text-xs text-on-surface-variant cursor-pointer">Transparent</label>
+                      </div>
+                      {!positions.qr.transparentBg && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <input type="color" value={positions.qr.lightColor || "#ffffff"}
+                            onChange={e => setPositions({ ...positions, qr: { ...positions.qr, lightColor: e.target.value } })}
+                            className="w-8 h-8 rounded cursor-pointer border-0" />
+                          <span className="text-xs font-mono">{positions.qr.lightColor || "#ffffff"}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => setPositions({ ...positions, qr: { ...positions.qr, x: 50 } })}
+                        className="flex-1 py-1 text-[11px] bg-green-50 border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">Center H</button>
+                      <button onClick={() => setPositions({ ...positions, qr: { ...positions.qr, y: 50 } })}
+                        className="flex-1 py-1 text-[11px] bg-green-50 border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">Center V</button>
+                    </div>
+                  </div>
+
                 </div>
               </div>
 
-              {/* Visual Preview - Draggable */}
-              <div className="mt-6">
-                <div className="flex items-center justify-between mb-3">
+              {/* RIGHT PANEL — Live Preview (always visible) */}
+              <div className="flex-1 flex flex-col p-4 overflow-hidden">
+                <div className="flex items-center justify-between mb-3 flex-shrink-0">
                   <div className="flex items-center gap-3">
                     <p className="text-xs font-bold text-brand-grass-green uppercase">Live Preview</p>
-                    <button
-                      onClick={generatePreview}
-                      disabled={generatingPreview}
-                      className="px-3 py-1 text-xs bg-brand-vivid-green text-white rounded-lg flex items-center gap-1 hover:bg-green-700 disabled:opacity-50"
-                    >
-                      {generatingPreview ? (
-                        <span className="material-symbols-outlined animate-spin text-xs">progress_activity</span>
-                      ) : (
-                        <span className="material-symbols-outlined text-xs">refresh</span>
-                      )}
+                    <button onClick={generatePreview} disabled={generatingPreview}
+                      className="px-3 py-1 text-xs bg-brand-vivid-green text-white rounded-lg flex items-center gap-1 hover:bg-green-700 disabled:opacity-50">
+                      {generatingPreview
+                        ? <span className="material-symbols-outlined animate-spin text-xs">progress_activity</span>
+                        : <span className="material-symbols-outlined text-xs">refresh</span>}
                       {generatingPreview ? "Generating..." : "Generate Preview"}
                     </button>
                   </div>
@@ -803,107 +781,74 @@ export default function TemplatesPage() {
                     <span className="flex items-center gap-1"><span className="w-3 h-3 bg-blue-500 rounded"></span> QR</span>
                   </div>
                 </div>
-                
+
                 {previewPdfUrl && (
-                  <div className="mb-3 p-2 bg-green-50 rounded-lg flex items-center justify-between">
+                  <div className="mb-2 p-2 bg-green-50 rounded-lg flex items-center justify-between flex-shrink-0">
                     <span className="text-xs text-brand-dark-green">Preview generated!</span>
-                    <a
-                      href={previewPdfUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-brand-vivid-green hover:underline flex items-center gap-1"
-                    >
+                    <a href={previewPdfUrl} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-brand-vivid-green hover:underline flex items-center gap-1">
                       <span className="material-symbols-outlined text-xs">open_in_new</span>
                       Open Full Preview
                     </a>
                   </div>
                 )}
-                
-                {/* Aspect ratio now matches the actual PDF page — portrait or landscape */}
-                <div
-                  className="relative w-full bg-white rounded-xl overflow-hidden border-2 border-green-200 cursor-crosshair select-none"
-                  style={{ aspectRatio: `${templateDimensions.width} / ${templateDimensions.height}` }}
-                  ref={previewRef}
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
-                >
-                  {/* Crosshair guides visible while dragging */}
-                  {activeDrag && (() => {
-                    const pos = activeDrag === 'name' ? positions.name : activeDrag === 'certId' ? positions.certId : positions.qr;
-                    return (
-                      <>
-                        <div className="absolute inset-y-0 pointer-events-none z-40 border-l border-dashed border-brand-vivid-green/40" style={{ left: `${pos.x}%` }} />
-                        <div className="absolute inset-x-0 pointer-events-none z-40 border-t border-dashed border-brand-vivid-green/40" style={{ top: `${pos.y}%` }} />
-                      </>
-                    );
-                  })()}
-                  {loadingTemplate && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 z-50">
-                      <span className="material-symbols-outlined animate-spin text-4xl text-brand-green mb-2">progress_activity</span>
-                      <span className="text-sm text-gray-500">Loading template...</span>
-                    </div>
-                  )}
-                {previewPdfUrl ? (
-                  <iframe 
-                    src={`${previewPdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
-                    className="w-full h-full"
-                    title="Generated Preview"
-                  />
-                ) : (
-                  <iframe
-                    src={`/api/templates/${editingTemplate.id}/pdf#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
-                    className="w-full h-full border-0"
-                    title="Template Preview"
-                    onLoad={() => setLoadingTemplate(false)}
-                  />
-                )}
-                  
-                  {/* Draggable Name marker */}
-                  <DraggableMarker
-                    x={positions.name.x} y={positions.name.y}
-                    color={positions.name.color || "#1b4332"}
-                    label={testData.name}
-                    fontSize={positions.name.size ?? 48}
-                    fontFamily={positions.name.font}
-                    isActive={activeDrag === 'name' || activeResize === 'name'}
-                    onMouseDown={(e) => startDrag(e, 'name')}
-                    onResize={(e) => startResize(e, 'name')}
-                    pdfWidth={templateDimensions.width}
-                    containerWidth={containerSizeRef.current.width}
-                  />
 
-                  {/* Draggable Cert ID marker */}
-                  <DraggableMarker
-                    x={positions.certId.x} y={positions.certId.y}
-                    color={positions.certId.color || "#333333"}
-                    label={testData.certId}
-                    fontSize={positions.certId.size ?? 12}
-                    fontFamily={positions.certId.font}
-                    isActive={activeDrag === 'certId' || activeResize === 'certId'}
-                    onMouseDown={(e) => startDrag(e, 'certId')}
-                    onResize={(e) => startResize(e, 'certId')}
-                    pdfWidth={templateDimensions.width}
-                    containerWidth={containerSizeRef.current.width}
-                  />
-
-                  {/* Draggable QR marker */}
-                  <DraggableMarker
-                    x={positions.qr.x} y={positions.qr.y}
-                    color="#3b82f6"
-                    isQR size={positions.qr.size ?? 12}
-                    isActive={activeDrag === 'qr' || activeResize === 'qr'}
-                    onMouseDown={(e) => startDrag(e, 'qr')}
-                    onResize={(e) => startResize(e, 'qr')}
-                    pdfWidth={templateDimensions.width}
-                    containerWidth={containerSizeRef.current.width}
-                  />
+                <div className="flex-1 overflow-auto">
+                  <div
+                    className="relative w-full bg-white rounded-xl overflow-hidden border-2 border-green-200 cursor-crosshair select-none"
+                    style={{ aspectRatio: `${templateDimensions.width} / ${templateDimensions.height}` }}
+                    ref={previewRef}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                  >
+                    {activeDrag && (() => {
+                      const pos = activeDrag === 'name' ? positions.name : activeDrag === 'certId' ? positions.certId : positions.qr;
+                      return (
+                        <>
+                          <div className="absolute inset-y-0 pointer-events-none z-40 border-l border-dashed border-brand-vivid-green/40" style={{ left: `${pos.x}%` }} />
+                          <div className="absolute inset-x-0 pointer-events-none z-40 border-t border-dashed border-brand-vivid-green/40" style={{ top: `${pos.y}%` }} />
+                        </>
+                      );
+                    })()}
+                    {loadingTemplate && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 z-50">
+                        <span className="material-symbols-outlined animate-spin text-4xl text-brand-green mb-2">progress_activity</span>
+                        <span className="text-sm text-gray-500">Loading template...</span>
+                      </div>
+                    )}
+                    {previewPdfUrl ? (
+                      <iframe src={`${previewPdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                        className="w-full h-full pointer-events-none" title="Generated Preview" />
+                    ) : (
+                      <iframe src={`/api/templates/${editingTemplate.id}/pdf#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                        className="w-full h-full border-0 pointer-events-none" title="Template Preview"
+                        onLoad={() => setLoadingTemplate(false)} />
+                    )}
+                    <DraggableMarker x={positions.name.x} y={positions.name.y}
+                      color={positions.name.color || "#1b4332"} label={testData.name}
+                      fontSize={positions.name.size ?? 48} fontFamily={positions.name.font}
+                      isActive={activeDrag === 'name' || activeResize === 'name'}
+                      onMouseDown={(e) => startDrag(e, 'name')} onResize={(e) => startResize(e, 'name')}
+                      pdfWidth={templateDimensions.width} containerWidth={containerSizeRef.current.width} />
+                    <DraggableMarker x={positions.certId.x} y={positions.certId.y}
+                      color={positions.certId.color || "#333333"} label={testData.certId}
+                      fontSize={positions.certId.size ?? 12} fontFamily={positions.certId.font}
+                      isActive={activeDrag === 'certId' || activeResize === 'certId'}
+                      onMouseDown={(e) => startDrag(e, 'certId')} onResize={(e) => startResize(e, 'certId')}
+                      pdfWidth={templateDimensions.width} containerWidth={containerSizeRef.current.width} />
+                    <DraggableMarker x={positions.qr.x} y={positions.qr.y}
+                      color="#3b82f6" isQR size={positions.qr.size ?? 12}
+                      isActive={activeDrag === 'qr' || activeResize === 'qr'}
+                      onMouseDown={(e) => startDrag(e, 'qr')} onResize={(e) => startResize(e, 'qr')}
+                      pdfWidth={templateDimensions.width} containerWidth={containerSizeRef.current.width} />
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="p-6 border-t border-green-50 flex justify-between items-center">
+            <div className="p-4 border-t border-green-50 flex justify-between items-center flex-shrink-0">
               <button
                 onClick={() => setEditingTemplate(null)}
                 className="px-6 py-3 text-sm font-bold text-on-surface-variant hover:bg-green-50 rounded-xl"
@@ -911,18 +856,6 @@ export default function TemplatesPage() {
                 Cancel
               </button>
               <div className="flex items-center gap-3">
-                <button
-                  onClick={generatePreview}
-                  disabled={generatingPreview}
-                  className="px-5 py-3 text-sm font-bold border border-brand-vivid-green text-brand-vivid-green rounded-xl flex items-center gap-2 hover:bg-green-50 disabled:opacity-50"
-                >
-                  {generatingPreview ? (
-                    <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                  ) : (
-                    <span className="material-symbols-outlined text-sm">visibility</span>
-                  )}
-                  {generatingPreview ? "Generating..." : "Generate Preview"}
-                </button>
                 <button
                   onClick={async () => {
                     setSavingPositions(true);

@@ -93,16 +93,18 @@ export async function POST(request: NextRequest) {
     let nameFont, certIdFont;
     try {
       nameFont = nameFontBytes
-        ? await pdfDoc.embedFont(nameFontBytes)
+        ? await pdfDoc.embedFont(nameFontBytes, { subset: true })
         : await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    } catch {
+    } catch (e) {
+      console.error("Name font embed failed:", e);
       nameFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     }
     try {
       certIdFont = certIdFontBytes
-        ? await pdfDoc.embedFont(certIdFontBytes)
+        ? await pdfDoc.embedFont(certIdFontBytes, { subset: true })
         : await pdfDoc.embedFont(StandardFonts.Helvetica);
-    } catch {
+    } catch (e) {
+      console.error("CertId font embed failed:", e);
       certIdFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
     }
 

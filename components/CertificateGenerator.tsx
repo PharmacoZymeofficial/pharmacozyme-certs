@@ -348,12 +348,21 @@ async function generateCertificateWithTemplate(
       positions.namePos.font ? loadFontBytes(positions.namePos.font) : Promise.resolve(null),
       positions.certIdPos.font ? loadFontBytes(positions.certIdPos.font) : Promise.resolve(null),
     ]);
-    const boldFont = nameFontBytes
-      ? await pdfDoc.embedFont(nameFontBytes)
-      : await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    const regularFont = certIdFontBytes
-      ? await pdfDoc.embedFont(certIdFontBytes)
-      : await pdfDoc.embedFont(StandardFonts.Helvetica);
+    let boldFont, regularFont;
+    try {
+      boldFont = nameFontBytes
+        ? await pdfDoc.embedFont(nameFontBytes, { subset: true })
+        : await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    } catch {
+      boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    }
+    try {
+      regularFont = certIdFontBytes
+        ? await pdfDoc.embedFont(certIdFontBytes, { subset: true })
+        : await pdfDoc.embedFont(StandardFonts.Helvetica);
+    } catch {
+      regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    }
 
     // ===== 1. Replace/Overlay Name =====
     const nameText = certificateData.recipientName;
@@ -446,6 +455,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
   const [showExistingWarning, setShowExistingWarning] = useState(false);
   const [existingCertCount, setExistingCertCount] = useState(0);
   const [filterNewOnly, setFilterNewOnly] = useState(false);
+  const [templateSearch, setTemplateSearch] = useState("");
 
   const participantsWithExistingPDFs = participants.filter(p => p.certificateId);
 
@@ -1078,24 +1088,45 @@ export default function CertificateGenerator({ database, participants, onGenerat
             {/* Uploaded Templates */}
             {uploadedTemplates.length > 0 && (
               <>
-                <p className="text-xs font-bold text-brand-grass-green uppercase mb-3">Your Templates</p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-bold text-brand-grass-green uppercase">Your Templates</p>
+                </div>
+                {/* Search */}
+                <div className="relative mb-3">
+                  <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-base text-gray-400 pointer-events-none">search</span>
+                  <input
+                    type="text"
+                    placeholder="Search templates…"
+                    value={templateSearch}
+                    onChange={e => setTemplateSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 text-sm border border-green-100 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-vivid-green/30 focus:border-brand-vivid-green/50"
+                  />
+                  {templateSearch && (
+                    <button onClick={() => setTemplateSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      <span className="material-symbols-outlined text-base">close</span>
+                    </button>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
-                  {uploadedTemplates.map((template) => (
+                  {uploadedTemplates
+                    .filter(t => t.name.toLowerCase().includes(templateSearch.toLowerCase()))
+                    .map((template) => (
                     <button
                       key={template.id}
                       onClick={() => setSelectedTemplate(template.id)}
-                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                      className={`p-3 rounded-xl border-2 transition-all duration-150 text-left cursor-pointer ${
                         selectedTemplate === template.id
-                          ? "border-brand-vivid-green bg-green-50"
-                          : "border-green-100 hover:border-brand-vivid-green/50"
+                          ? "border-brand-vivid-green bg-green-50 shadow-md"
+                          : "border-green-100 hover:border-brand-vivid-green/60 hover:shadow-sm hover:scale-[1.02] active:scale-[0.98]"
                       }`}
                     >
                       <div className="w-full h-24 bg-gradient-to-br from-green-50 to-green-100 rounded-lg mb-2 flex items-center justify-center overflow-hidden">
                         {template.fileUrl ? (
-                          <iframe 
+                          <iframe
                             src={`${template.fileUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitV`}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full pointer-events-none"
                             title={`${template.name} preview`}
+                            tabIndex={-1}
                           />
                         ) : (
                           <span className="material-symbols-outlined text-4xl text-brand-green/40">picture_as_pdf</span>
@@ -1105,6 +1136,9 @@ export default function CertificateGenerator({ database, participants, onGenerat
                       <p className="text-xs text-on-surface-variant">Custom Template</p>
                     </button>
                   ))}
+                  {uploadedTemplates.filter(t => t.name.toLowerCase().includes(templateSearch.toLowerCase())).length === 0 && (
+                    <p className="col-span-full text-sm text-on-surface-variant text-center py-4">No templates match "{templateSearch}"</p>
+                  )}
                 </div>
               </>
             )}
