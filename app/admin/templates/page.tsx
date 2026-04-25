@@ -957,7 +957,6 @@ function FontSelect({ value, onChange }: { value: string; onChange: (v: string) 
         value={value}
         onChange={e => onChange(e.target.value)}
         className="w-full bg-white border border-green-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-brand-vivid-green cursor-pointer"
-        style={{ fontFamily: value || "inherit" }}
       >
         {AVAILABLE_FONTS.map(f => (
           <option key={f.value} value={f.value}>{f.label}</option>

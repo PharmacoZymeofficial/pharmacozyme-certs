@@ -4,7 +4,19 @@ import { useState, useEffect } from "react";
 import { Document, Page, Text, View, StyleSheet, PDFDownloadLink, Image, Font } from "@react-pdf/renderer";
 import QRCode from "qrcode";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
-import { loadFontBytes } from "@/lib/fonts";
+// loadFontBytes runs server-side only (needs custom User-Agent for TTF from Google Fonts).
+// Client-side: proxy through /api/fonts so the server does the fetch with the correct UA.
+async function loadFontBytesViaProxy(fontName: string): Promise<Uint8Array | null> {
+  if (!fontName) return null;
+  try {
+    const res = await fetch(`/api/fonts?name=${encodeURIComponent(fontName)}`);
+    if (!res.ok) return null;
+    const buf = await res.arrayBuffer();
+    return new Uint8Array(buf);
+  } catch {
+    return null;
+  }
+}
 import { useToast } from "@/components/Toast";
 import { sfx } from "@/lib/sfx";
 
@@ -345,8 +357,8 @@ async function generateCertificateWithTemplate(
 
     // Embed fonts — use custom Google Font if specified, else fall back to Helvetica
     const [nameFontBytes, certIdFontBytes] = await Promise.all([
-      positions.namePos.font ? loadFontBytes(positions.namePos.font) : Promise.resolve(null),
-      positions.certIdPos.font ? loadFontBytes(positions.certIdPos.font) : Promise.resolve(null),
+      positions.namePos.font ? loadFontBytesViaProxy(positions.namePos.font) : Promise.resolve(null),
+      positions.certIdPos.font ? loadFontBytesViaProxy(positions.certIdPos.font) : Promise.resolve(null),
     ]);
     let boldFont, regularFont;
     try {
