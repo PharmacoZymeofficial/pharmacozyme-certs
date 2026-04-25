@@ -360,19 +360,23 @@ async function generateCertificateWithTemplate(
       positions.namePos.font ? loadFontBytesViaProxy(positions.namePos.font) : Promise.resolve(null),
       positions.certIdPos.font ? loadFontBytesViaProxy(positions.certIdPos.font) : Promise.resolve(null),
     ]);
+    console.log("[cert-gen] nameFont:", positions.namePos.font, "bytes loaded:", !!nameFontBytes, "byteLength:", nameFontBytes?.byteLength);
+    console.log("[cert-gen] certIdFont:", positions.certIdPos.font, "bytes loaded:", !!certIdFontBytes);
     let boldFont, regularFont;
     try {
       boldFont = nameFontBytes
         ? await pdfDoc.embedFont(nameFontBytes, { subset: true })
         : await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    } catch {
+    } catch (e) {
+      console.error("[cert-gen] Name font embed failed:", e);
       boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     }
     try {
       regularFont = certIdFontBytes
         ? await pdfDoc.embedFont(certIdFontBytes, { subset: true })
         : await pdfDoc.embedFont(StandardFonts.Helvetica);
-    } catch {
+    } catch (e) {
+      console.error("[cert-gen] CertId font embed failed:", e);
       regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
     }
 
@@ -587,27 +591,30 @@ export default function CertificateGenerator({ database, participants, onGenerat
 
         let pdfBytes: Uint8Array | undefined;
         
-        // If using uploaded template, generate with overlay
+        // If using uploaded template, generate server-side (font loading requires server UA)
         if (isUploadedTemplate && templateData) {
           try {
-            pdfBytes = await generateCertificateWithTemplate({
-              recipientName: participant.name,
-              uniqueCertId: certId,
-              certType: database.topic,
-              topic: database.topic,
-              category: database.category,
-              subCategory: database.subCategory,
-              issueDate: new Date().toLocaleDateString("en-US", { 
-                year: "numeric", 
-                month: "long", 
-                day: "numeric" 
+            const renderRes = await fetch("/api/certificates/render", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                templateId: templateData.id,
+                recipientName: participant.name,
+                certId,
+                verificationUrl,
+                qrDarkColor: qrDark,
+                qrLightColor: qrLight,
               }),
-              verificationUrl,
-              qrCodeDataUrl,
-            }, templateData.fileUrl, templateData.positions);
+            });
+            if (renderRes.ok) {
+              const arrayBuf = await renderRes.arrayBuffer();
+              pdfBytes = new Uint8Array(arrayBuf);
+            } else {
+              const errData = await renderRes.json().catch(() => ({}));
+              console.error("Server-side render failed:", errData);
+            }
           } catch (templateErr) {
-            console.error("Failed to generate with template, using standard:", templateErr);
-            // Fall back to standard generation
+            console.error("Failed to generate with template:", templateErr);
           }
         }
 
