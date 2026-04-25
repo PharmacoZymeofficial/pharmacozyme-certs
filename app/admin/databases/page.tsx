@@ -881,6 +881,31 @@ export default function DatabaseManagementPage() {
     }
   };
 
+  const handlePushToSheet = async () => {
+    if (!selectedDatabase?.linkedSheet || !selectedDatabase?.id) return;
+    setIsSyncingSheet(true);
+    try {
+      const response = await fetch("/api/sheets/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ databaseId: selectedDatabase.id, mode: "firebaseToSheets" }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        sfx.success();
+        toast.success(`Pushed to sheet! ${data.synced ?? ""} rows written.`);
+      } else {
+        toast.error(data.error || "Failed to push to sheet");
+        sfx.error();
+      }
+    } catch (err) {
+      toast.error("Error pushing to sheet");
+      sfx.error();
+    } finally {
+      setIsSyncingSheet(false);
+    }
+  };
+
   const handleFindDriveFolder = async () => {
     if (!selectedDatabase?.id || !selectedDatabase?.name) return;
     setIsFindingFolder(true);
@@ -1454,6 +1479,14 @@ export default function DatabaseManagementPage() {
                         >
                           <span className="material-symbols-outlined text-sm">sync</span>
                           Refresh from Sheet
+                        </button>
+                        <button
+                          onClick={handlePushToSheet}
+                          disabled={isSyncingSheet}
+                          className="inline-flex items-center gap-1.5 text-xs text-blue-700 font-medium bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
+                        >
+                          <span className="material-symbols-outlined text-sm">upload</span>
+                          Push to Sheet
                         </button>
                       </>
                     )}
