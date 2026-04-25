@@ -2309,6 +2309,7 @@ export default function DatabaseManagementPage() {
                                 setTabFetchError(false);
                                 setExistingSheetTabs([]);
                                 setSelectedSheetTab("");
+                                if (extracted.length > 20) fetchSheetTabs(extracted);
                               }}
                               placeholder="Paste Google Sheet URL or ID"
                               className="flex-1 bg-white border border-green-100 rounded-xl p-3 text-sm outline-none"

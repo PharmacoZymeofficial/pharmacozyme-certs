@@ -4,6 +4,13 @@ import { useState, useEffect } from "react";
 import { Database, Participant } from "@/lib/types";
 import * as XLSX from "xlsx";
 
+const SENDER_IDENTITIES = [
+  { name: "PharmacoZyme Certificates", email: "" },
+  { name: "PharmacoZyme Official", email: "pharmacozymeofficial@gmail.com" },
+  { name: "PZ Academy", email: "pz.academy9@gmail.com" },
+  { name: "Team PharmacoZyme", email: "teampharmacozyme@gmail.com" },
+];
+
 interface BulkEmailFormProps {
   onJobScheduled?: () => void;
 }
@@ -25,6 +32,7 @@ export default function BulkEmailForm({ onJobScheduled }: BulkEmailFormProps) {
   const [scheduledAt, setScheduledAt] = useState("");
   const [subject, setSubject] = useState("Your Certificate from PharmacoZyme");
   const [message, setMessage] = useState("Dear [Name],\n\nCongratulations! Your certificate is now ready.\n\nYou can verify your certificate at: [VerificationLink]\n\nBest regards,\nPharmacoZyme Team");
+  const [selectedSenderIndex, setSelectedSenderIndex] = useState(0);
 
   useEffect(() => {
     fetchDatabases();
@@ -105,10 +113,18 @@ export default function BulkEmailForm({ onJobScheduled }: BulkEmailFormProps) {
         setSuccess(`Emails scheduled for ${new Date(scheduledAt).toLocaleString()}!`);
         onJobScheduled?.();
       } else {
+        const sender = SENDER_IDENTITIES[selectedSenderIndex];
+        const isGmail = !!sender.email;
         const res = await fetch("/api/send-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ recipients: emailRecipients, subject, message }),
+          body: JSON.stringify({
+            recipients: emailRecipients,
+            subject,
+            message,
+            senderName: sender.name,
+            ...(isGmail ? { gmailEmail: sender.email } : { replyTo: undefined }),
+          }),
         });
         const result = await res.json();
         if (!res.ok) throw new Error(result.error);
@@ -490,6 +506,25 @@ export default function BulkEmailForm({ onJobScheduled }: BulkEmailFormProps) {
               />
             </div>
           )}
+
+          <div>
+            <label className="block text-xs font-bold text-brand-grass-green uppercase mb-2">Send As</label>
+            <select
+              value={selectedSenderIndex}
+              onChange={(e) => setSelectedSenderIndex(Number(e.target.value))}
+              className="w-full bg-surface-container-low border border-green-100 rounded-xl p-3 text-sm outline-none"
+            >
+              {SENDER_IDENTITIES.map((s, i) => (
+                <option key={i} value={i}>{s.name}{s.email ? ` (${s.email})` : " (default)"}</option>
+              ))}
+            </select>
+            <p className="text-xs text-on-surface-variant mt-1">
+              {SENDER_IDENTITIES[selectedSenderIndex].email
+                ? <>Sends directly from <span className="font-mono">{SENDER_IDENTITIES[selectedSenderIndex].email}</span> via Gmail. Recipients see your Gmail address.</>
+                : <>Sends via Resend from <span className="font-mono">noreply@certs.pharmacozyme.com</span>. Up to 100 emails/day on free plan.</>
+              }
+            </p>
+          </div>
 
           <div>
             <label className="block text-xs font-bold text-brand-grass-green uppercase mb-2">Email Subject</label>

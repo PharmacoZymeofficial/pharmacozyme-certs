@@ -88,12 +88,21 @@ export async function POST(request: NextRequest) {
       positions.namePos.font ? loadFontBytes(positions.namePos.font) : Promise.resolve(null),
       positions.certIdPos.font ? loadFontBytes(positions.certIdPos.font) : Promise.resolve(null),
     ]);
-    const nameFont = nameFontBytes
-      ? await pdfDoc.embedFont(nameFontBytes)
-      : await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    const certIdFont = certIdFontBytes
-      ? await pdfDoc.embedFont(certIdFontBytes)
-      : await pdfDoc.embedFont(StandardFonts.Helvetica);
+    let nameFont, certIdFont;
+    try {
+      nameFont = nameFontBytes
+        ? await pdfDoc.embedFont(nameFontBytes)
+        : await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    } catch {
+      nameFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    }
+    try {
+      certIdFont = certIdFontBytes
+        ? await pdfDoc.embedFont(certIdFontBytes)
+        : await pdfDoc.embedFont(StandardFonts.Helvetica);
+    } catch {
+      certIdFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    }
 
     // Name - with correct color
     const nameText = testData?.name || "John Doe";
