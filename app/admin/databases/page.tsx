@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Database, Participant } from "@/lib/types";
 import CertificateGenerator, { DownloadCertificateButton } from "@/components/CertificateGenerator";
 import * as XLSX from "xlsx";
@@ -99,6 +99,13 @@ export default function DatabaseManagementPage() {
   const [bulkDeleteLabel, setBulkDeleteLabel] = useState("");
   const [isAddingParticipant, setIsAddingParticipant] = useState(false);
   const [showIdFormatModal, setShowIdFormatModal] = useState(false);
+  const [renamingDbId, setRenamingDbId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "id-only" | "generated">("all");
+  const [filterEmailed, setFilterEmailed] = useState<"all" | "yes" | "no">("all");
+  const [focusedRowIndex, setFocusedRowIndex] = useState(-1);
+  const [anchorRowIndex, setAnchorRowIndex] = useState(-1);
+  const displayedRowsRef = useRef<typeof participants>([]);
   const [idFormat, setIdFormat] = useState<"app" | "name">("app");
   const [idFormatCode, setIdFormatCode] = useState("");
   const [idFormatCategoryNo, setIdFormatCategoryNo] = useState("");
@@ -412,6 +419,25 @@ export default function DatabaseManagementPage() {
       sfx.error();
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleRenameDatabase = async (dbId: string, newName: string) => {
+    if (!newName.trim()) return;
+    const response = await fetch("/api/databases", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: dbId, name: newName.trim() }),
+    });
+    if (response.ok) {
+      if (selectedDatabase?.id === dbId) setSelectedDatabase({ ...selectedDatabase, name: newName.trim() });
+      await fetchDatabases(true);
+      setRenamingDbId(null);
+      setRenameValue("");
+      sfx.success();
+      toast.success("Database renamed");
+    } else {
+      toast.error("Failed to rename database");
     }
   };
 
@@ -1418,56 +1444,74 @@ export default function DatabaseManagementPage() {
         </button>
       </header>
 
-      {/* Database Cards */}
-      {databases.length === 0 ? (
-        <div className="bg-white rounded-xl border border-green-100 p-12 text-center">
-          <span className="material-symbols-outlined text-6xl text-gray-300 mb-4 block">database</span>
-          <h3 className="text-xl font-headline font-bold text-brand-dark-green mb-2">No Databases Yet</h3>
-          <p className="text-on-surface-variant mb-6">Create your first database to start issuing certificates</p>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-6 py-3 vivid-gradient-cta text-white rounded-xl font-bold"
-          >
-            Create First Database
-          </button>
-        </div>
-      ) : (
-        <div>
+      {/* Database Cards — hidden when a database is open */}
+      {!selectedDatabase && (
+        databases.length === 0 ? (
+          <div className="bg-white rounded-xl border border-green-100 p-12 text-center">
+            <span className="material-symbols-outlined text-6xl text-gray-300 mb-4 block">database</span>
+            <h3 className="text-xl font-headline font-bold text-brand-dark-green mb-2">No Databases Yet</h3>
+            <p className="text-on-surface-variant mb-6">Create your first database to start issuing certificates</p>
+            <button onClick={() => setShowCreateModal(true)} className="px-6 py-3 vivid-gradient-cta text-white rounded-xl font-bold">
+              Create First Database
+            </button>
+          </div>
+        ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {databases.map((db) => (
               <div
                 key={db.id}
-                onClick={() => setSelectedDatabase(db)}
-                className={`bg-white rounded-xl border-2 p-6 cursor-pointer transition-all ${
-                  selectedDatabase?.id === db.id
-                    ? "border-brand-vivid-green shadow-lg"
-                    : "border-green-100 hover:border-brand-vivid-green/50"
-                }`}
+                onClick={() => { setSelectedDatabase(db); setFilterStatus("all"); setFilterEmailed("all"); }}
+                className="bg-white rounded-xl border-2 border-green-100 hover:border-brand-vivid-green/60 hover:shadow-md p-6 cursor-pointer transition-all"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
                     <span className="material-symbols-outlined text-brand-green text-2xl">folder</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     <span className="px-2 py-1 bg-green-100 text-brand-green text-xs font-bold rounded-full uppercase">
                       {db.category}
                     </span>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDeleteDatabase(db);
+                        setRenamingDbId(db.id || null);
+                        setRenameValue(db.name);
                       }}
+                      className="p-1.5 hover:bg-green-50 text-gray-400 hover:text-brand-green rounded-lg transition-colors"
+                      title="Rename database"
+                    >
+                      <span className="material-symbols-outlined text-sm">edit</span>
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteDatabase(db); }}
                       className="p-1.5 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition-colors"
                       title="Delete database"
                     >
-                      <span className="material-symbols-outlined text-lg">delete</span>
+                      <span className="material-symbols-outlined text-sm">delete</span>
                     </button>
                   </div>
                 </div>
-                <h3 className="text-lg font-headline font-bold text-brand-dark-green mb-1">{db.name}</h3>
-                <p className="text-sm text-on-surface-variant mb-4">
-                  {db.subCategory} • {db.topic}
-                </p>
+                {renamingDbId === db.id ? (
+                  <div className="flex items-center gap-2 mb-1" onClick={e => e.stopPropagation()}>
+                    <input
+                      type="text"
+                      value={renameValue}
+                      onChange={e => setRenameValue(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") handleRenameDatabase(db.id!, renameValue); if (e.key === "Escape") setRenamingDbId(null); }}
+                      autoFocus
+                      className="flex-1 px-2 py-1 border border-green-300 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-brand-vivid-green"
+                    />
+                    <button onClick={() => handleRenameDatabase(db.id!, renameValue)} className="p-1 bg-green-600 text-white rounded">
+                      <span className="material-symbols-outlined text-sm">check</span>
+                    </button>
+                    <button onClick={() => setRenamingDbId(null)} className="p-1 bg-gray-200 text-gray-600 rounded">
+                      <span className="material-symbols-outlined text-sm">close</span>
+                    </button>
+                  </div>
+                ) : (
+                  <h3 className="text-lg font-headline font-bold text-brand-dark-green mb-1">{db.name}</h3>
+                )}
+                <p className="text-sm text-on-surface-variant mb-4">{db.subCategory} • {db.topic}</p>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs text-on-surface-variant">
                     <span className="material-symbols-outlined text-sm">people</span>
@@ -1484,13 +1528,7 @@ export default function DatabaseManagementPage() {
                   </div>
                 )}
                 {(db as any).driveFolderId && (
-                  <a
-                    href={`https://drive.google.com/drive/folders/${(db as any).driveFolderId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    className="flex items-center gap-1 mt-1 text-xs text-blue-600 font-medium hover:text-blue-800 hover:underline"
-                  >
+                  <a href={`https://drive.google.com/drive/folders/${(db as any).driveFolderId}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="flex items-center gap-1 mt-1 text-xs text-blue-600 font-medium hover:underline">
                     <span className="material-symbols-outlined text-sm">folder_open</span>
                     Drive Folder
                     <span className="material-symbols-outlined text-[10px]">open_in_new</span>
@@ -1499,7 +1537,7 @@ export default function DatabaseManagementPage() {
               </div>
             ))}
           </div>
-        </div>
+        )
       )}
 
       {/* Selected Database Detail View */}
@@ -1509,7 +1547,45 @@ export default function DatabaseManagementPage() {
           <div className="p-6 border-b border-green-50 bg-green-50/30">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
-                <h3 className="text-2xl font-headline font-bold text-brand-dark-green">{selectedDatabase.name}</h3>
+                <div className="flex items-center gap-2 mb-1">
+                  {renamingDbId === selectedDatabase.id ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={renameValue}
+                        onChange={e => setRenameValue(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") handleRenameDatabase(selectedDatabase.id!, renameValue); if (e.key === "Escape") setRenamingDbId(null); }}
+                        autoFocus
+                        className="px-3 py-1 border border-green-300 rounded-lg text-2xl font-headline font-bold text-brand-dark-green focus:outline-none focus:ring-2 focus:ring-brand-vivid-green"
+                      />
+                      <button onClick={() => handleRenameDatabase(selectedDatabase.id!, renameValue)} className="p-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                        <span className="material-symbols-outlined text-sm">check</span>
+                      </button>
+                      <button onClick={() => setRenamingDbId(null)} className="p-1.5 bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300">
+                        <span className="material-symbols-outlined text-sm">close</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <h3 className="text-2xl font-headline font-bold text-brand-dark-green">{selectedDatabase.name}</h3>
+                      <button
+                        onClick={() => { setRenamingDbId(selectedDatabase.id || null); setRenameValue(selectedDatabase.name); }}
+                        className="p-1.5 hover:bg-green-100 text-gray-400 hover:text-brand-green rounded-lg transition-colors"
+                        title="Rename database"
+                      >
+                        <span className="material-symbols-outlined text-sm">edit</span>
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={() => setSelectedDatabase(null)}
+                    className="ml-2 px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg flex items-center gap-1 transition-colors"
+                    title="Back to all databases"
+                  >
+                    <span className="material-symbols-outlined text-sm">arrow_back</span>
+                    All Databases
+                  </button>
+                </div>
                 <p className="text-on-surface-variant">
                   {selectedDatabase.category} • {selectedDatabase.subCategory} • {selectedDatabase.topic}
                 </p>
@@ -1921,6 +1997,35 @@ export default function DatabaseManagementPage() {
                   )}
                 </div>
 
+                {/* Filter chips */}
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <span className="text-xs font-semibold text-on-surface-variant">Filter:</span>
+                  {(["all", "pending", "id-only", "generated"] as const).map(s => (
+                    <button
+                      key={s}
+                      onClick={() => setFilterStatus(s)}
+                      className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${filterStatus === s ? "bg-brand-vivid-green text-white border-brand-vivid-green" : "bg-white border-green-200 text-on-surface-variant hover:bg-green-50"}`}
+                    >
+                      {s === "all" ? "All" : s === "pending" ? "No ID" : s === "id-only" ? "ID Only" : "Generated"}
+                    </button>
+                  ))}
+                  <div className="w-px h-4 bg-green-200 mx-1" />
+                  {(["all", "yes", "no"] as const).map(s => (
+                    <button
+                      key={`em-${s}`}
+                      onClick={() => setFilterEmailed(s)}
+                      className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${filterEmailed === s ? "bg-blue-600 text-white border-blue-600" : "bg-white border-green-200 text-on-surface-variant hover:bg-blue-50"}`}
+                    >
+                      {s === "all" ? "All Emails" : s === "yes" ? "✉ Emailed" : "✉ Not Emailed"}
+                    </button>
+                  ))}
+                  {(filterStatus !== "all" || filterEmailed !== "all") && (
+                    <button onClick={() => { setFilterStatus("all"); setFilterEmailed("all"); }} className="px-2 py-1 rounded-full text-xs text-gray-400 hover:text-gray-600 flex items-center gap-0.5">
+                      <span className="material-symbols-outlined text-sm">close</span> Clear
+                    </button>
+                  )}
+                </div>
+
                 {/* Table */}
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
@@ -1951,22 +2056,69 @@ export default function DatabaseManagementPage() {
                         <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-green-50">
+                    <tbody
+                      className="divide-y divide-green-50 outline-none"
+                      tabIndex={-1}
+                      onKeyDown={(e) => {
+                        const rows = displayedRowsRef.current;
+                        if (!rows.length) return;
+                        const cur = focusedRowIndex;
+                        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                          e.preventDefault();
+                          const next = e.key === "ArrowDown"
+                            ? Math.min(cur + 1, rows.length - 1)
+                            : Math.max(cur - 1, 0);
+                          if (e.shiftKey) {
+                            const anchor = anchorRowIndex < 0 ? (cur < 0 ? 0 : cur) : anchorRowIndex;
+                            const lo = Math.min(anchor, next);
+                            const hi = Math.max(anchor, next);
+                            setSelectedParticipants(rows.slice(lo, hi + 1).map(p => p.id!).filter(Boolean));
+                          } else {
+                            setAnchorRowIndex(next);
+                            setSelectedParticipants(rows[next]?.id ? [rows[next].id!] : []);
+                          }
+                          setFocusedRowIndex(next);
+                          (e.currentTarget.querySelectorAll("tr")[next] as HTMLElement)?.focus();
+                        }
+                        if (e.key === " ") {
+                          e.preventDefault();
+                          if (cur >= 0 && rows[cur]?.id) {
+                            const id = rows[cur].id!;
+                            setSelectedParticipants(prev =>
+                              prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+                            );
+                          }
+                        }
+                        if (e.key === "Escape") setSelectedParticipants([]);
+                      }}
+                    >
                       {(() => {
                         const q = participantSearch.toLowerCase();
-                        const filtered = q
+                        let filtered = q
                           ? participants.filter(p =>
                               (p.name || "").toLowerCase().includes(q) ||
                               (p.email || "").toLowerCase().includes(q) ||
                               (p.certificateId || "").toLowerCase().includes(q)
                             )
-                          : participants;
+                          : [...participants];
+                        if (filterStatus !== "all") {
+                          filtered = filtered.filter(p => {
+                            if (filterStatus === "pending") return !p.certificateId;
+                            if (filterStatus === "id-only") return p.certificateId && !p.driveLink && !p.certificateUrl;
+                            if (filterStatus === "generated") return !!(p.driveLink || p.certificateUrl);
+                            return true;
+                          });
+                        }
+                        if (filterEmailed !== "all") {
+                          filtered = filtered.filter(p =>
+                            filterEmailed === "yes" ? (p as any).emailSent : !(p as any).emailSent
+                          );
+                        }
                         const sorted = [...filtered].sort((a, b) => {
                           let aVal = "", bVal = "";
                           if (sortBy === "certId") {
                             aVal = a.certificateId || "";
                             bVal = b.certificateId || "";
-                            // Extract numeric part for MDC-001, MDC-194 etc
                             const aNum = parseInt(aVal.split("-").pop() || "0");
                             const bNum = parseInt(bVal.split("-").pop() || "0");
                             return sortOrder === "asc" ? aNum - bNum : bNum - aNum;
@@ -1980,19 +2132,40 @@ export default function DatabaseManagementPage() {
                             aVal = a.certificateId ? "generated" : "pending";
                             bVal = b.certificateId ? "generated" : "pending";
                           } else if (sortBy === "date") {
-                            return sortOrder === "asc" 
+                            return sortOrder === "asc"
                               ? (new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime())
                               : (new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
                           }
                           return sortOrder === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
                         });
+                        displayedRowsRef.current = sorted;
                         return sorted.map((participant, index) => (
-                        <tr key={participant.id || index} className="hover:bg-green-50/30">
+                        <tr
+                          key={participant.id || index}
+                          tabIndex={0}
+                          className={`hover:bg-green-50/30 outline-none focus:bg-green-50/60 cursor-pointer ${focusedRowIndex === index ? "bg-green-50/60" : ""}`}
+                          onClick={(e) => {
+                            if (e.shiftKey && anchorRowIndex >= 0) {
+                              const lo = Math.min(anchorRowIndex, index);
+                              const hi = Math.max(anchorRowIndex, index);
+                              setSelectedParticipants(sorted.slice(lo, hi + 1).map(p => p.id!).filter(Boolean));
+                            } else {
+                              setAnchorRowIndex(index);
+                              const id = participant.id || "";
+                              if (e.ctrlKey || e.metaKey) {
+                                setSelectedParticipants(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+                              }
+                            }
+                            setFocusedRowIndex(index);
+                          }}
+                          onFocus={() => setFocusedRowIndex(index)}
+                        >
                           <td className="px-4 py-4">
                             <input
                               type="checkbox"
                               checked={selectedParticipants.includes(participant.id || "")}
                               onChange={(e) => {
+                                e.stopPropagation();
                                 const participantId = participant.id || "";
                                 if (e.target.checked) {
                                   setSelectedParticipants([...selectedParticipants, participantId]);
