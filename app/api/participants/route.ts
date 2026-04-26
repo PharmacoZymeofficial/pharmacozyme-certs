@@ -22,51 +22,72 @@ async function callAppsScript(action: string, payload: any) {
   }
 }
 
-async function syncToSheets(databaseId: string, participants: any[]) {
-  if (!APPS_SCRIPT_URL || !databaseId) return;
-  
-  const dbRef = doc(db, "databases", databaseId);
-  const dbSnap = await getDoc(dbRef);
-  if (!dbSnap.exists()) return;
-  
-  const dbData = dbSnap.data();
-  const spreadsheetId = dbData?.sheetId;
-  const tabName = dbData?.sheetTabName || "Participants";
-  
-  if (!spreadsheetId) return;
-  
+async function getSheetInfo(databaseId: string) {
+  const dbSnap = await getDoc(doc(db, "databases", databaseId));
+  if (!dbSnap.exists()) return null;
+  const d = dbSnap.data();
+  if (!d?.sheetId) return null;
+  return { spreadsheetId: d.sheetId, tabName: d.sheetTabName || "Participants" };
+}
+
+// Upsert a single row (add or update by email)
+async function upsertRowToSheet(databaseId: string, participant: any) {
+  if (!APPS_SCRIPT_URL) return;
+  const sheet = await getSheetInfo(databaseId);
+  if (!sheet) return;
   try {
-    // Sort by certificate ID serial number
-    const sortedParticipants = [...participants].sort((a, b) => {
+    await callAppsScript("upsertRow", {
+      ...sheet,
+      row: {
+        certificateId: participant.certificateId || "",
+        name: participant.name || "",
+        email: participant.email || "",
+        certificateUrl: participant.certificateUrl || "",
+        status: participant.status || "pending",
+        issueDate: participant.issueDate || "",
+        emailSent: participant.emailSent || false,
+        driveLink: participant.driveLink || "",
+        createdAt: participant.createdAt || "",
+      },
+    });
+  } catch (err) {
+    console.error("Failed to upsert row to Sheets:", err);
+  }
+}
+
+// Full sync: read ALL participants from Firestore, rewrite entire sheet
+async function fullSyncToSheet(databaseId: string) {
+  if (!APPS_SCRIPT_URL) return;
+  const sheet = await getSheetInfo(databaseId);
+  if (!sheet) return;
+  try {
+    const snap = await getDocs(collection(db, "databases", databaseId, "participants"));
+    const all = snap.docs.map(d => d.data() as any);
+    const getSerial = (id: string) => { const m = id?.match(/(\d+)$/); return m ? parseInt(m[1], 10) : 0; };
+    const sorted = [...all].sort((a, b) => {
       if (!a.certificateId && !b.certificateId) return 0;
       if (!a.certificateId) return 1;
       if (!b.certificateId) return -1;
-      const aNum = parseInt(a.certificateId.split("-").pop() || "0");
-      const bNum = parseInt(b.certificateId.split("-").pop() || "0");
-      return aNum - bNum;
+      return getSerial(a.certificateId) - getSerial(b.certificateId);
     });
-    
-    const data = sortedParticipants.map(p => ({
-      certificateId: p.certificateId || "",
-      name: p.name || "",
-      email: p.email || "",
-      certificateUrl: p.certificateUrl || "",
-      status: p.status || "pending",
-      issueDate: p.issueDate || "",
-      emailSent: p.emailSent || false,
-      driveLink: p.driveLink || "",
-      createdAt: p.createdAt || "",
-    }));
-    
     await callAppsScript("syncData", {
-      spreadsheetId,
-      tabName,
-      data,
+      ...sheet,
+      data: sorted.map(p => ({
+        certificateId: p.certificateId || "",
+        name: p.name || "",
+        email: p.email || "",
+        certificateUrl: p.certificateUrl || "",
+        status: p.status || "pending",
+        issueDate: p.issueDate || "",
+        emailSent: p.emailSent || false,
+        driveLink: p.driveLink || "",
+        createdAt: p.createdAt || "",
+      })),
       mode: "write",
     });
-    console.log(`Synced ${participants.length} participants to Sheets`);
+    console.log(`Full sync: ${all.length} participants → Sheets`);
   } catch (err) {
-    console.error("Failed to sync to Sheets:", err);
+    console.error("Failed to full-sync to Sheets:", err);
   }
 }
 
@@ -175,9 +196,9 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Sync to Sheets
+      // Full sync after bulk import (rewrites sheet with all participants)
       if (results.success > 0) {
-        await syncToSheets(databaseId, addedParticipants);
+        await fullSyncToSheet(databaseId);
       }
 
       return NextResponse.json({ success: true, results, participants: addedParticipants });
@@ -199,8 +220,8 @@ export async function POST(request: NextRequest) {
     const docRef = await addDoc(participantsRef, newParticipant);
     const participantWithId = { id: docRef.id, ...newParticipant };
 
-    // Sync to Sheets
-    await syncToSheets(databaseId, [participantWithId]);
+    // Upsert single row to sheet (does not wipe existing rows)
+    await upsertRowToSheet(databaseId, participantWithId);
 
     return NextResponse.json({
       success: true,

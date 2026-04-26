@@ -58,6 +58,12 @@ function doPost(e) {
       case "updateCertIds":
         result = updateCertIds(payload);
         break;
+      case "upsertRow":
+        result = upsertRow(payload);
+        break;
+      case "deleteRowsByEmail":
+        result = deleteRowsByEmail(payload);
+        break;
       default:
         throw new Error("Unknown action: " + action);
     }
@@ -426,4 +432,78 @@ function updateCertIds(payload) {
   sheet.getRange(2, 1, rowCount, 1).setValues(certIdCol);
 
   return { success: true, updated: updated };
+}
+
+// Find row by email (col C) and update all fields; append if not found.
+function upsertRow(payload) {
+  const { spreadsheetId, tabName, row } = payload;
+
+  const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+  const sheet = spreadsheet.getSheetByName(tabName);
+  if (!sheet) throw new Error("Sheet tab not found: " + tabName);
+
+  const email = (row.email || "").toLowerCase().trim();
+  const lastRow = sheet.getLastRow();
+
+  // Scan col C for matching email
+  var targetRow = -1;
+  if (email && lastRow > 1) {
+    const emails = sheet.getRange(2, 3, lastRow - 1, 1).getValues();
+    for (var i = 0; i < emails.length; i++) {
+      if ((emails[i][0] || "").toLowerCase().trim() === email) {
+        targetRow = i + 2;
+        break;
+      }
+    }
+  }
+
+  const rowData = [
+    row.certificateId || "",
+    row.name || "",
+    row.email || "",
+    row.certificateUrl || "",
+    row.status || "pending",
+    row.issueDate || "",
+    row.emailSent ? "Yes" : "No",
+    row.driveLink || "",
+    row.createdAt || ""
+  ];
+
+  if (targetRow > 0) {
+    sheet.getRange(targetRow, 1, 1, rowData.length).setValues([rowData]);
+    return { success: true, action: "updated", row: targetRow };
+  } else {
+    sheet.appendRow(rowData);
+    return { success: true, action: "appended" };
+  }
+}
+
+// Delete rows whose col-C email matches any email in the provided list.
+function deleteRowsByEmail(payload) {
+  const { spreadsheetId, tabName, emails } = payload;
+  if (!emails || emails.length === 0) return { success: true, deletedRows: 0 };
+
+  const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+  const sheet = spreadsheet.getSheetByName(tabName);
+  if (!sheet) throw new Error("Sheet tab not found: " + tabName);
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return { success: true, deletedRows: 0 };
+
+  const emailSet = new Set(emails.map(function(e) { return (e || "").toLowerCase().trim(); }).filter(Boolean));
+  const sheetEmails = sheet.getRange(2, 3, lastRow - 1, 1).getValues();
+
+  // Collect bottom-up so row indices stay valid after each deletion
+  const rowsToDelete = [];
+  for (var i = sheetEmails.length - 1; i >= 0; i--) {
+    if (emailSet.has((sheetEmails[i][0] || "").toLowerCase().trim())) {
+      rowsToDelete.push(i + 2);
+    }
+  }
+
+  for (var j = 0; j < rowsToDelete.length; j++) {
+    sheet.deleteRow(rowsToDelete[j]);
+  }
+
+  return { success: true, deletedRows: rowsToDelete.length };
 }

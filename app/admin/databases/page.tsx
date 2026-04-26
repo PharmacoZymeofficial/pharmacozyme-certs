@@ -886,20 +886,15 @@ export default function DatabaseManagementPage() {
     if (!selectedDatabase?.linkedSheet || !selectedDatabase?.id) return;
     setIsSyncingSheet(true);
     try {
-      // Use targeted cert-ID-only update (fast: 3 batch calls vs full rewrite)
-      const certIdUpdates = participants
-        .filter(p => p.certificateId && p.email)
-        .map(p => ({ email: p.email, certificateId: p.certificateId }));
-
       const response = await fetch("/api/sheets/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ databaseId: selectedDatabase.id, mode: "updateCertIds", updates: certIdUpdates }),
+        body: JSON.stringify({ databaseId: selectedDatabase.id, mode: "firebaseToSheets" }),
       });
       const data = await response.json();
       if (response.ok) {
         sfx.success();
-        toast.success(`Sheet updated! ${data.updated ?? 0} certificate IDs synced.`);
+        toast.success(`Sheet synced! ${data.synced ?? 0} participants pushed.`);
       } else {
         toast.error(data.error || "Failed to push to sheet");
         sfx.error();

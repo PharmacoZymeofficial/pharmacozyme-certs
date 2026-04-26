@@ -20,40 +20,60 @@ async function callAppsScript(action: string, payload: any) {
   }
 }
 
+async function getSheetInfo(databaseId: string) {
+  const dbSnap = await getDoc(doc(db, "databases", databaseId));
+  if (!dbSnap.exists()) return null;
+  const d = dbSnap.data();
+  if (!d?.sheetId) return null;
+  return { spreadsheetId: d.sheetId, tabName: d.sheetTabName || "Participants" };
+}
+
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await request.json();
     const { databaseId } = body;
 
-    console.log("PUT /api/participants/[id] - updating participant:", id, "databaseId:", databaseId);
-    console.log("Update data keys:", Object.keys(body));
+    if (!id) return NextResponse.json({ error: "Participant ID is required" }, { status: 400 });
+    if (!databaseId) return NextResponse.json({ error: "Database ID is required" }, { status: 400 });
 
-    if (!id) {
-      return NextResponse.json({ error: "Participant ID is required" }, { status: 400 });
-    }
-
-    if (!databaseId) {
-      console.error("No databaseId provided in request body");
-      return NextResponse.json({ error: "Database ID is required" }, { status: 400 });
-    }
-
-    // Use nested subcollection path
     const participantRef = doc(db, "databases", databaseId, "participants", id);
-    
-    // Remove databaseId from update data (it's not a field to store)
-    const { databaseId: _, ...updateData } = body;
-    
-    await updateDoc(participantRef, {
-      ...updateData,
-      updatedAt: new Date().toISOString(),
-    });
 
-    console.log("Participant updated successfully:", id);
+    const { databaseId: _, ...updateData } = body;
+    await updateDoc(participantRef, { ...updateData, updatedAt: new Date().toISOString() });
+
+    // Sync updated participant to sheet via upsertRow
+    if (APPS_SCRIPT_URL) {
+      try {
+        const sheet = await getSheetInfo(databaseId);
+        if (sheet) {
+          const snap = await getDoc(participantRef);
+          const p = snap.exists() ? snap.data() : null;
+          if (p) {
+            await callAppsScript("upsertRow", {
+              ...sheet,
+              row: {
+                certificateId: p.certificateId || "",
+                name: p.name || "",
+                email: p.email || "",
+                certificateUrl: p.certificateUrl || "",
+                status: p.status || "pending",
+                issueDate: p.issueDate || "",
+                emailSent: p.emailSent || false,
+                driveLink: p.driveLink || "",
+                createdAt: p.createdAt || "",
+              },
+            });
+          }
+        }
+      } catch (syncErr) {
+        console.error("Sheet upsert failed after participant update:", syncErr);
+      }
+    }
+
     return NextResponse.json({ success: true, message: "Participant updated" });
   } catch (error: any) {
     console.error("Error updating participant:", error);
-    console.error("Error details:", error?.code, error?.message);
     return NextResponse.json(
       { error: "Failed to update participant", details: error?.message || error?.toString() },
       { status: 500 }
@@ -68,24 +88,15 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const databaseId = searchParams.get("databaseId");
     const deletePdf = searchParams.get("deletePdf") === "true";
 
-    if (!id) {
-      return NextResponse.json({ error: "Participant ID is required" }, { status: 400 });
-    }
+    if (!id) return NextResponse.json({ error: "Participant ID is required" }, { status: 400 });
+    if (!databaseId) return NextResponse.json({ error: "Database ID is required" }, { status: 400 });
 
-    if (!databaseId) {
-      return NextResponse.json({ error: "Database ID is required" }, { status: 400 });
-    }
-
-    console.log("DELETE /api/participants/[id] - deleting participant:", id, "deletePdf:", deletePdf);
-
-    // Get participant data first to check for Drive link
     const participantRef = doc(db, "databases", databaseId, "participants", id);
     const participantSnap = await getDoc(participantRef);
     const participantData = participantSnap.exists() ? participantSnap.data() : null;
 
     // Delete PDF from Drive if requested
     if (deletePdf && APPS_SCRIPT_URL) {
-      // Try driveFileId first, fall back to extracting from driveLink URL
       let fileId = participantData?.driveFileId;
       if (!fileId && participantData?.driveLink) {
         const match = participantData.driveLink.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
@@ -94,31 +105,32 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       if (fileId) {
         try {
           await callAppsScript("deletePDF", { fileId });
-          console.log("Deleted PDF from Drive:", fileId);
         } catch (driveErr) {
           console.error("Failed to delete PDF from Drive:", driveErr);
         }
       }
     }
 
-    // Use nested subcollection path
     await deleteDoc(participantRef);
 
-    // Targeted sheet sync: delete only this participant's row by cert ID
-    if (participantData?.certificateId && APPS_SCRIPT_URL) {
+    // Sync: delete the row from sheet
+    if (APPS_SCRIPT_URL) {
       try {
-        const dbRef = doc(db, "databases", databaseId);
-        const dbSnap = await getDoc(dbRef);
-        const dbData = dbSnap.exists() ? dbSnap.data() : null;
-        if (dbData?.sheetId) {
-          await callAppsScript("deleteRowsByCertIds", {
-            spreadsheetId: dbData.sheetId,
-            tabName: dbData.sheetTabName || "Participants",
-            certIds: [participantData.certificateId],
-          });
+        const sheet = await getSheetInfo(databaseId);
+        if (sheet) {
+          const certId = participantData?.certificateId;
+          const email = participantData?.email;
+
+          if (certId) {
+            // Fast path: target by cert ID (col A)
+            await callAppsScript("deleteRowsByCertIds", { ...sheet, certIds: [certId] });
+          } else if (email) {
+            // Fallback: target by email (col C) for participants without a cert ID
+            await callAppsScript("deleteRowsByEmail", { ...sheet, emails: [email] });
+          }
         }
       } catch (syncErr) {
-        console.error("Failed to delete sheet row after participant deletion:", syncErr);
+        console.error("Sheet delete failed after participant deletion:", syncErr);
       }
     }
 
