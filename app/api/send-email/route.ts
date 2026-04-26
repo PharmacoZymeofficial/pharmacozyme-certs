@@ -153,6 +153,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No recipients provided" }, { status: 400 });
     }
 
+    const validRecipients = (recipients as any[]).filter(r => r.email && r.email.includes("@"));
+    if (validRecipients.length === 0) {
+      return NextResponse.json({ error: "No valid recipient emails found" }, { status: 400 });
+    }
+
     // ── Gmail SMTP path ──────────────────────────────────────────────────────
     if (gmailEmail && GMAIL_ACCOUNTS[gmailEmail]) {
       const account = GMAIL_ACCOUNTS[gmailEmail];
@@ -167,7 +172,7 @@ export async function POST(request: NextRequest) {
       const results = [];
       const errors = [];
 
-      for (const recipient of recipients) {
+      for (const recipient of validRecipients) {
         const { email, name, certificateId, pdfBase64, driveLink } = recipient;
         let emailMessage = (message || "")
           .replace(/\[Name\]/g, name || "")
@@ -183,10 +188,16 @@ export async function POST(request: NextRequest) {
             subject: subject || "Your Certificate from PharmacoZyme",
             attachments,
             html: buildEmailHtml({ name, certificateId, verificationLink, emailMessage, driveLink, pdfBase64, email }),
+            headers: {
+              "List-Unsubscribe": "<mailto:pharmacozymeofficial@gmail.com?subject=Unsubscribe>",
+              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+              "Precedence": "bulk",
+              "X-Auto-Response-Suppress": "OOF, DR, RN, NRN, AutoReply",
+            },
           });
           results.push({ email, success: true });
-          // Small delay to respect Gmail's rate limits
-          await new Promise(r => setTimeout(r, 250));
+          // Delay between sends to respect Gmail rate limits
+          await new Promise(r => setTimeout(r, 500));
         } catch (err: any) {
           console.error(`Gmail failed for ${email}:`, err);
           errors.push({ email, error: err.message });
@@ -261,7 +272,7 @@ export async function POST(request: NextRequest) {
     let quotaHit = false;
 
     // Send emails one by one with attachments
-    for (const recipient of recipients) {
+    for (const recipient of validRecipients) {
       if (quotaHit) { quotaFailed.push(recipient); continue; }
 
       try {
@@ -288,6 +299,11 @@ export async function POST(request: NextRequest) {
           subject: subject || "Your Certificate from PharmacoZyme",
           attachments,
           html: buildEmailHtml({ name, certificateId, verificationLink, emailMessage, driveLink, pdfBase64, email }),
+          headers: {
+            "List-Unsubscribe": "<mailto:pharmacozymeofficial@gmail.com?subject=Unsubscribe>",
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            "Precedence": "bulk",
+          },
         });
 
         if (data.error) throw new Error(data.error.message || "Resend API error");

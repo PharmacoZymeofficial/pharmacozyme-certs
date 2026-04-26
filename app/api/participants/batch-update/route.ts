@@ -21,7 +21,7 @@ async function callAppsScript(action: string, payload: any) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { databaseId } = body;
+    const { databaseId, skipSheetSync } = body;
 
     if (!databaseId) return NextResponse.json({ error: "databaseId required" }, { status: 400 });
 
@@ -38,7 +38,20 @@ export async function POST(request: NextRequest) {
         }
         await batch.commit();
       }
-      await syncAllToSheet(databaseId);
+
+      // Bulk-create certificate docs if provided (separate batch, skips addDoc round-trips)
+      if (Array.isArray(body.certDocs) && body.certDocs.length > 0) {
+        const certDocs: any[] = body.certDocs;
+        for (let i = 0; i < certDocs.length; i += CHUNK) {
+          const batch = writeBatch(db);
+          for (const certDoc of certDocs.slice(i, i + CHUNK)) {
+            batch.set(doc(collection(db, "certificates")), certDoc);
+          }
+          await batch.commit();
+        }
+      }
+
+      if (!skipSheetSync) await syncAllToSheet(databaseId);
       return NextResponse.json({ success: true, updated: updates.length });
     }
 
@@ -52,7 +65,7 @@ export async function POST(request: NextRequest) {
         }
         await batch.commit();
       }
-      await syncAllToSheet(databaseId);
+      if (!skipSheetSync) await syncAllToSheet(databaseId);
       return NextResponse.json({ success: true, updated: ids.length });
     }
 

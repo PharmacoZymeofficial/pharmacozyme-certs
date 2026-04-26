@@ -514,8 +514,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
     setIsGenerating(true);
     setShowTemplateSelect(false);
     setGenerationProgress(0);
-    
-    // Sort participants to process in ascending order (first to last)
+
     const sortedParticipants = [...participants].sort((a, b) => {
       if (a.certificateId && b.certificateId) {
         const aNum = parseInt(a.certificateId.split("-").pop() || "0");
@@ -524,21 +523,18 @@ export default function CertificateGenerator({ database, participants, onGenerat
       }
       return 0;
     });
-    
-    // Filter participants if user chose to skip existing
-    const participantsToGenerate = filterNewOnly 
+
+    const participantsToGenerate = filterNewOnly
       ? sortedParticipants.filter(p => !p.certificateId)
       : sortedParticipants;
-    
+
     try {
       const verificationBase = process.env.NEXT_PUBLIC_VERIFY_URL || "https://verify.pharmacozyme.com/verify";
       const year = new Date().getFullYear();
-      
-      // Check if using uploaded template
+
       const isUploadedTemplate = !["standard", "modern"].includes(selectedTemplate);
       let templateData = uploadedTemplates.find(t => t.id === selectedTemplate);
 
-      // Fetch full template data (with pdfBase64) before generation loop
       if (isUploadedTemplate && templateData) {
         try {
           const fullRes = await fetch(`/api/templates/${templateData.id}`);
@@ -552,8 +548,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
           console.error("Failed to fetch full template data:", err);
         }
       }
-      
-      // Fetch existing certificates count
+
       let serialNumber = 1;
       try {
         const existingResponse = await fetch(`/api/participants?databaseId=${database.id}`);
@@ -562,265 +557,263 @@ export default function CertificateGenerator({ database, participants, onGenerat
           const existingCerts = existingData.participants.filter((p: any) => p.certificateId && p.certificateId.includes(`-${year}-`));
           serialNumber = existingCerts.length + 1;
         }
-      } catch (err) {
-        console.log("Could not fetch existing count, starting from 1");
-      }
-      
-      const generatedCerts: CertificateData[] = [];
-      let updateSuccess = true;
-      
-      for (let i = 0; i < participantsToGenerate.length; i++) {
-        const participant = participantsToGenerate[i];
-        const currentSerial = serialNumber + i;
-        setCurrentGenerating(`Generating for ${participant.name}...`);
-        setGenerationProgress(Math.round(((i + 1) / participantsToGenerate.length) * 100));
-        
-        // Use existing certificateId if available, otherwise generate new one
-        let certId = participant.certificateId;
-        if (!certId) {
-          certId = generateCertificateId(participant.name, database.subCategory, currentSerial);
-        }
-        
-        // QR code + verification URL point to /claim so scanning opens the gift reveal page
-        const claimBase = verificationBase.replace(/\/verify$/, "");
-        const verificationUrl = `${claimBase}/claim?id=${certId}`;
-        const certificateClaimUrl = verificationUrl;
-        const qrDark = templateData?.positions?.qr?.darkColor || "#1b4332";
-        const qrLight = templateData?.positions?.qr?.transparentBg ? "#00000000" : (templateData?.positions?.qr?.lightColor || "#ffffff");
-        const qrCodeDataUrl = await generateQRCode(verificationUrl, qrDark, qrLight);
+      } catch {}
 
-        let pdfBytes: Uint8Array | undefined;
-        
-        // If using uploaded template, generate server-side (font loading requires server UA)
-        if (isUploadedTemplate && templateData) {
+      const issueDate = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+      const claimBase = verificationBase.replace(/\/verify$/, "");
+      const qrDark = templateData?.positions?.qr?.darkColor || "#1b4332";
+      const qrLight = templateData?.positions?.qr?.transparentBg
+        ? "#00000000"
+        : (templateData?.positions?.qr?.lightColor || "#ffffff");
+
+      // Pre-assign cert IDs sequentially (serial numbers must be deterministic before parallelizing)
+      const participantsWithCertIds = participantsToGenerate.map((participant, i) => ({
+        participant,
+        certId: participant.certificateId || generateCertificateId(participant.name, database.subCategory, serialNumber + i),
+      }));
+
+      // ── Phase 1: Parallel render (20 concurrent) ───────────────────────────
+      const RENDER_CONCURRENCY = 20;
+      type RenderResult = {
+        participant: any;
+        certId: string;
+        verificationUrl: string;
+        qrCodeDataUrl: string;
+        pdfBytes?: Uint8Array;
+      };
+      const allResults: RenderResult[] = [];
+
+      for (let i = 0; i < participantsWithCertIds.length; i += RENDER_CONCURRENCY) {
+        const batchSlice = participantsWithCertIds.slice(i, i + RENDER_CONCURRENCY);
+        const end = Math.min(i + RENDER_CONCURRENCY, participantsWithCertIds.length);
+        setCurrentGenerating(`Rendering ${i + 1}–${end} of ${participantsWithCertIds.length}…`);
+
+        const batchResults = await Promise.all(batchSlice.map(async ({ participant, certId }) => {
+          const verificationUrl = `${claimBase}/claim?id=${certId}`;
           try {
-            const renderRes = await fetch("/api/certificates/render", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                templateId: templateData.id,
-                recipientName: participant.name,
-                certId,
-                verificationUrl,
-                qrDarkColor: qrDark,
-                qrLightColor: qrLight,
-              }),
-            });
-            if (renderRes.ok) {
-              const arrayBuf = await renderRes.arrayBuffer();
-              pdfBytes = new Uint8Array(arrayBuf);
+            let pdfBytes: Uint8Array | undefined;
+            let qrCodeDataUrl: string;
+
+            if (isUploadedTemplate && templateData) {
+              // QR generation and server render run concurrently
+              const [qr, rendered] = await Promise.all([
+                generateQRCode(verificationUrl, qrDark, qrLight),
+                (async (): Promise<Uint8Array | undefined> => {
+                  const renderRes = await fetch("/api/certificates/render", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      templateId: templateData!.id,
+                      recipientName: participant.name,
+                      certId,
+                      verificationUrl,
+                      qrDarkColor: qrDark,
+                      qrLightColor: qrLight,
+                    }),
+                  });
+                  if (renderRes.ok) return new Uint8Array(await renderRes.arrayBuffer());
+                  console.error("Server-side render failed:", await renderRes.json().catch(() => ({})));
+                  return undefined;
+                })(),
+              ]);
+              qrCodeDataUrl = qr;
+              pdfBytes = rendered;
             } else {
-              const errData = await renderRes.json().catch(() => ({}));
-              console.error("Server-side render failed:", errData);
+              // Standard template: QR must be embedded in PDF, so generate QR first
+              qrCodeDataUrl = await generateQRCode(verificationUrl, qrDark, qrLight);
+              try {
+                const { pdf } = await import("@react-pdf/renderer");
+                const certDoc = (
+                  <CertificatePDF certificate={{
+                    recipientName: participant.name,
+                    uniqueCertId: certId,
+                    certType: database.topic,
+                    topic: database.topic,
+                    category: database.category,
+                    subCategory: database.subCategory,
+                    issueDate,
+                    verificationUrl,
+                    qrCodeDataUrl,
+                    template: selectedTemplate,
+                    templateName: "Standard",
+                  }} />
+                );
+                const blob = await pdf(certDoc).toBlob();
+                pdfBytes = new Uint8Array(await blob.arrayBuffer());
+              } catch (pdfErr) {
+                console.error("Error generating standard PDF:", pdfErr);
+              }
             }
-          } catch (templateErr) {
-            console.error("Failed to generate with template:", templateErr);
+
+            return { participant, certId, verificationUrl, qrCodeDataUrl, pdfBytes };
+          } catch (err) {
+            console.error("Failed to render for:", participant.name, err);
+            return null;
           }
-        }
+        }));
 
-        // Generate PDF bytes - always needed for upload
-        if (!pdfBytes && !isUploadedTemplate) {
-          // Use react-pdf to generate standard certificate
-          try {
-            const { pdf } = await import("@react-pdf/renderer");
-            const doc = <CertificatePDF certificate={{
-              recipientName: participant.name,
-              uniqueCertId: certId,
-              serialNumber: currentSerial,
-              certType: database.topic,
-              topic: database.topic,
-              category: database.category,
-              subCategory: database.subCategory,
-              issueDate: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
-              verificationUrl,
-              qrCodeDataUrl,
-              template: selectedTemplate,
-              templateName: templateData?.name || "Standard",
-            }} />;
-            const pdfBlob = await pdf(doc).toBlob();
-            const arrayBuffer = await pdfBlob.arrayBuffer();
-            pdfBytes = new Uint8Array(arrayBuffer);
-            console.log("Generated standard PDF bytes:", pdfBytes.length);
-          } catch (pdfErr) {
-            console.error("Error generating standard PDF:", pdfErr);
-          }
-        }
-        
-        const certData: CertificateData = {
-          recipientName: participant.name,
-          uniqueCertId: certId,
-          serialNumber: currentSerial,
-          certType: database.topic,
-          topic: database.topic,
-          category: database.category,
-          subCategory: database.subCategory,
-          issueDate: new Date().toLocaleDateString("en-US", { 
-            year: "numeric", 
-            month: "long", 
-            day: "numeric" 
-          }),
-          verificationUrl,
-          qrCodeDataUrl,
-          template: selectedTemplate,
-          templateName: templateData?.name || "Standard",
-          pdfBytes,
-        };
+        allResults.push(...batchResults.filter((r): r is RenderResult => r !== null));
+        setGenerationProgress(Math.round(((i + RENDER_CONCURRENCY) / participantsWithCertIds.length) * 60));
+      }
 
-        generatedCerts.push(certData);
+      // ── Phase 2: One batch Firestore write (participants + cert docs) ───────
+      setCurrentGenerating("Saving to database…");
 
-        // Save certificate data to participant
-        console.log(`=== Processing participant ${i+1}/${participantsToGenerate.length}: ${participant.id} ===`);
-        console.log("database.id:", database.id, "database.name:", database.name);
-        
-        // Skip Drive upload - use on-demand generation instead
-        // Service account needs Shared Drive for regular Drive access
-        let certificateUrl = certificateClaimUrl;
-        
-        const issueDate = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-        const updateResponse = await fetch(`/api/participants/${participant.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+      const certDocs = allResults.map(({ participant, certId, verificationUrl }) => ({
+        uniqueCertId: certId,
+        recipientName: participant.name,
+        recipientEmail: participant.email || "",
+        category: database.category,
+        subCategory: database.subCategory,
+        topic: database.topic,
+        certType: database.topic || database.subCategory,
+        issueDate,
+        status: "generated",
+        verificationUrl,
+        databaseId: database.id,
+        participantId: participant.id,
+        createdAt: new Date().toISOString(),
+      }));
+
+      await fetch("/api/participants/batch-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          databaseId: database.id,
+          updates: allResults.map(({ participant, certId, verificationUrl }) => ({
+            id: participant.id,
             certificateId: certId,
-            serialNumber: currentSerial,
             status: "generated",
-            verificationUrl: verificationUrl,
+            verificationUrl,
+            certificateUrl: verificationUrl,
+            issueDate,
             template: selectedTemplate,
             templateName: templateData?.name || "Standard",
-            certificateUrl: certificateUrl,
-            issueDate,
-            databaseId: database.id,
-          }),
-        });
-        
-        console.log(`Response status: ${updateResponse.status}`);
-        
-        let updateData;
-        try {
-          updateData = await updateResponse.json();
-          console.log("Response data:", updateData);
-        } catch (e) {
-          console.log("Response not JSON");
-          updateData = { error: "Invalid JSON response" };
-        }
-        
-        if (!updateResponse.ok) {
-          console.error(`FAILED: ${updateData.error || "Unknown error"}`);
-          updateSuccess = false;
-        } else {
-          console.log(`SUCCESS for ${participant.id}`);
-          
-          // Write to top-level certificates collection so /verify can find it
-          try {
-            await fetch("/api/certificates", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                uniqueCertId: certId,
-                recipientName: participant.name,
-                recipientEmail: participant.email || "",
-                category: database.category,
-                subCategory: database.subCategory,
-                topic: database.topic,
-                certType: database.topic || database.subCategory,
-                issueDate,
-                status: "generated",
-                verificationUrl,
-                databaseId: database.id,
-                participantId: participant.id,
-                createdAt: new Date().toISOString(),
-              }),
-            });
-          } catch (certErr) {
-            console.error("Failed to write to certificates collection:", certErr);
-          }
+          })),
+          certDocs,
+          skipSheetSync: true,
+        }),
+      });
+      setGenerationProgress(65);
 
-          // Upload PDF to Drive and update participant with Drive link
-          if (pdfBytes && database.linkedSheet) {
+      // ── Phase 3: Drive uploads (5 concurrent) ──────────────────────────────
+      if (database.linkedSheet) {
+        const DRIVE_CONCURRENCY = 5;
+        type DriveResult = { participantId: string; certId: string; driveLink: string; driveFileId: string };
+        const driveResults: DriveResult[] = [];
+        let driveFolderUpdated = false;
+
+        for (let i = 0; i < allResults.length; i += DRIVE_CONCURRENCY) {
+          const batchSlice = allResults.slice(i, i + DRIVE_CONCURRENCY);
+          const end = Math.min(i + DRIVE_CONCURRENCY, allResults.length);
+          setCurrentGenerating(`Uploading to Drive ${i + 1}–${end} of ${allResults.length}…`);
+
+          const batchDriveResults = await Promise.all(batchSlice.map(async ({ participant, certId, pdfBytes }) => {
+            if (!pdfBytes) return null;
             try {
               const base64Data = Buffer.from(pdfBytes).toString("base64");
               const driveFileName = `${participant.name.replace(/[^a-zA-Z0-9]/g, "_")}_${certId}.pdf`;
-              
-              const driveResponse = await fetch("/api/drive-upload", {
+              const res = await fetch("/api/drive-upload", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  pdfBytes: base64Data,
-                  fileName: driveFileName,
-                  databaseName: database.name,
-                }),
+                body: JSON.stringify({ pdfBytes: base64Data, fileName: driveFileName, databaseName: database.name }),
               });
-              
-              if (driveResponse.ok) {
-                const driveData = await driveResponse.json();
-                console.log("Drive upload success:", driveData.webContentLink);
-
-                // Update participant with Drive link
-                await fetch(`/api/participants/${participant.id}`, {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    driveLink: driveData.webContentLink || "",
-                    driveFileId: driveData.fileId || "",
-                    databaseId: database.id,
-                  }),
-                });
-
-                // Also persist Drive link on the cert doc so /claim + /verify find it directly
-                try {
-                  await fetch("/api/certificates", {
-                    method: "PATCH",
+              if (res.ok) {
+                const data = await res.json();
+                if (!driveFolderUpdated && data.folderId) {
+                  driveFolderUpdated = true;
+                  fetch("/api/databases", {
+                    method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      uniqueCertId: certId,
-                      driveLink: driveData.webContentLink || "",
-                      driveFileId: driveData.fileId || "",
-                      pdfUrl: driveData.webContentLink || "",
+                      id: database.id,
+                      driveFolderId: data.folderId,
+                      driveFolderUrl: data.folderUrl || `https://drive.google.com/drive/folders/${data.folderId}`,
                     }),
-                  });
-                } catch (patchErr) {
-                  console.error("Failed to patch cert doc with driveLink:", patchErr);
+                  }).catch(() => {});
                 }
+                return {
+                  participantId: participant.id,
+                  certId,
+                  driveLink: data.webContentLink || "",
+                  driveFileId: data.fileId || "",
+                };
               }
             } catch (driveErr) {
               console.error("Failed to upload to Drive:", driveErr);
             }
+            return null;
+          }));
+
+          driveResults.push(...batchDriveResults.filter((r): r is DriveResult => r !== null));
+          setGenerationProgress(65 + Math.round(((i + DRIVE_CONCURRENCY) / allResults.length) * 25));
+        }
+
+        if (driveResults.length > 0) {
+          // Batch update participant Drive links (no sheet sync yet)
+          await fetch("/api/participants/batch-update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              databaseId: database.id,
+              updates: driveResults.map(r => ({ id: r.participantId, driveLink: r.driveLink, driveFileId: r.driveFileId })),
+              skipSheetSync: true,
+            }),
+          });
+
+          // Patch cert docs with Drive links (20 concurrent)
+          const PATCH_CONCURRENCY = 20;
+          for (let i = 0; i < driveResults.length; i += PATCH_CONCURRENCY) {
+            await Promise.all(
+              driveResults.slice(i, i + PATCH_CONCURRENCY).map(r =>
+                fetch("/api/certificates", {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ uniqueCertId: r.certId, driveLink: r.driveLink, driveFileId: r.driveFileId, pdfUrl: r.driveLink }),
+                }).catch(() => {})
+              )
+            );
           }
         }
       }
 
-      setCertificates(generatedCerts);
+      // ── Phase 4: One sheet sync ─────────────────────────────────────────────
+      if (database.linkedSheet) {
+        setCurrentGenerating("Syncing to sheet…");
+        setGenerationProgress(92);
+        await fetch("/api/sheets/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ databaseId: database.id, mode: "firebaseToSheets" }),
+        }).catch(err => console.error("Failed to sync to Sheets:", err));
+      }
+
+      setGenerationProgress(100);
+      setCertificates(allResults.map(r => ({
+        recipientName: r.participant.name,
+        uniqueCertId: r.certId,
+        certType: database.topic,
+        topic: database.topic,
+        category: database.category,
+        subCategory: database.subCategory,
+        issueDate,
+        verificationUrl: r.verificationUrl,
+        qrCodeDataUrl: r.qrCodeDataUrl,
+        template: selectedTemplate,
+        templateName: templateData?.name || "Standard",
+        pdfBytes: r.pdfBytes,
+      })));
       setShowDownload(true);
       onGenerated();
-      
-      if (updateSuccess) {
+
+      if (allResults.length > 0) {
         sfx.fanfare();
-        toast.success(`Generated ${generatedCerts.length} certificates! Template: ${templateData?.name || "Standard"}`);
+        toast.success(`Generated ${allResults.length} certificates! Template: ${templateData?.name || "Standard"}`);
       } else {
-        sfx.notify();
-        toast.warning(`Generated ${generatedCerts.length} certificates, but some updates failed.`);
+        sfx.error();
+        toast.error("No certificates were generated.");
       }
-      
-      // Sync updated data to Sheets after all generations complete
-      if (database.linkedSheet) {
-        try {
-          const refreshResponse = await fetch(`/api/participants?databaseId=${database.id}`);
-          if (refreshResponse.ok) {
-            const refreshData = await refreshResponse.json();
-            await fetch("/api/sheets/sync", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                databaseId: database.id,
-                mode: "firebaseToSheets",
-              }),
-            });
-            console.log("Synced to Google Sheets after certificate generation");
-          }
-        } catch (syncErr) {
-          console.error("Failed to sync to Sheets:", syncErr);
-        }
-      }
+
     } catch (err) {
       console.error("Error generating certificates:", err);
       sfx.error();
