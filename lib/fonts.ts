@@ -33,7 +33,26 @@ const FONT_USER_AGENTS = [
   "Mozilla/5.0 (Linux; U; Android 2.2; en-us; Nexus One Build/FRF91) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
   // IE6 → Google Fonts fallback returns TTF
   "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)",
+  // Old BlackBerry
+  "BlackBerry9700/5.0.0.743 Profile/MIDP-2.1 Configuration/CLDC-1.1 VendorID/100",
+  // Old Nokia S40
+  "NokiaC3-00/5.0 (07.20) Profile/MIDP-2.1 Configuration/CLDC-1.1",
 ];
+
+// Extract font URL from Google Fonts CSS, preferring truetype format
+function parseFontUrl(css: string): string | null {
+  // Prefer URL explicitly paired with truetype format hint
+  const truetypeMatch = css.match(/url\(['"]?([^'"\n)]+)['"]?\)\s+format\(['"]truetype['"]\)/);
+  if (truetypeMatch) return truetypeMatch[1];
+
+  // Fall back: any URL containing .ttf
+  const allUrls = [...css.matchAll(/url\(['"]?([^'"\n)]+)['"]?\)/g)].map(m => m[1]);
+  const ttfUrl = allUrls.find(u => u.toLowerCase().includes(".ttf"));
+  if (ttfUrl) return ttfUrl;
+
+  // Last resort: first URL in CSS
+  return allUrls[0] ?? null;
+}
 
 // Server-side only: fetch TTF bytes from Google Fonts for pdf-lib embedding
 export async function loadFontBytes(fontName: string): Promise<Uint8Array | null> {
@@ -42,14 +61,12 @@ export async function loadFontBytes(fontName: string): Promise<Uint8Array | null
 
   for (const ua of FONT_USER_AGENTS) {
     try {
-      const cssUrl = `https://fonts.googleapis.com/css?family=${encodeURIComponent(fontName)}&display=swap`;
+      const cssUrl = `https://fonts.googleapis.com/css?family=${encodeURIComponent(fontName)}`;
       const cssRes = await fetch(cssUrl, { headers: { "User-Agent": ua } });
       if (!cssRes.ok) continue;
       const css = await cssRes.text();
 
-      // Collect all url() values; prefer ones with .ttf extension
-      const allUrls = [...css.matchAll(/url\(([^)]+)\)/g)].map(m => m[1].replace(/['"]/g, ""));
-      const fontUrl = allUrls.find(u => u.toLowerCase().includes(".ttf")) || allUrls[0];
+      const fontUrl = parseFontUrl(css);
       if (!fontUrl) continue;
 
       const fontRes = await fetch(fontUrl);

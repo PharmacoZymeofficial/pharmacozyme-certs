@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
-import { doc, deleteDoc, updateDoc, getDoc, collection, getDocs } from "firebase/firestore";
+import { doc, deleteDoc, updateDoc, getDoc } from "firebase/firestore";
 
 const APPS_SCRIPT_URL = process.env.GOOGLE_APPS_SCRIPT_URL || "";
 
@@ -48,49 +48,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       ...updateData,
       updatedAt: new Date().toISOString(),
     });
-
-    // Sync to Sheets after update
-    try {
-      const dbRef = doc(db, "databases", databaseId);
-      const dbSnap = await getDoc(dbRef);
-      const dbData = dbSnap.exists() ? dbSnap.data() : null;
-      
-      if (dbData?.sheetId) {
-        const participantsRef = collection(db, "databases", databaseId, "participants");
-        const participantsSnap = await getDocs(participantsRef);
-        const allParticipants = participantsSnap.docs.map(d => d.data() as any);
-        
-        // Sort by certificate ID serial number to match app order
-        const sortedParticipants = [...allParticipants].sort((a, b) => {
-          if (!a.certificateId && !b.certificateId) return 0;
-          if (!a.certificateId) return 1;
-          if (!b.certificateId) return -1;
-          const aNum = parseInt(a.certificateId.split("-").pop() || "0");
-          const bNum = parseInt(b.certificateId.split("-").pop() || "0");
-          return aNum - bNum;
-        });
-        
-        await callAppsScript("syncData", {
-          spreadsheetId: dbData.sheetId,
-          tabName: dbData.sheetTabName || "Participants",
-          data: sortedParticipants.map(p => ({
-            certificateId: p.certificateId || "",
-            name: p.name || "",
-            email: p.email || "",
-            certificateUrl: p.certificateUrl || "",
-            status: p.status || "pending",
-            issueDate: p.issueDate || "",
-            emailSent: p.emailSent || false,
-            driveLink: p.driveLink || "",
-            createdAt: p.createdAt || "",
-          })),
-          mode: "write",
-        });
-        console.log("Synced to Sheets after participant update");
-      }
-    } catch (syncErr) {
-      console.error("Failed to sync to Sheets after update:", syncErr);
-    }
 
     console.log("Participant updated successfully:", id);
     return NextResponse.json({ success: true, message: "Participant updated" });
@@ -147,37 +104,22 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     // Use nested subcollection path
     await deleteDoc(participantRef);
 
-    // Sync to Sheets after deletion
-    try {
-      const dbRef = doc(db, "databases", databaseId);
-      const dbSnap = await getDoc(dbRef);
-      const dbData = dbSnap.exists() ? dbSnap.data() : null;
-      
-      if (dbData?.sheetId) {
-        const remainingRef = collection(db, "databases", databaseId, "participants");
-        const remainingSnap = await getDocs(remainingRef);
-        const remainingParticipants = remainingSnap.docs.map(d => d.data() as any);
-        
-        await callAppsScript("syncData", {
-          spreadsheetId: dbData.sheetId,
-          tabName: dbData.sheetTabName || "Participants",
-          data: remainingParticipants.map(p => ({
-            certificateId: p.certificateId || "",
-            name: p.name || "",
-            email: p.email || "",
-            certificateUrl: p.certificateUrl || "",
-            status: p.status || "pending",
-            issueDate: p.issueDate || "",
-            emailSent: p.emailSent || false,
-            driveLink: p.driveLink || "",
-            createdAt: p.createdAt || "",
-          })),
-          mode: "write",
-        });
-        console.log("Synced remaining participants to Sheets after deletion");
+    // Targeted sheet sync: delete only this participant's row by cert ID
+    if (participantData?.certificateId && APPS_SCRIPT_URL) {
+      try {
+        const dbRef = doc(db, "databases", databaseId);
+        const dbSnap = await getDoc(dbRef);
+        const dbData = dbSnap.exists() ? dbSnap.data() : null;
+        if (dbData?.sheetId) {
+          await callAppsScript("deleteRowsByCertIds", {
+            spreadsheetId: dbData.sheetId,
+            tabName: dbData.sheetTabName || "Participants",
+            certIds: [participantData.certificateId],
+          });
+        }
+      } catch (syncErr) {
+        console.error("Failed to delete sheet row after participant deletion:", syncErr);
       }
-    } catch (syncErr) {
-      console.error("Failed to sync to Sheets after deletion:", syncErr);
     }
 
     return NextResponse.json({ success: true, message: "Participant deleted" });

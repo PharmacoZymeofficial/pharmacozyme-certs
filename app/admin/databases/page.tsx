@@ -100,6 +100,7 @@ export default function DatabaseManagementPage() {
   const [showIdFormatModal, setShowIdFormatModal] = useState(false);
   const [idFormat, setIdFormat] = useState<"app" | "name">("app");
   const [idFormatCode, setIdFormatCode] = useState("");
+  const [idFormatCategoryNo, setIdFormatCategoryNo] = useState("");
   
   // Undo/Redo history
   const [history, setHistory] = useState<Participant[][]>([]);
@@ -989,7 +990,7 @@ export default function DatabaseManagementPage() {
         const serial = String(maxSerial + i + 1).padStart(3, "0");
         let certId: string;
         if (idFormat === "app") {
-          certId = `${year}-PZ-${subCatShort}-${serial.padStart(4, "0")}`;
+          certId = `PZ-${subCatShort}-${idFormatCategoryNo.trim()}-${serial}`;
         } else {
           const firstName = participant.name.split(" ")[0];
           certId = `${firstName}-${idFormatCode}-${serial}`;
@@ -1291,11 +1292,27 @@ export default function DatabaseManagementPage() {
             <div className="p-6 space-y-4">
               <label className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${idFormat === "app" ? "border-brand-vivid-green bg-green-50" : "border-gray-100 hover:border-green-200"}`}>
                 <input type="radio" className="mt-1 accent-green-700" checked={idFormat === "app"} onChange={() => setIdFormat("app")} />
-                <div>
+                <div className="flex-1">
                   <p className="font-bold text-sm text-brand-dark-green">App Format</p>
-                  <p className="text-xs text-on-surface-variant mt-0.5">
-                    Auto-generated: <span className="font-mono bg-gray-100 px-1 rounded">{new Date().getFullYear()}-PZ-{subCategoryShortMap[selectedDatabase?.subCategory || ""] || "CRS"}-0001</span>
+                  <p className="text-xs text-on-surface-variant mt-0.5 mb-2">
+                    Pattern: <span className="font-mono bg-gray-100 px-1 rounded">PZ-{subCategoryShortMap[selectedDatabase?.subCategory || ""] || "CRS"}-{idFormatCategoryNo || "No"}-001</span>
                   </p>
+                  {idFormat === "app" && (
+                    <div>
+                      <label className="block text-xs font-bold text-brand-grass-green uppercase mb-1">Category Number</label>
+                      <input
+                        type="text"
+                        value={idFormatCategoryNo}
+                        onChange={e => setIdFormatCategoryNo(e.target.value)}
+                        placeholder="e.g. 11"
+                        maxLength={6}
+                        className="w-full bg-surface-container-low border border-green-100 rounded-lg p-2 text-sm font-mono outline-none focus:border-brand-vivid-green"
+                      />
+                      <p className="text-xs text-on-surface-variant mt-1">
+                        Preview: <span className="font-mono">PZ-{subCategoryShortMap[selectedDatabase?.subCategory || ""] || "CRS"}-{idFormatCategoryNo || "No"}-001</span>
+                      </p>
+                    </div>
+                  )}
                 </div>
               </label>
               <label className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${idFormat === "name" ? "border-brand-vivid-green bg-green-50" : "border-gray-100 hover:border-green-200"}`}>
@@ -1303,7 +1320,7 @@ export default function DatabaseManagementPage() {
                 <div className="flex-1">
                   <p className="font-bold text-sm text-brand-dark-green">Name-Based Format</p>
                   <p className="text-xs text-on-surface-variant mt-0.5 mb-2">
-                    Sheet-style: <span className="font-mono bg-gray-100 px-1 rounded">FirstName-CODE-001</span>
+                    Pattern: <span className="font-mono bg-gray-100 px-1 rounded">FirstName-CODE-001</span>
                   </p>
                   {idFormat === "name" && (
                     <div>
@@ -1328,7 +1345,7 @@ export default function DatabaseManagementPage() {
               <button onClick={() => setShowIdFormatModal(false)} className="px-5 py-2.5 text-sm font-bold text-on-surface-variant hover:bg-green-50 rounded-xl">
                 Cancel
               </button>
-              <button onClick={handleConfirmGenerateIds} disabled={idFormat === "name" && !idFormatCode.trim()} className="px-5 py-2.5 vivid-gradient-cta text-white rounded-xl font-bold text-sm disabled:opacity-50">
+              <button onClick={handleConfirmGenerateIds} disabled={(idFormat === "name" && !idFormatCode.trim()) || (idFormat === "app" && !idFormatCategoryNo.trim())} className="px-5 py-2.5 vivid-gradient-cta text-white rounded-xl font-bold text-sm disabled:opacity-50">
                 Generate IDs
               </button>
             </div>
