@@ -64,6 +64,9 @@ function doPost(e) {
       case "deleteRowsByEmail":
         result = deleteRowsByEmail(payload);
         break;
+      case "clearCertIdsByEmail":
+        result = clearCertIdsByEmail(payload);
+        break;
       default:
         throw new Error("Unknown action: " + action);
     }
@@ -506,4 +509,39 @@ function deleteRowsByEmail(payload) {
   }
 
   return { success: true, deletedRows: rowsToDelete.length };
+}
+
+// Clear col A (cert ID) for rows matched by email in col C -- never deletes rows.
+// Preserves all other columns (original form data, names, emails, etc.).
+// 3 batch API calls total regardless of row count.
+function clearCertIdsByEmail(payload) {
+  const { spreadsheetId, tabName, emails } = payload;
+  if (!emails || emails.length === 0) return { success: true, cleared: 0 };
+
+  const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+  const sheet = spreadsheet.getSheetByName(tabName);
+  if (!sheet) throw new Error("Sheet tab not found: " + tabName);
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return { success: true, cleared: 0 };
+
+  const rowCount = lastRow - 1;
+  const emailSet = new Set(emails.map(function(e) { return (e || "").toLowerCase().trim(); }).filter(Boolean));
+
+  // Batch read col A and col C
+  const certIdCol = sheet.getRange(2, 1, rowCount, 1).getValues();
+  const emailCol  = sheet.getRange(2, 3, rowCount, 1).getValues();
+
+  var cleared = 0;
+  for (var i = 0; i < rowCount; i++) {
+    if (emailSet.has((emailCol[i][0] || "").toLowerCase().trim())) {
+      certIdCol[i][0] = "";
+      cleared++;
+    }
+  }
+
+  // Batch write col A only
+  sheet.getRange(2, 1, rowCount, 1).setValues(certIdCol);
+
+  return { success: true, cleared: cleared };
 }

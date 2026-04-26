@@ -113,24 +113,17 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     await deleteDoc(participantRef);
 
-    // Sync: delete the row from sheet
+    // Sync: clear only col A (cert ID) for this participant — never delete the row
+    // Preserves pre-existing sheet data (Google Form responses etc.)
     if (APPS_SCRIPT_URL) {
       try {
         const sheet = await getSheetInfo(databaseId);
-        if (sheet) {
-          const certId = participantData?.certificateId;
-          const email = participantData?.email;
-
-          if (certId) {
-            // Fast path: target by cert ID (col A)
-            await callAppsScript("deleteRowsByCertIds", { ...sheet, certIds: [certId] });
-          } else if (email) {
-            // Fallback: target by email (col C) for participants without a cert ID
-            await callAppsScript("deleteRowsByEmail", { ...sheet, emails: [email] });
-          }
+        const email = participantData?.email;
+        if (sheet && email) {
+          await callAppsScript("clearCertIdsByEmail", { ...sheet, emails: [email] });
         }
       } catch (syncErr) {
-        console.error("Sheet delete failed after participant deletion:", syncErr);
+        console.error("Sheet clear failed after participant deletion:", syncErr);
       }
     }
 

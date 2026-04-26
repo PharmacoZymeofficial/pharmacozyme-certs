@@ -69,22 +69,22 @@ export async function DELETE(request: NextRequest) {
     }
     console.log(`Deleted ${participantsSnap.size} participants`);
 
-    // Remove only app-added rows from Google Sheet (by cert ID)
+    // Clear only col A (cert IDs the app wrote) — never deletes original rows
     if (dbData?.sheetId && APPS_SCRIPT_URL) {
       try {
-        const certIds = participantsSnap.docs
-          .map(d => d.data().certificateId)
+        const emails = participantsSnap.docs
+          .map(d => d.data().email)
           .filter(Boolean);
-        if (certIds.length > 0) {
-          await callAppsScript("deleteRowsByCertIds", {
+        if (emails.length > 0) {
+          await callAppsScript("clearCertIdsByEmail", {
             spreadsheetId: dbData.sheetId,
             tabName: dbData.sheetTabName || "Participants",
-            certIds,
+            emails,
           });
+          console.log(`Cleared cert IDs for ${emails.length} rows in sheet`);
         }
-        console.log("Removed app rows from sheet");
       } catch (sheetErr) {
-        console.error("Failed to remove sheet rows:", sheetErr);
+        console.error("Failed to clear cert IDs from sheet:", sheetErr);
       }
     }
 
