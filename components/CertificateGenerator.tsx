@@ -652,7 +652,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
           }
         }));
 
-        allResults.push(...batchResults.filter((r): r is RenderResult => r !== null));
+        allResults.push(...(batchResults.filter(r => r !== null) as RenderResult[]));
         setGenerationProgress(Math.round(((i + RENDER_CONCURRENCY) / participantsWithCertIds.length) * 60));
       }
 
@@ -745,7 +745,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
             return null;
           }));
 
-          driveResults.push(...batchDriveResults.filter((r): r is DriveResult => r !== null));
+          driveResults.push(...(batchDriveResults.filter(r => r !== null) as DriveResult[]));
           setGenerationProgress(65 + Math.round(((i + DRIVE_CONCURRENCY) / allResults.length) * 25));
         }
 
