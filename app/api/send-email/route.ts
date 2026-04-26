@@ -196,8 +196,7 @@ export async function POST(request: NextRequest) {
             },
           });
           results.push({ email, success: true });
-          // Delay between sends to respect Gmail rate limits
-          await new Promise(r => setTimeout(r, 500));
+          await new Promise(r => setTimeout(r, 100));
         } catch (err: any) {
           console.error(`Gmail failed for ${email}:`, err);
           errors.push({ email, error: err.message });

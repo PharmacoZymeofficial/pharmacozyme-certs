@@ -70,6 +70,7 @@ export default function DatabaseManagementPage() {
   const [emailSubject, setEmailSubject] = useState("Your Certificate from PharmacoZyme");
   const [emailMessage, setEmailMessage] = useState("Dear [Name],\n\nCongratulations! Your certificate is now ready.\n\nYou can verify your certificate at: [VerificationLink]\n\nBest regards,\nPharmacoZyme Team");
   const [isSending, setIsSending] = useState(false);
+  const [sendProgress, setSendProgress] = useState({ current: 0, total: 0 });
   const [emailStats, setEmailStats] = useState<{
     sent: number; limit: number; remaining: number; source: string;
     accounts?: Record<string, { sent: number; limit: number; remaining: number; label: string; email: string }>;
@@ -654,7 +655,7 @@ export default function DatabaseManagementPage() {
     const recipients = selectedParticipants.length > 0
       ? participants.filter(p => selectedParticipants.includes(p.id || ""))
       : participants;
-      
+
     if (!selectedDatabase || recipients.length === 0) {
       toast.warning("No participants to send emails to");
       sfx.error();
@@ -662,82 +663,105 @@ export default function DatabaseManagementPage() {
     }
 
     setIsSending(true);
-    
-    // Prepare email data with drive link for PDF download
-    const emailRecipients = recipients.map(p => ({
-      email: p.email,
-      name: p.name,
-      certificateId: p.certificateId || "",
-      verificationUrl: p.certificateUrl || "",
-      driveLink: p.driveLink || "",
-    }));
-    
+    setSendProgress({ current: 0, total: recipients.length });
+
+    const sender = SENDER_IDENTITIES[selectedSenderIndex];
+    const CHUNK_SIZE = 30;
+    let totalSent = 0;
+    let totalFailed = 0;
+    const allErrors: { email: string; error: string }[] = [];
+
     try {
-      // Call the email API
-      const sender = SENDER_IDENTITIES[selectedSenderIndex];
-      const response = await fetch("/api/send-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recipients: emailRecipients,
-          subject: emailSubject,
-          message: emailMessage,
-          senderName: sender.name,
-          ...(sender.email ? { gmailEmail: sender.email } : {}),
-        }),
-      });
-      
-      const result = await response.json();
-      
-      if (!response.ok) {
-        toast.error(result.error || "Failed to send emails");
-        sfx.error();
-        setIsSending(false);
-        return;
-      }
-      
-      // Update emailSent status for all recipients
-      for (const recipient of recipients) {
-        await fetch(`/api/participants/${recipient.id}`, {
-          method: "PUT",
+      for (let i = 0; i < recipients.length; i += CHUNK_SIZE) {
+        const chunk = recipients.slice(i, i + CHUNK_SIZE);
+        const emailRecipients = chunk.map(p => ({
+          email: p.email,
+          name: p.name,
+          certificateId: p.certificateId || "",
+          verificationUrl: p.certificateUrl || "",
+          driveLink: p.driveLink || "",
+        }));
+
+        const response = await fetch("/api/send-email", {
+          method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ emailSent: true, databaseId: selectedDatabase?.id }),
+          body: JSON.stringify({
+            recipients: emailRecipients,
+            subject: emailSubject,
+            message: emailMessage,
+            senderName: sender.name,
+            ...(sender.email ? { gmailEmail: sender.email } : {}),
+          }),
         });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          toast.error(result.error || "Failed to send emails");
+          sfx.error();
+          setIsSending(false);
+          setSendProgress({ current: 0, total: 0 });
+          return;
+        }
+
+        totalSent += result.sent || 0;
+        totalFailed += result.failed || 0;
+        if (result.errors?.length > 0) allErrors.push(...result.errors);
+
+        // Mark emailSent only for participants actually delivered
+        const successEmails = new Set(
+          ((result.results || []) as { email: string; success: boolean }[])
+            .filter(r => r.success)
+            .map(r => r.email)
+        );
+        const sentIds = chunk
+          .filter(p => successEmails.has(p.email))
+          .map(p => p.id!)
+          .filter(Boolean);
+
+        if (sentIds.length > 0) {
+          await fetch("/api/participants/batch-update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              databaseId: selectedDatabase.id,
+              participantIds: sentIds,
+              fields: { emailSent: true },
+              skipSheetSync: true,
+            }),
+          });
+        }
+
+        setSendProgress({ current: Math.min(i + CHUNK_SIZE, recipients.length), total: recipients.length });
       }
-      
-      // Sync to Sheets after email update
+
+      // Final sheet sync once after all chunks
       if (selectedDatabase?.linkedSheet) {
         try {
           await fetch("/api/sheets/sync", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              databaseId: selectedDatabase.id,
-              mode: "firebaseToSheets",
-            }),
+            body: JSON.stringify({ databaseId: selectedDatabase.id, mode: "firebaseToSheets" }),
           });
         } catch (syncErr) {
           console.error("Failed to sync to Sheets after email:", syncErr);
         }
       }
-      
-      if (selectedDatabase?.id) {
-        fetchParticipants(selectedDatabase.id!);
-      }
-      
+
+      if (selectedDatabase?.id) fetchParticipants(selectedDatabase.id!);
+
       sfx.send();
-      toast.success(`Emails sent! ${result.sent || recipients.length} delivered${result.failed ? `, ${result.failed} failed` : ""}${result.autoQueued ? ` • ${result.autoQueued} queued for tomorrow (quota reached)` : ""}.`);
-      if (result.failed > 0 && result.errors?.length > 0) {
-        toast.error(`Send error: ${result.errors[0].error}`);
-      }
-    } catch (err) {
+      toast.success(`Emails sent! ${totalSent} delivered${totalFailed > 0 ? `, ${totalFailed} failed` : ""}.`);
+      if (allErrors.length > 0) toast.error(`Send error: ${allErrors[0].error}`);
+    } catch (err: any) {
       console.error("Error sending emails:", err);
-      toast.error("Failed to send emails. Check email configuration.");
+      toast.error("Error sending emails: " + (err?.message || "Network error"));
       sfx.error();
+    } finally {
+      setIsSending(false);
+      setSendProgress({ current: 0, total: 0 });
+      setShowEmailModal(false);
     }
-    
-    setIsSending(false);
-    setShowEmailModal(false);
   };
 
   const openEmailModal = async () => {
@@ -2957,7 +2981,7 @@ Ahmed Khan, ahmed@email.com"
                 {isSending ? (
                   <>
                     <span className="material-symbols-outlined animate-spin">progress_activity</span>
-                    {scheduleMode ? "Scheduling..." : "Sending..."}
+                    {scheduleMode ? "Scheduling..." : sendProgress.total > 0 ? `Sending ${sendProgress.current}/${sendProgress.total}...` : "Sending..."}
                   </>
                 ) : scheduleMode ? (
                   <>
