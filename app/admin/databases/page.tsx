@@ -1444,6 +1444,21 @@ export default function DatabaseManagementPage() {
         </button>
       </header>
 
+      {/* Breadcrumb — only when a database is open */}
+      {selectedDatabase && (
+        <nav className="flex items-center gap-3 mb-6 -mt-2">
+          <button
+            onClick={() => setSelectedDatabase(null)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-brand-dark-green text-white rounded-xl text-sm font-bold shadow hover:bg-brand-green transition-colors active:scale-95"
+          >
+            <span className="material-symbols-outlined text-base">arrow_back</span>
+            All Databases
+          </button>
+          <span className="text-on-surface-variant text-sm">/</span>
+          <span className="text-brand-dark-green font-semibold text-sm truncate max-w-xs">{selectedDatabase.name}</span>
+        </nav>
+      )}
+
       {/* Database Cards — hidden when a database is open */}
       {!selectedDatabase && (
         databases.length === 0 ? (
@@ -1546,8 +1561,9 @@ export default function DatabaseManagementPage() {
           {/* Database Header */}
           <div className="p-6 border-b border-green-50 bg-green-50/30">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
+              <div className="flex-1 min-w-0">
+                {/* DB name + rename */}
+                <div className="flex items-center gap-2 mb-0.5">
                   {renamingDbId === selectedDatabase.id ? (
                     <div className="flex items-center gap-2">
                       <input
@@ -1556,7 +1572,7 @@ export default function DatabaseManagementPage() {
                         onChange={e => setRenameValue(e.target.value)}
                         onKeyDown={e => { if (e.key === "Enter") handleRenameDatabase(selectedDatabase.id!, renameValue); if (e.key === "Escape") setRenamingDbId(null); }}
                         autoFocus
-                        className="px-3 py-1 border border-green-300 rounded-lg text-2xl font-headline font-bold text-brand-dark-green focus:outline-none focus:ring-2 focus:ring-brand-vivid-green"
+                        className="px-3 py-1 border border-green-300 rounded-lg text-xl font-headline font-bold text-brand-dark-green focus:outline-none focus:ring-2 focus:ring-brand-vivid-green"
                       />
                       <button onClick={() => handleRenameDatabase(selectedDatabase.id!, renameValue)} className="p-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700">
                         <span className="material-symbols-outlined text-sm">check</span>
@@ -1571,106 +1587,81 @@ export default function DatabaseManagementPage() {
                       <button
                         onClick={() => { setRenamingDbId(selectedDatabase.id || null); setRenameValue(selectedDatabase.name); }}
                         className="p-1.5 hover:bg-green-100 text-gray-400 hover:text-brand-green rounded-lg transition-colors"
-                        title="Rename database"
+                        title="Rename"
                       >
                         <span className="material-symbols-outlined text-sm">edit</span>
                       </button>
                     </>
                   )}
-                  <button
-                    onClick={() => setSelectedDatabase(null)}
-                    className="ml-2 px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg flex items-center gap-1 transition-colors"
-                    title="Back to all databases"
-                  >
-                    <span className="material-symbols-outlined text-sm">arrow_back</span>
-                    All Databases
-                  </button>
                 </div>
-                <p className="text-on-surface-variant">
+                <p className="text-sm text-on-surface-variant mb-3">
                   {selectedDatabase.category} • {selectedDatabase.subCategory} • {selectedDatabase.topic}
                 </p>
-                <div className="flex items-center gap-3 mt-2 flex-wrap">
-                    {selectedDatabase.linkedSheet && selectedDatabase.sheetId && (
-                      <>
-                        <a
-                          href={`https://docs.google.com/spreadsheets/d/${selectedDatabase.sheetId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium hover:text-emerald-800 hover:underline"
-                        >
-                          <span className="material-symbols-outlined text-sm">table_chart</span>
-                          Open Sheet
-                          <span className="material-symbols-outlined text-xs">open_in_new</span>
-                        </a>
-                        <button
-                          onClick={handleSyncFromSheet}
-                          disabled={isSyncingSheet}
-                          className="inline-flex items-center gap-1.5 text-xs text-emerald-700 font-medium bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50"
-                        >
-                          <span className="material-symbols-outlined text-sm">sync</span>
-                          Refresh from Sheet
-                        </button>
-                        <button
-                          onClick={handlePushToSheet}
-                          disabled={isSyncingSheet}
-                          className="inline-flex items-center gap-1.5 text-xs text-blue-700 font-medium bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
-                        >
-                          <span className="material-symbols-outlined text-sm">upload</span>
-                          Push to Sheet
-                        </button>
-                      </>
-                    )}
+
+                {/* Tool groups */}
+                <div className="flex flex-wrap gap-3">
+                  {/* Sheets group */}
+                  {selectedDatabase.linkedSheet && selectedDatabase.sheetId && (
+                    <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-200 rounded-xl px-2 py-1">
+                      <span className="material-symbols-outlined text-sm text-emerald-600 mr-1">table_chart</span>
+                      <a
+                        href={`https://docs.google.com/spreadsheets/d/${selectedDatabase.sheetId}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 flex items-center gap-0.5 px-2 py-1 hover:bg-emerald-100 rounded-lg transition-colors"
+                      >
+                        Open <span className="material-symbols-outlined text-[11px]">open_in_new</span>
+                      </a>
+                      <div className="w-px h-4 bg-emerald-200" />
+                      <button onClick={handleSyncFromSheet} disabled={isSyncingSheet} className="text-xs font-semibold text-emerald-700 hover:bg-emerald-100 px-2 py-1 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm">download</span>Refresh
+                      </button>
+                      <div className="w-px h-4 bg-emerald-200" />
+                      <button onClick={handlePushToSheet} disabled={isSyncingSheet} className="text-xs font-semibold text-emerald-700 hover:bg-emerald-100 px-2 py-1 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm">upload</span>Push
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Drive group */}
+                  <div className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded-xl px-2 py-1">
+                    <span className="material-symbols-outlined text-sm text-blue-600 mr-1">folder_open</span>
                     {selectedDatabase.driveFolderId ? (
                       <>
                         <a
                           href={`https://drive.google.com/drive/folders/${selectedDatabase.driveFolderId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-xs text-blue-600 font-medium hover:text-blue-800 hover:underline"
+                          target="_blank" rel="noopener noreferrer"
+                          className="text-xs font-semibold text-blue-700 hover:text-blue-900 flex items-center gap-0.5 px-2 py-1 hover:bg-blue-100 rounded-lg transition-colors"
                         >
-                          <span className="material-symbols-outlined text-sm">folder_open</span>
-                          Open Drive Folder
-                          <span className="material-symbols-outlined text-xs">open_in_new</span>
+                          Open <span className="material-symbols-outlined text-[11px]">open_in_new</span>
                         </a>
+                        <div className="w-px h-4 bg-blue-200" />
                         <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(`https://drive.google.com/drive/folders/${selectedDatabase.driveFolderId}`);
-                            toast.success("Drive folder link copied!");
-                          }}
-                          className="inline-flex items-center gap-1.5 text-xs text-blue-700 font-medium bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition-colors"
+                          onClick={() => { navigator.clipboard.writeText(`https://drive.google.com/drive/folders/${selectedDatabase.driveFolderId}`); toast.success("Link copied!"); }}
+                          className="text-xs font-semibold text-blue-700 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors flex items-center gap-1"
                         >
-                          <span className="material-symbols-outlined text-sm">content_copy</span>
-                          Copy Link
+                          <span className="material-symbols-outlined text-sm">content_copy</span>Copy
                         </button>
-                        <button
-                          onClick={handleFindDriveFolder}
-                          disabled={isFindingFolder}
-                          className="inline-flex items-center gap-1.5 text-xs text-blue-700 font-medium bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
-                        >
-                          <span className={`material-symbols-outlined text-sm ${isFindingFolder ? "animate-spin" : ""}`}>
-                            {isFindingFolder ? "progress_activity" : "sync"}
-                          </span>
-                          {isFindingFolder ? "Updating..." : "Update"}
+                        <div className="w-px h-4 bg-blue-200" />
+                        <button onClick={handleFindDriveFolder} disabled={isFindingFolder} className="text-xs font-semibold text-blue-700 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1">
+                          <span className={`material-symbols-outlined text-sm ${isFindingFolder ? "animate-spin" : ""}`}>{isFindingFolder ? "progress_activity" : "sync"}</span>
+                          {isFindingFolder ? "Updating…" : "Update"}
                         </button>
                       </>
                     ) : (
-                      <button
-                        onClick={handleFindDriveFolder}
-                        disabled={isFindingFolder}
-                        className="inline-flex items-center gap-1.5 text-xs text-blue-700 font-medium bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
-                      >
-                        <span className={`material-symbols-outlined text-sm ${isFindingFolder ? "animate-spin" : ""}`}>
-                          {isFindingFolder ? "progress_activity" : "folder_open"}
-                        </span>
-                        {isFindingFolder ? "Finding..." : "Link Drive Folder"}
+                      <button onClick={handleFindDriveFolder} disabled={isFindingFolder} className="text-xs font-semibold text-blue-700 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1">
+                        <span className={`material-symbols-outlined text-sm ${isFindingFolder ? "animate-spin" : ""}`}>{isFindingFolder ? "progress_activity" : "add_link"}</span>
+                        {isFindingFolder ? "Finding…" : "Link Drive Folder"}
                       </button>
                     )}
+                  </div>
                 </div>
               </div>
-              <div className="flex gap-2">
+
+              {/* Right: primary actions */}
+              <div className="flex flex-col gap-2 shrink-0">
                 <button
                   onClick={() => setShowParticipantModal(true)}
-                  className="px-4 py-2 bg-white border border-green-200 text-brand-grass-green rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-green-50 transition-colors"
+                  className="px-4 py-2 vivid-gradient-cta text-white rounded-xl text-sm font-semibold flex items-center gap-2 shadow-sm transition-transform active:scale-95"
                 >
                   <span className="material-symbols-outlined">person_add</span>
                   Add Participant
@@ -2034,12 +2025,17 @@ export default function DatabaseManagementPage() {
                         <th className="px-4 py-3 w-8">
                           <input
                             type="checkbox"
-                            checked={selectedParticipants.length === participants.length && participants.length > 0}
+                            checked={
+                              displayedRowsRef.current.length > 0 &&
+                              displayedRowsRef.current.every(p => selectedParticipants.includes(p.id || ""))
+                            }
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setSelectedParticipants(participants.map(p => p.id || ""));
+                                const visibleIds = displayedRowsRef.current.map(p => p.id || "").filter(Boolean);
+                                setSelectedParticipants(prev => Array.from(new Set([...prev, ...visibleIds])));
                               } else {
-                                setSelectedParticipants([]);
+                                const visibleIds = new Set(displayedRowsRef.current.map(p => p.id || ""));
+                                setSelectedParticipants(prev => prev.filter(id => !visibleIds.has(id)));
                               }
                             }}
                             className="w-4 h-4 rounded border-green-300 text-brand-vivid-green focus:ring-brand-vivid-green"
