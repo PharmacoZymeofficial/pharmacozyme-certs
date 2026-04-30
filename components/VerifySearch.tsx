@@ -191,10 +191,11 @@ function ResultCard({
       <div
         className="w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5"
         style={{
-          background: hovered ? "linear-gradient(135deg,#22c55e,#16a34a)" : "rgba(82,183,136,0.1)",
+          background: hovered ? "linear-gradient(135deg,#22c55e,#16a34a)" : "rgba(82,183,136,0.08)",
           color: hovered ? "#fff" : "#52b788",
-          border: hovered ? "none" : "1px solid rgba(82,183,136,0.18)",
-          transition: "all 0.18s ease",
+          border: hovered ? "1px solid rgba(34,197,94,0.4)" : "1px solid rgba(82,183,136,0.15)",
+          boxShadow: hovered ? "0 4px 16px rgba(34,197,94,0.25)" : "none",
+          transition: "all 0.2s cubic-bezier(0.16,1,0.3,1)",
         }}
       >
         <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
@@ -421,27 +422,62 @@ export default function VerifySearch({
           backgroundSize: "48px 48px",
         }}
       />
+
+      {/* Top spotlight beam */}
+      <div
+        className="absolute pointer-events-none"
+        style={{
+          top: 0, left: "50%", transform: "translateX(-50%)",
+          width: 600, height: 300,
+          background: "radial-gradient(ellipse at top,rgba(82,183,136,0.1) 0%,transparent 70%)",
+        }}
+      />
+
       {/* Orbs */}
-      <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle,rgba(34,197,94,0.07) 0%,transparent 68%)", animation: "orbFloat 10s ease-in-out infinite" }} />
-      <div className="absolute -bottom-40 -right-40 w-[28rem] h-[28rem] rounded-full pointer-events-none" style={{ background: "radial-gradient(circle,rgba(82,183,136,0.055) 0%,transparent 68%)", animation: "orbFloat 14s ease-in-out 2s infinite reverse" }} />
+      <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle,rgba(34,197,94,0.08) 0%,transparent 68%)", animation: "orbFloat 10s ease-in-out infinite" }} />
+      <div className="absolute -bottom-40 -right-40 w-[28rem] h-[28rem] rounded-full pointer-events-none" style={{ background: "radial-gradient(circle,rgba(82,183,136,0.065) 0%,transparent 68%)", animation: "orbFloat 14s ease-in-out 2s infinite reverse" }} />
 
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
 
         {/* ── Header ── */}
         <div className="text-center mb-10" style={visStyle(100)}>
+          {/* Pill badge */}
           <div
-            className="inline-flex items-center gap-2 mb-5 px-4 py-1.5 rounded-full"
-            style={{ background: "rgba(82,183,136,0.1)", border: "1px solid rgba(82,183,136,0.2)" }}
+            className="inline-flex items-center gap-2 mb-5 px-5 py-2 rounded-full"
+            style={{
+              background: "linear-gradient(135deg,rgba(82,183,136,0.18),rgba(34,197,94,0.1))",
+              border: "1px solid rgba(82,183,136,0.35)",
+              boxShadow: "0 0 20px rgba(82,183,136,0.12), inset 0 1px 0 rgba(255,255,255,0.06)",
+            }}
           >
-            <span className="material-symbols-outlined text-sm" style={{ color: "#52b788", fontVariationSettings: "'FILL' 1" }}>search</span>
-            <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: "#52b788" }}>Certificate Lookup</span>
+            <span className="material-symbols-outlined text-sm" style={{ color: "#22c55e", fontVariationSettings: "'FILL' 1" }}>verified</span>
+            <span className="text-xs font-bold tracking-widest uppercase" style={{ color: "#52b788", letterSpacing: "0.15em" }}>Certificate Lookup</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-3" style={{ fontFamily: "Fredoka, sans-serif" }}>
+
+          {/* Gradient title */}
+          <h2
+            className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3"
+            style={{
+              fontFamily: "Fredoka, sans-serif",
+              background: "linear-gradient(135deg,#ffffff 0%,#b7e4c7 45%,#52b788 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}
+          >
             Find Your Certificate
           </h2>
-          <p className="text-sm sm:text-base max-w-md mx-auto" style={{ color: "rgba(82,183,136,0.5)" }}>
+
+          <p className="text-sm sm:text-base max-w-md mx-auto" style={{ color: "rgba(82,183,136,0.55)" }}>
             Search by name or certificate ID across all PharmacoZyme databases
           </p>
+
+          {/* Decorative divider */}
+          <div className="flex items-center justify-center gap-3 mt-6">
+            <div style={{ width: 40, height: 1, background: "linear-gradient(90deg,transparent,rgba(82,183,136,0.3))" }} />
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#52b788", boxShadow: "0 0 8px rgba(82,183,136,0.7)" }} />
+            <div style={{ width: 40, height: 1, background: "linear-gradient(90deg,rgba(82,183,136,0.3),transparent)" }} />
+          </div>
         </div>
 
         {/* ── Search card ── */}
@@ -449,26 +485,39 @@ export default function VerifySearch({
           style={{
             ...visStyle(180),
             borderRadius: "1.5rem",
-            background: "rgba(8,20,12,0.72)",
-            border: "1px solid rgba(82,183,136,0.18)",
-            backdropFilter: "blur(22px)",
-            boxShadow: "0 8px 48px rgba(0,0,0,0.4), inset 0 1px 0 rgba(82,183,136,0.08)",
+            background: "rgba(6,16,10,0.82)",
+            border: "1px solid rgba(82,183,136,0.22)",
+            backdropFilter: "blur(28px)",
+            boxShadow: "0 12px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(82,183,136,0.06), inset 0 1px 0 rgba(82,183,136,0.12)",
+            position: "relative",
+            overflow: "hidden",
           }}
         >
+          {/* Card top accent glow */}
+          <div
+            style={{
+              position: "absolute", top: 0, left: "15%", right: "15%", height: 1,
+              background: "linear-gradient(90deg,transparent,rgba(82,183,136,0.6),transparent)",
+              pointerEvents: "none",
+            }}
+          />
           <div className="p-5 sm:p-7">
 
             {/* Mode tabs */}
-            <div className="flex items-center gap-2 mb-5 p-1 rounded-xl w-fit" style={{ background: "rgba(82,183,136,0.07)" }}>
+            <div className="flex items-center gap-1.5 mb-5 p-1 rounded-xl w-fit" style={{ background: "rgba(82,183,136,0.06)", border: "1px solid rgba(82,183,136,0.1)" }}>
               {(["name", "id"] as const).map((m) => (
                 <button
                   key={m}
                   onClick={() => handleModeSwitch(m)}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer"
                   style={{
-                    background: mode === m ? "rgba(82,183,136,0.22)" : "transparent",
-                    color: mode === m ? "#fff" : "rgba(82,183,136,0.45)",
-                    border: mode === m ? "1px solid rgba(82,183,136,0.35)" : "1px solid transparent",
-                    boxShadow: mode === m ? "0 2px 8px rgba(0,0,0,0.2)" : "none",
+                    background: mode === m
+                      ? "linear-gradient(135deg,rgba(82,183,136,0.3),rgba(34,197,94,0.18))"
+                      : "transparent",
+                    color: mode === m ? "#fff" : "rgba(82,183,136,0.4)",
+                    border: mode === m ? "1px solid rgba(82,183,136,0.45)" : "1px solid transparent",
+                    boxShadow: mode === m ? "0 2px 12px rgba(82,183,136,0.2), inset 0 1px 0 rgba(255,255,255,0.06)" : "none",
+                    transition: "all 0.2s cubic-bezier(0.16,1,0.3,1)",
                   }}
                 >
                   <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: mode === m ? "'FILL' 1" : "'FILL' 0" }}>
@@ -619,10 +668,12 @@ export default function VerifySearch({
                     className="flex-1 relative"
                     style={{
                       borderRadius: "0.875rem",
-                      background: "rgba(6,16,9,0.7)",
-                      border: isFocused ? "1.5px solid rgba(82,183,136,0.55)" : "1.5px solid rgba(82,183,136,0.14)",
-                      boxShadow: isFocused ? "0 0 0 4px rgba(82,183,136,0.08)" : "none",
-                      transition: "border-color 0.18s,box-shadow 0.18s",
+                      background: "rgba(4,12,7,0.8)",
+                      border: isFocused ? "1.5px solid rgba(82,183,136,0.65)" : "1.5px solid rgba(82,183,136,0.15)",
+                      boxShadow: isFocused
+                        ? "0 0 0 4px rgba(82,183,136,0.12), 0 0 24px rgba(82,183,136,0.1)"
+                        : "none",
+                      transition: "border-color 0.2s,box-shadow 0.2s",
                     }}
                   >
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-lg pointer-events-none" style={{ color: "rgba(82,183,136,0.4)" }}>badge</span>
@@ -646,11 +697,13 @@ export default function VerifySearch({
                     className="flex-shrink-0 px-5 py-3.5 rounded-[0.875rem] text-sm font-bold flex items-center gap-2 transition-all cursor-pointer"
                     style={{
                       background: certIdInput.trim() && !isLoading
-                        ? "linear-gradient(135deg,#52b788,#1b4332)"
-                        : "rgba(82,183,136,0.08)",
+                        ? "linear-gradient(135deg,#22c55e,#16a34a)"
+                        : "rgba(82,183,136,0.07)",
                       color: certIdInput.trim() && !isLoading ? "#fff" : "rgba(82,183,136,0.3)",
-                      border: "1px solid transparent",
+                      border: certIdInput.trim() && !isLoading ? "1px solid rgba(34,197,94,0.4)" : "1px solid rgba(82,183,136,0.1)",
+                      boxShadow: certIdInput.trim() && !isLoading ? "0 4px 20px rgba(34,197,94,0.3)" : "none",
                       cursor: certIdInput.trim() && !isLoading ? "pointer" : "not-allowed",
+                      transition: "all 0.2s cubic-bezier(0.16,1,0.3,1)",
                     }}
                   >
                     {isLoading ? (
@@ -669,10 +722,12 @@ export default function VerifySearch({
                 className="relative"
                 style={{
                   borderRadius: "0.875rem",
-                  background: "rgba(6,16,9,0.7)",
-                  border: isFocused ? "1.5px solid rgba(82,183,136,0.55)" : "1.5px solid rgba(82,183,136,0.14)",
-                  boxShadow: isFocused ? "0 0 0 4px rgba(82,183,136,0.08)" : "none",
-                  transition: "border-color 0.18s,box-shadow 0.18s",
+                  background: "rgba(4,12,7,0.8)",
+                  border: isFocused ? "1.5px solid rgba(82,183,136,0.65)" : "1.5px solid rgba(82,183,136,0.15)",
+                  boxShadow: isFocused
+                    ? "0 0 0 4px rgba(82,183,136,0.12), 0 0 24px rgba(82,183,136,0.1)"
+                    : "none",
+                  transition: "border-color 0.2s,box-shadow 0.2s",
                 }}
               >
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -723,19 +778,26 @@ export default function VerifySearch({
             </div>
 
             {/* How-to guide */}
-            <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(82,183,136,0.08)" }}>
-              <div className="flex flex-wrap gap-x-5 gap-y-2">
+            <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(82,183,136,0.1)" }}>
+              <div className="flex flex-wrap gap-x-6 gap-y-2.5">
                 {[
                   { icon: "database", text: "Select a database (optional)" },
                   { icon: mode === "id" ? "badge" : "person_search", text: mode === "id" ? "Enter your certificate ID" : "Type your full name" },
                   { icon: "verified", text: mode === "id" ? "Click Verify to confirm" : "Click a result to verify" },
                 ].map(({ icon, text }, i) => (
-                  <div key={i} className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(82,183,136,0.12)", color: "#52b788" }}>
+                  <div key={i} className="flex items-center gap-2">
+                    <span
+                      className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{
+                        background: "linear-gradient(135deg,rgba(82,183,136,0.25),rgba(34,197,94,0.12))",
+                        border: "1px solid rgba(82,183,136,0.3)",
+                        color: "#52b788",
+                      }}
+                    >
                       {i + 1}
                     </span>
-                    <span className="material-symbols-outlined text-sm" style={{ color: "rgba(82,183,136,0.35)", fontVariationSettings: "'FILL' 1" }}>{icon}</span>
-                    <span className="text-[11px]" style={{ color: "rgba(82,183,136,0.35)" }}>{text}</span>
+                    <span className="material-symbols-outlined text-sm" style={{ color: "rgba(82,183,136,0.4)", fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+                    <span className="text-[11px]" style={{ color: "rgba(82,183,136,0.4)" }}>{text}</span>
                   </div>
                 ))}
               </div>
