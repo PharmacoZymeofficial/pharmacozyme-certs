@@ -7,6 +7,7 @@ export interface Database {
   description?: string;
   participantCount?: number;
   certificateCount?: number;
+  isLive?: boolean;
   createdAt?: string;
   updatedAt?: string;
   linkedSheet?: boolean;

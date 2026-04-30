@@ -4,24 +4,26 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import VerifyForm from "@/components/VerifyForm";
+import VerifySearch from "@/components/VerifySearch";
 import VerificationResult from "@/components/VerificationResult";
 import TrustBadges from "@/components/TrustBadges";
-import CertDBSearch from "@/components/CertDBSearch";
+import PublicDatabaseCards from "@/components/PublicDatabaseCards";
 import { Certificate } from "@/lib/types";
 import { sfx } from "@/lib/sfx";
 
 export default function VerifyPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex flex-col bg-surface">
-        <Navbar />
-        <main className="flex-1 flex items-center justify-center">
-          <VerifyPageSkeleton />
-        </main>
-        <Footer />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex flex-col bg-surface">
+          <Navbar />
+          <main className="flex-1 flex items-center justify-center">
+            <VerifyPageSkeleton />
+          </main>
+          <Footer />
+        </div>
+      }
+    >
       <VerifyContent />
     </Suspense>
   );
@@ -45,8 +47,13 @@ function VerifyContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasAutoVerified, setHasAutoVerified] = useState(false);
+  const [preselectedDbId, setPreselectedDbId] = useState<string | null>(null);
 
   const resultRef = useRef<HTMLDivElement>(null);
+
+  const scrollToSearch = () => {
+    document.getElementById("verify-search")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const handleVerify = async (certId: string, category?: string, subCategory?: string) => {
     setIsLoading(true);
@@ -67,7 +74,6 @@ function VerifyContent() {
       setCertificate(data.certificate);
       sfx.success();
 
-      // Scroll to result
       setTimeout(() => {
         resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 200);
@@ -82,6 +88,7 @@ function VerifyContent() {
     }
   };
 
+  // Auto-verify from URL param
   useEffect(() => {
     if (urlCertId && !hasAutoVerified) {
       setHasAutoVerified(true);
@@ -95,93 +102,110 @@ function VerifyContent() {
     setError(null);
   };
 
+  const handleDatabaseSelect = (dbId: string) => {
+    setPreselectedDbId(dbId);
+    setTimeout(scrollToSearch, 80);
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-surface">
       <Navbar />
 
       <main className="flex-1 pb-20">
+
         {/* ── HERO ── */}
-        <section className="relative w-full overflow-hidden" style={{ height: "100svh" }}>
-          {/* Video — desktop */}
+        <section className="relative w-full overflow-hidden flex flex-col" style={{ height: "100svh" }}>
+          {/* Desktop video */}
           <video
             className="hidden sm:block absolute inset-0 w-full h-full object-cover"
             src="/videos/hero-pc.mp4"
             autoPlay loop muted playsInline
           />
-          {/* Video — mobile */}
+          {/* Mobile video */}
           <video
             className="sm:hidden absolute inset-0 w-full h-full object-cover"
             src="/videos/hero-mobile.mp4"
             autoPlay loop muted playsInline
           />
 
-          {/* Mobile: light tint + dark fade at bottom */}
-          <div className="absolute inset-0 sm:hidden" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.08) 50%, rgba(6,15,8,0.85) 88%, rgba(6,15,8,1) 100%)" }} />
+          {/* Gradient overlay — fades to section bg at bottom */}
+          <div
+            className="absolute inset-0"
+            style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.1) 35%, rgba(6,15,8,0.7) 75%, rgba(6,15,8,1) 100%)" }}
+          />
 
-          {/* Desktop: heavier gradient at bottom where card sits */}
-          <div className="absolute inset-0 hidden sm:block"
-            style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.08) 40%, rgba(6,15,8,0.82) 78%, rgba(6,15,8,0.97) 100%)" }} />
-
-          {/* Desktop card pinned to bottom — hidden on mobile */}
-          <div className="hidden sm:flex relative z-10 flex-col justify-end h-full px-4 pb-8">
-            <div className="w-full max-w-xl mx-auto rounded-3xl overflow-hidden"
-              style={{
-                background: "rgba(10,26,16,0.78)",
-                backdropFilter: "blur(24px)",
-                border: "1px solid rgba(82,183,136,0.2)",
-                boxShadow: "0 8px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(82,183,136,0.1)"
-              }}>
-              <div className="p-7">
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                    style={{ background: "linear-gradient(135deg, #52b788, #1b4332)" }}>
-                    <span className="material-symbols-outlined text-white text-base" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-                  </div>
-                  <div>
-                    <p className="text-white font-bold text-sm">Enter Certificate ID</p>
-                    <p className="text-[11px] text-[#52b788]/50">Type or paste the ID to begin verification</p>
-                  </div>
-                </div>
-                <VerifyForm onVerify={handleVerify} isLoading={isLoading} defaultValue={urlCertId} dark />
-              </div>
+          {/* Centered headline */}
+          <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-4">
+            <div
+              className="inline-flex items-center gap-2 mb-5 px-4 py-1.5 rounded-full"
+              style={{ background: "rgba(82,183,136,0.12)", border: "1px solid rgba(82,183,136,0.25)" }}
+            >
+              <span
+                className="material-symbols-outlined text-sm"
+                style={{ color: "#52b788", fontVariationSettings: "'FILL' 1" }}
+              >
+                verified
+              </span>
+              <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: "#52b788" }}>
+                PharmacoZyme
+              </span>
             </div>
-            <div className="mt-5 w-full max-w-xl mx-auto opacity-60">
+
+            <h1
+              className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight"
+              style={{ fontFamily: "Fredoka, sans-serif", textShadow: "0 2px 24px rgba(0,0,0,0.4)" }}
+            >
+              Certificate Verification
+            </h1>
+            <p className="text-sm sm:text-base max-w-sm mx-auto mb-8" style={{ color: "rgba(255,255,255,0.55)" }}>
+              Instantly verify the authenticity of any PharmacoZyme certificate
+            </p>
+
+            <div className="opacity-60">
               <TrustBadges dark />
             </div>
           </div>
-        </section>
 
-        {/* ── MOBILE: Form card in its own section below the hero ── */}
-        <section className="sm:hidden bg-surface px-4 py-6">
-          <div className="rounded-2xl overflow-hidden border border-green-100 shadow-sm bg-white">
-            <div className="p-5">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                  style={{ background: "linear-gradient(135deg, #52b788, #1b4332)" }}>
-                  <span className="material-symbols-outlined text-white text-base" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-                </div>
-                <div>
-                  <p className="text-brand-dark-green font-bold text-sm">Enter Certificate ID</p>
-                  <p className="text-[11px] text-on-surface-variant">Type or paste the ID to begin verification</p>
-                </div>
+          {/* Scroll-down indicator */}
+          <div className="relative z-10 flex flex-col items-center pb-8 gap-1">
+            <a
+              href="#verify-search"
+              onClick={(e) => { e.preventDefault(); scrollToSearch(); }}
+              className="flex flex-col items-center gap-1.5 cursor-pointer group"
+              aria-label="Scroll to search"
+            >
+              <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: "rgba(82,183,136,0.5)" }}>
+                Search Below
+              </span>
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{
+                  background: "rgba(82,183,136,0.12)",
+                  border: "1px solid rgba(82,183,136,0.25)",
+                  animation: "scrollBounce 2s ease-in-out infinite",
+                }}
+              >
+                <span className="material-symbols-outlined text-base" style={{ color: "#52b788" }}>expand_more</span>
               </div>
-              <VerifyForm onVerify={handleVerify} isLoading={isLoading} defaultValue={urlCertId} />
-            </div>
-          </div>
-          <div className="mt-5 opacity-70">
-            <TrustBadges />
+            </a>
           </div>
         </section>
 
-        {/* ── DATABASE NAME SEARCH ── */}
-        <CertDBSearch
-          onSelectCert={(certId) => {
-            handleVerify(certId);
+        {/* ── UNIFIED SEARCH PORTAL ── */}
+        <VerifySearch
+          onVerify={(certId, category, subCategory) => {
+            handleVerify(certId, category, subCategory);
             setTimeout(() => {
               resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
             }, 200);
           }}
+          isLoading={isLoading}
+          defaultCertId={urlCertId}
+          preselectedDbId={preselectedDbId}
         />
+
+        {/* ── DATABASE CARDS ── */}
+        <PublicDatabaseCards onDatabaseSelect={handleDatabaseSelect} />
 
         {/* ── RESULT SECTION ── */}
         <div ref={resultRef}>

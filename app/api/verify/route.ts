@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
+import { rateLimit } from "@/lib/rateLimit";
+
+function getClientIp(req: NextRequest): string {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+    req.headers.get("x-real-ip") ||
+    "unknown"
+  );
+}
 
 async function enrichDriveLink(certData: any) {
   if (certData.driveLink || !certData.databaseId || !certData.participantId) return certData;
@@ -18,6 +27,15 @@ async function enrichDriveLink(certData: any) {
 }
 
 export async function GET(request: NextRequest) {
+  const ip = getClientIp(request);
+  const { ok, retryAfter } = rateLimit(ip);
+  if (!ok) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait before verifying again." },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    );
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const certId = (searchParams.get("certId") || "").toUpperCase().trim() || null;

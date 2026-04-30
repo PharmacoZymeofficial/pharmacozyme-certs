@@ -422,6 +422,23 @@ export default function DatabaseManagementPage() {
     }
   };
 
+  const handleToggleLive = async (db: Database, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = !db.isLive;
+    const response = await fetch("/api/databases", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: db.id, isLive: next }),
+    });
+    if (response.ok) {
+      await fetchDatabases(true);
+      sfx.success();
+      toast.success(next ? "Database is now live on Verify page" : "Database hidden from Verify page");
+    } else {
+      toast.error("Failed to update live status");
+    }
+  };
+
   const handleRenameDatabase = async (dbId: string, newName: string) => {
     if (!newName.trim()) return;
     const response = await fetch("/api/databases", {
@@ -1549,6 +1566,30 @@ export default function DatabaseManagementPage() {
                     <span className="material-symbols-outlined text-[10px]">open_in_new</span>
                   </a>
                 )}
+                {/* Live toggle */}
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-green-50" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`material-symbols-outlined text-sm ${db.isLive ? "text-emerald-600" : "text-gray-400"}`} style={{ fontVariationSettings: "'FILL' 1" }}>
+                      {db.isLive ? "public" : "public_off"}
+                    </span>
+                    <span className={`text-xs font-semibold ${db.isLive ? "text-emerald-700" : "text-gray-400"}`}>
+                      {db.isLive ? "Live on Verify Page" : "Hidden from Verify"}
+                    </span>
+                  </div>
+                  <button
+                    onClick={(e) => handleToggleLive(db, e)}
+                    title={db.isLive ? "Hide from Verify page" : "Publish to Verify page"}
+                    className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500`}
+                    style={{ background: db.isLive ? "#10b981" : "#d1d5db" }}
+                    role="switch"
+                    aria-checked={!!db.isLive}
+                  >
+                    <span
+                      className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
+                      style={{ transform: db.isLive ? "translateX(21px)" : "translateX(2px)" }}
+                    />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
