@@ -110,3 +110,23 @@ h1, h2, h3, h4, h5, h6 {
   0% { transform: translateY(0) rotate(0deg); opacity: 1; }
   100% { transform: translateY(400px) rotate(720deg); opacity: 0; }
 }
+
+@keyframes slideUpFade {
+  from { transform: translateY(28px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes orbFloat {
+  0%, 100% { transform: translateY(0)    scale(1);    }
+  50%       { transform: translateY(-16px) scale(1.05); }
+}
+
+@keyframes shimmerSlide {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(220%);  }
+}
+
+@keyframes searchRingPulse {
+  0%, 100% { box-shadow: 0 0 0 0   rgba(82,183,136,0.25); }
+  50%       { box-shadow: 0 0 0 8px rgba(82,183,136,0);    }
+}

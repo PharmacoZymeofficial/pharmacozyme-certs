@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import VerifyForm from "@/components/VerifyForm";
 import VerificationResult from "@/components/VerificationResult";
 import TrustBadges from "@/components/TrustBadges";
+import CertDBSearch from "@/components/CertDBSearch";
 import { Certificate } from "@/lib/types";
 import { sfx } from "@/lib/sfx";
 
@@ -171,6 +172,16 @@ function VerifyContent() {
             <TrustBadges />
           </div>
         </section>
+
+        {/* ── DATABASE NAME SEARCH ── */}
+        <CertDBSearch
+          onSelectCert={(certId) => {
+            handleVerify(certId);
+            setTimeout(() => {
+              resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 200);
+          }}
+        />
 
         {/* ── RESULT SECTION ── */}
         <div ref={resultRef}>
