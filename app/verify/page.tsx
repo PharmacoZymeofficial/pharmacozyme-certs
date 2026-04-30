@@ -6,26 +6,28 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import VerifySearch from "@/components/VerifySearch";
 import VerificationResult from "@/components/VerificationResult";
-import TrustBadges from "@/components/TrustBadges";
 import PublicDatabaseCards from "@/components/PublicDatabaseCards";
 import { Certificate } from "@/lib/types";
 import { sfx } from "@/lib/sfx";
+import FontLoadGate from "@/components/FontLoadGate";
 
 export default function VerifyPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex flex-col bg-surface">
-          <Navbar />
-          <main className="flex-1 flex items-center justify-center">
-            <VerifyPageSkeleton />
-          </main>
-          <Footer />
-        </div>
-      }
-    >
-      <VerifyContent />
-    </Suspense>
+    <FontLoadGate>
+      <Suspense
+        fallback={
+          <div className="min-h-screen flex flex-col bg-surface">
+            <Navbar />
+            <main className="flex-1 flex items-center justify-center">
+              <VerifyPageSkeleton />
+            </main>
+            <Footer />
+          </div>
+        }
+      >
+        <VerifyContent />
+      </Suspense>
+    </FontLoadGate>
   );
 }
 
@@ -134,37 +136,8 @@ function VerifyContent() {
             style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.1) 35%, rgba(6,15,8,0.7) 75%, rgba(6,15,8,1) 100%)" }}
           />
 
-          {/* Centered headline */}
-          <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-4">
-            <div
-              className="inline-flex items-center gap-2 mb-5 px-4 py-1.5 rounded-full"
-              style={{ background: "rgba(82,183,136,0.12)", border: "1px solid rgba(82,183,136,0.25)" }}
-            >
-              <span
-                className="material-symbols-outlined text-sm"
-                style={{ color: "#52b788", fontVariationSettings: "'FILL' 1" }}
-              >
-                verified
-              </span>
-              <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: "#52b788" }}>
-                PharmacoZyme
-              </span>
-            </div>
-
-            <h1
-              className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight"
-              style={{ fontFamily: "Fredoka, sans-serif", textShadow: "0 2px 24px rgba(0,0,0,0.4)" }}
-            >
-              Certificate Verification
-            </h1>
-            <p className="text-sm sm:text-base max-w-sm mx-auto mb-8" style={{ color: "rgba(255,255,255,0.55)" }}>
-              Instantly verify the authenticity of any PharmacoZyme certificate
-            </p>
-
-            <div className="opacity-60">
-              <TrustBadges dark />
-            </div>
-          </div>
+          {/* Spacer — pushes scroll indicator to bottom */}
+          <div className="flex-1" />
 
           {/* Scroll-down indicator */}
           <div className="relative z-10 flex flex-col items-center pb-8 gap-1">

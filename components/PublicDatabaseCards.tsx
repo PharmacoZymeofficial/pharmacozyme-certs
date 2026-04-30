@@ -63,39 +63,110 @@ function DatabaseCard({
   onSelect: (id: string) => void;
 }) {
   const [hovered, setHovered] = useState(false);
+  const [shimmerActive, setShimmerActive] = useState(false);
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const [displayCount, setDisplayCount] = useState(0);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
   const cfg = CATEGORY_CONFIG[db.category] || fallbackConfig();
+
+  // Count-up animation when card enters viewport
+  useEffect(() => {
+    if (!isVisible) return;
+    const target = db.participantCount;
+    if (target === 0) return;
+    const duration = 1400 + index * 120;
+    const startTime = Date.now();
+    const tick = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayCount(Math.round(eased * target));
+      if (progress < 1) rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [isVisible, db.participantCount, index]);
+
+  const handleMouseEnter = () => {
+    setHovered(true);
+    setShimmerActive(false);
+    requestAnimationFrame(() => setShimmerActive(true));
+  };
+
+  const handleMouseLeave = () => {
+    setHovered(false);
+    setShimmerActive(false);
+    setTilt({ x: 0, y: 0 });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    setTilt({ x: y * -10, y: x * 10 });
+  };
+
+  const accentGradient = cfg.bg.includes("209,250")
+    ? "linear-gradient(90deg,#40916c,#74c69d)"
+    : "linear-gradient(90deg,#1b4332,#40916c)";
 
   return (
     <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      ref={cardRef}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onMouseMove={handleMouseMove}
+      className="relative overflow-hidden"
       style={{
         opacity: isVisible ? 1 : 0,
         transform: isVisible
-          ? hovered ? "translateY(-6px)" : "translateY(0)"
-          : "translateY(24px)",
-        transition: isVisible
-          ? "opacity 0.3s ease, transform 0.22s cubic-bezier(0.16,1,0.3,1), box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease"
-          : `opacity 0.55s ${120 + index * 70}ms ease, transform 0.55s ${120 + index * 70}ms cubic-bezier(0.16,1,0.3,1)`,
+          ? hovered
+            ? `perspective(900px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) translateY(-8px) scale(1.02)`
+            : "perspective(900px) rotateX(0deg) rotateY(0deg) translateY(0) scale(1)"
+          : "translateY(28px)",
+        transition: hovered
+          ? "transform 0.08s ease, box-shadow 0.22s ease, border-color 0.22s ease"
+          : isVisible
+          ? "transform 0.45s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s ease, border-color 0.22s ease, opacity 0.3s ease"
+          : `opacity 0.55s ${120 + index * 80}ms ease, transform 0.55s ${120 + index * 80}ms cubic-bezier(0.16,1,0.3,1)`,
         borderRadius: "1.25rem",
         background: hovered ? "#fff" : "#fafcfa",
         border: hovered ? "1.5px solid #40916c" : "1.5px solid #d1fae5",
         boxShadow: hovered
-          ? "0 16px 40px rgba(27,67,50,0.12), 0 2px 8px rgba(27,67,50,0.06)"
+          ? "0 24px 56px rgba(27,67,50,0.16), 0 4px 16px rgba(27,67,50,0.08)"
           : "0 2px 12px rgba(27,67,50,0.05)",
         display: "flex",
         flexDirection: "column",
+        willChange: "transform",
       }}
     >
-      {/* Card top accent strip — full-width gradient bg, not a side border */}
-      <div style={{ height: 4, borderRadius: "1.25rem 1.25rem 0 0", background: cfg.bg.includes("209,250") ? "linear-gradient(90deg,#40916c,#74c69d)" : "linear-gradient(90deg,#1b4332,#40916c)" }} />
+      {/* Shimmer sweep on hover-enter */}
+      {shimmerActive && (
+        <div
+          className="absolute inset-0 pointer-events-none z-10"
+          style={{
+            background: "linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.45) 50%, transparent 65%)",
+            animation: "shimmerSlide 0.7s ease forwards",
+            borderRadius: "1.25rem",
+          }}
+        />
+      )}
+
+      {/* Card top accent strip */}
+      <div style={{ height: 4, borderRadius: "1.25rem 1.25rem 0 0", background: accentGradient }} />
 
       <div className="p-5 flex flex-col gap-4 flex-1">
         {/* Header row */}
         <div className="flex items-start justify-between gap-3">
           <div
             className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: cfg.bg }}
+            style={{
+              background: cfg.bg,
+              boxShadow: hovered ? "0 4px 12px rgba(27,67,50,0.15)" : "none",
+              transition: "box-shadow 0.22s ease",
+            }}
           >
             <span
               className="material-symbols-outlined text-xl"
@@ -140,7 +211,9 @@ function DatabaseCard({
         <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid rgba(64,145,108,0.1)" }}>
           <div className="flex items-center gap-1.5" style={{ color: "#52b788" }}>
             <span className="material-symbols-outlined text-sm">group</span>
-            <span className="text-xs font-medium">{db.participantCount.toLocaleString()} participants</span>
+            <span className="text-xs font-medium tabular-nums">
+              {displayCount.toLocaleString()} participants
+            </span>
           </div>
           {fmtDate(db.createdAt) && (
             <span className="text-[10px]" style={{ color: "#94a3b8" }}>{fmtDate(db.createdAt)}</span>
@@ -155,6 +228,7 @@ function DatabaseCard({
             background: hovered ? "linear-gradient(135deg,#40916c,#1b4332)" : "rgba(64,145,108,0.08)",
             color: hovered ? "#fff" : "#40916c",
             border: hovered ? "none" : "1px solid rgba(64,145,108,0.2)",
+            boxShadow: hovered ? "0 4px 14px rgba(27,67,50,0.25)" : "none",
           }}
         >
           <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>

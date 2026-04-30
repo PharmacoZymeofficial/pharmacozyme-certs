@@ -1567,28 +1567,59 @@ export default function DatabaseManagementPage() {
                   </a>
                 )}
                 {/* Live toggle */}
-                <div className="flex items-center justify-between mt-3 pt-3 border-t border-green-50" onClick={e => e.stopPropagation()}>
-                  <div className="flex items-center gap-1.5">
-                    <span className={`material-symbols-outlined text-sm ${db.isLive ? "text-emerald-600" : "text-gray-400"}`} style={{ fontVariationSettings: "'FILL' 1" }}>
-                      {db.isLive ? "public" : "public_off"}
-                    </span>
-                    <span className={`text-xs font-semibold ${db.isLive ? "text-emerald-700" : "text-gray-400"}`}>
-                      {db.isLive ? "Live on Verify Page" : "Hidden from Verify"}
-                    </span>
-                  </div>
-                  <button
-                    onClick={(e) => handleToggleLive(db, e)}
-                    title={db.isLive ? "Hide from Verify page" : "Publish to Verify page"}
-                    className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500`}
-                    style={{ background: db.isLive ? "#10b981" : "#d1d5db" }}
-                    role="switch"
-                    aria-checked={!!db.isLive}
+                <div className="mt-3 pt-3 border-t border-green-50" onClick={e => e.stopPropagation()}>
+                  <div
+                    className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all"
+                    style={{
+                      background: db.isLive
+                        ? "linear-gradient(135deg,rgba(16,185,129,0.1),rgba(6,95,70,0.07))"
+                        : "rgba(156,163,175,0.06)",
+                      border: db.isLive ? "1px solid rgba(16,185,129,0.22)" : "1px solid rgba(156,163,175,0.1)",
+                    }}
                   >
-                    <span
-                      className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
-                      style={{ transform: db.isLive ? "translateX(21px)" : "translateX(2px)" }}
-                    />
-                  </button>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {/* Pulsing status dot */}
+                      <div className="relative flex-shrink-0 w-2.5 h-2.5">
+                        <div
+                          className="w-2.5 h-2.5 rounded-full"
+                          style={{
+                            background: db.isLive ? "#10b981" : "#9ca3af",
+                            boxShadow: db.isLive ? "0 0 0 3px rgba(16,185,129,0.18)" : "none",
+                          }}
+                        />
+                        {db.isLive && (
+                          <div
+                            className="absolute inset-0 rounded-full animate-ping"
+                            style={{ background: "rgba(16,185,129,0.35)" }}
+                          />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className={`text-xs font-bold truncate ${db.isLive ? "text-emerald-700" : "text-gray-500"}`}>
+                          {db.isLive ? "Live on Verify Page" : "Hidden from Verify"}
+                        </p>
+                        <p className="text-[10px] text-gray-400">
+                          {db.isLive ? "Visible to public" : "Tap to publish"}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => handleToggleLive(db, e)}
+                      title={db.isLive ? "Hide from Verify page" : "Publish to Verify page"}
+                      className="relative flex-shrink-0 w-12 h-6 rounded-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 transition-all"
+                      style={{
+                        background: db.isLive ? "linear-gradient(135deg,#10b981,#059669)" : "#e5e7eb",
+                        boxShadow: db.isLive ? "0 2px 10px rgba(16,185,129,0.45)" : "none",
+                      }}
+                      role="switch"
+                      aria-checked={!!db.isLive}
+                    >
+                      <span
+                        className="absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-transform"
+                        style={{ transform: db.isLive ? "translateX(26px)" : "translateX(2px)" }}
+                      />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

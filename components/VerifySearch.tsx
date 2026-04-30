@@ -243,7 +243,7 @@ export default function VerifySearch({
   defaultCertId = "",
   preselectedDbId,
 }: Props) {
-  const [mode, setMode] = useState<"id" | "name">("id");
+  const [mode, setMode] = useState<"id" | "name">("name");
   const [certIdInput, setCertIdInput] = useState(defaultCertId);
   const [nameInput, setNameInput] = useState("");
   const [selectedDbId, setSelectedDbId] = useState(preselectedDbId || "");
@@ -256,10 +256,13 @@ export default function VerifySearch({
   const [searchError, setSearchError] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [dbDropdownOpen, setDbDropdownOpen] = useState(false);
+  const [showSubCatHint, setShowSubCatHint] = useState(true);
 
   const sectionRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dbDropdownRef = useRef<HTMLDivElement>(null);
 
   // Entrance animation
   useEffect(() => {
@@ -271,6 +274,23 @@ export default function VerifySearch({
     );
     obs.observe(el);
     return () => obs.disconnect();
+  }, []);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!dbDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (!dbDropdownRef.current?.contains(e.target as Node)) setDbDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [dbDropdownOpen]);
+
+  // Auto-dismiss subcategory hint after 3 s
+  useEffect(() => {
+    if (!showSubCatHint) return;
+    const t = setTimeout(() => setShowSubCatHint(false), 3000);
+    return () => clearTimeout(t);
   }, []);
 
   // Fetch live databases for dropdown
@@ -340,6 +360,7 @@ export default function VerifySearch({
   };
 
   const handleSubCatToggle = (sub: string) => {
+    setShowSubCatHint(false);
     const next = selectedSubCat === sub ? "" : sub;
     setSelectedSubCat(next);
     if (mode === "name" && nameInput.length >= 2) triggerSearch(nameInput, selectedDbId, next);
@@ -438,7 +459,7 @@ export default function VerifySearch({
 
             {/* Mode tabs */}
             <div className="flex items-center gap-2 mb-5 p-1 rounded-xl w-fit" style={{ background: "rgba(82,183,136,0.07)" }}>
-              {(["id", "name"] as const).map((m) => (
+              {(["name", "id"] as const).map((m) => (
                 <button
                   key={m}
                   onClick={() => handleModeSwitch(m)}
@@ -460,41 +481,107 @@ export default function VerifySearch({
 
             {/* Filters row */}
             <div className="flex flex-col sm:flex-row gap-3 mb-4">
-              {/* Database dropdown */}
-              <div className="relative flex-shrink-0 sm:w-56">
+              {/* Database dropdown — custom */}
+              <div ref={dbDropdownRef} className="relative flex-shrink-0 sm:w-56">
                 <span
-                  className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-base pointer-events-none"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-base pointer-events-none z-10"
                   style={{ color: "rgba(82,183,136,0.45)", fontVariationSettings: "'FILL' 1" }}
                 >
                   database
                 </span>
-                <select
-                  value={selectedDbId}
-                  onChange={(e) => handleDbChange(e.target.value)}
+                <button
+                  type="button"
+                  onClick={() => !loadingDbs && setDbDropdownOpen((o) => !o)}
                   disabled={loadingDbs}
-                  className="w-full h-10 pl-9 pr-8 rounded-xl text-xs font-medium appearance-none outline-none cursor-pointer"
+                  className="w-full h-10 pl-9 pr-8 rounded-xl text-xs font-medium text-left outline-none cursor-pointer truncate"
                   style={{
                     background: "rgba(82,183,136,0.07)",
                     border: selectedDbId ? "1px solid rgba(82,183,136,0.4)" : "1px solid rgba(82,183,136,0.12)",
                     color: selectedDbId ? "#fff" : "rgba(82,183,136,0.45)",
                   }}
                 >
-                  <option value="">All Databases</option>
-                  {databases.map((db) => (
-                    <option key={db.id} value={db.id}>{db.name}</option>
-                  ))}
-                </select>
+                  {loadingDbs
+                    ? "Loading..."
+                    : selectedDbId
+                    ? databases.find((d) => d.id === selectedDbId)?.name || "All Databases"
+                    : "All Databases"}
+                </button>
                 <span
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 material-symbols-outlined text-sm pointer-events-none"
-                  style={{ color: "rgba(82,183,136,0.35)" }}
+                  style={{
+                    color: "rgba(82,183,136,0.35)",
+                    transition: "transform 0.18s ease",
+                    transform: dbDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                  }}
                 >
                   expand_more
                 </span>
+
+                {dbDropdownOpen && (
+                  <div
+                    className="absolute top-full left-0 right-0 mt-1.5 rounded-xl overflow-hidden z-50"
+                    style={{
+                      background: "rgba(8,20,12,0.97)",
+                      border: "1px solid rgba(82,183,136,0.2)",
+                      backdropFilter: "blur(16px)",
+                      boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+                      animation: "slideUpFade 0.15s ease both",
+                    }}
+                  >
+                    <div className="max-h-52 overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(82,183,136,0.2) transparent" }}>
+                      <button
+                        type="button"
+                        onClick={() => { handleDbChange(""); setDbDropdownOpen(false); }}
+                        className="w-full px-4 py-2.5 text-left text-xs font-medium cursor-pointer flex items-center gap-2"
+                        style={{
+                          color: !selectedDbId ? "#fff" : "rgba(82,183,136,0.5)",
+                          background: !selectedDbId ? "rgba(82,183,136,0.12)" : "transparent",
+                        }}
+                        onMouseEnter={(e) => { if (selectedDbId) (e.currentTarget as HTMLElement).style.background = "rgba(82,183,136,0.07)"; }}
+                        onMouseLeave={(e) => { if (selectedDbId) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                      >
+                        {!selectedDbId && <span className="material-symbols-outlined text-sm" style={{ color: "#52b788" }}>check</span>}
+                        <span>All Databases</span>
+                      </button>
+                      {databases.map((db) => (
+                        <button
+                          type="button"
+                          key={db.id}
+                          onClick={() => { handleDbChange(db.id); setDbDropdownOpen(false); }}
+                          className="w-full px-4 py-2.5 text-left text-xs font-medium cursor-pointer flex items-center gap-2"
+                          style={{
+                            color: selectedDbId === db.id ? "#fff" : "rgba(82,183,136,0.6)",
+                            background: selectedDbId === db.id ? "rgba(82,183,136,0.12)" : "transparent",
+                          }}
+                          onMouseEnter={(e) => { if (selectedDbId !== db.id) (e.currentTarget as HTMLElement).style.background = "rgba(82,183,136,0.07)"; }}
+                          onMouseLeave={(e) => { if (selectedDbId !== db.id) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                        >
+                          {selectedDbId === db.id && <span className="material-symbols-outlined text-sm" style={{ color: "#52b788" }}>check</span>}
+                          <span className="truncate">{db.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Subcategory chips — only when no specific DB selected */}
               {!selectedDbId && (
                 <div className="flex items-center gap-2 overflow-x-auto pb-0.5 flex-1 min-w-0" style={{ scrollbarWidth: "none" }}>
+                  {showSubCatHint && (
+                    <div
+                      className="flex items-center gap-1 flex-shrink-0 pointer-events-none select-none"
+                      style={{ animation: "slideUpFade 0.3s ease both" }}
+                    >
+                      <span className="text-[10px] font-semibold whitespace-nowrap" style={{ color: "rgba(82,183,136,0.55)" }}>Filter</span>
+                      <span
+                        className="material-symbols-outlined text-base"
+                        style={{ color: "#52b788", animation: "arrowNudge 0.9s ease-in-out infinite" }}
+                      >
+                        arrow_forward
+                      </span>
+                    </div>
+                  )}
                   {SUB_CATS.map((sub) => (
                     <button
                       key={sub}
