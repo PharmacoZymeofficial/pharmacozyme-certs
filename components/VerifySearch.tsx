@@ -259,11 +259,15 @@ export default function VerifySearch({
   const [isFocused, setIsFocused] = useState(false);
   const [dbDropdownOpen, setDbDropdownOpen] = useState(false);
   const [showSubCatHint, setShowSubCatHint] = useState(true);
+  const [subCatHintDismissed, setSubCatHintDismissed] = useState(false);
+  const [dbFocusedIndex, setDbFocusedIndex] = useState(-1);
 
   const sectionRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dbDropdownRef = useRef<HTMLDivElement>(null);
+  const dbDropdownListRef = useRef<HTMLDivElement>(null);
+  const subCatScrollRef = useRef<HTMLDivElement>(null);
 
   // Entrance animation
   useEffect(() => {
@@ -287,12 +291,29 @@ export default function VerifySearch({
     return () => document.removeEventListener("mousedown", handler);
   }, [dbDropdownOpen]);
 
-  // Auto-dismiss subcategory hint after 3 s
+  // Cycle hint: show 3 s, hide 4 s, repeat — stops permanently once user picks a chip
   useEffect(() => {
-    if (!showSubCatHint) return;
-    const t = setTimeout(() => setShowSubCatHint(false), 3000);
-    return () => clearTimeout(t);
-  }, []);
+    if (subCatHintDismissed) return;
+    const tids: ReturnType<typeof setTimeout>[] = [];
+    const cycle = () => {
+      setShowSubCatHint(true);
+      const t1 = setTimeout(() => {
+        setShowSubCatHint(false);
+        const t2 = setTimeout(cycle, 4000);
+        tids.push(t2);
+      }, 3000);
+      tids.push(t1);
+    };
+    cycle();
+    return () => tids.forEach(clearTimeout);
+  }, [subCatHintDismissed]);
+
+  // Scroll keyboard-focused dropdown item into view
+  useEffect(() => {
+    if (!dbDropdownOpen || dbFocusedIndex < 0) return;
+    const item = dbDropdownListRef.current?.querySelector<HTMLElement>(`[data-dbindex="${dbFocusedIndex}"]`);
+    item?.scrollIntoView({ block: "nearest" });
+  }, [dbFocusedIndex, dbDropdownOpen]);
 
   // Fetch live databases for dropdown
   useEffect(() => {
@@ -361,6 +382,7 @@ export default function VerifySearch({
   };
 
   const handleSubCatToggle = (sub: string) => {
+    setSubCatHintDismissed(true);
     setShowSubCatHint(false);
     const next = selectedSubCat === sub ? "" : sub;
     setSelectedSubCat(next);
@@ -373,6 +395,33 @@ export default function VerifySearch({
     setHasSearched(false);
     setSearchError(null);
     setTimeout(() => inputRef.current?.focus(), 80);
+  };
+
+  const allDbOptions = [{ id: "", name: "All Databases" }, ...databases];
+
+  const handleDropdownKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!dbDropdownOpen) {
+        setDbDropdownOpen(true);
+        setDbFocusedIndex(allDbOptions.findIndex((d) => d.id === selectedDbId));
+      } else {
+        setDbFocusedIndex((i) => Math.min(i + 1, allDbOptions.length - 1));
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setDbFocusedIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter" && dbDropdownOpen) {
+      e.preventDefault();
+      if (dbFocusedIndex >= 0 && dbFocusedIndex < allDbOptions.length) {
+        handleDbChange(allDbOptions[dbFocusedIndex].id);
+        setDbDropdownOpen(false);
+        setDbFocusedIndex(-1);
+      }
+    } else if (e.key === "Escape" || e.key === "Tab") {
+      setDbDropdownOpen(false);
+      setDbFocusedIndex(-1);
+    }
   };
 
   const selectedDb = databases.find((d) => d.id === selectedDbId) || null;
@@ -540,7 +589,12 @@ export default function VerifySearch({
                 </span>
                 <button
                   type="button"
-                  onClick={() => !loadingDbs && setDbDropdownOpen((o) => !o)}
+                  onClick={() => {
+                    if (loadingDbs) return;
+                    if (!dbDropdownOpen) setDbFocusedIndex(allDbOptions.findIndex((d) => d.id === selectedDbId));
+                    setDbDropdownOpen((o) => !o);
+                  }}
+                  onKeyDown={handleDropdownKeyDown}
                   disabled={loadingDbs}
                   className="w-full h-10 pl-9 pr-8 rounded-xl text-xs font-medium text-left outline-none cursor-pointer truncate"
                   style={{
@@ -577,38 +631,33 @@ export default function VerifySearch({
                       animation: "slideUpFade 0.15s ease both",
                     }}
                   >
-                    <div className="max-h-52 overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(82,183,136,0.2) transparent" }}>
-                      <button
-                        type="button"
-                        onClick={() => { handleDbChange(""); setDbDropdownOpen(false); }}
-                        className="w-full px-4 py-2.5 text-left text-xs font-medium cursor-pointer flex items-center gap-2"
-                        style={{
-                          color: !selectedDbId ? "#fff" : "rgba(82,183,136,0.5)",
-                          background: !selectedDbId ? "rgba(82,183,136,0.12)" : "transparent",
-                        }}
-                        onMouseEnter={(e) => { if (selectedDbId) (e.currentTarget as HTMLElement).style.background = "rgba(82,183,136,0.07)"; }}
-                        onMouseLeave={(e) => { if (selectedDbId) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-                      >
-                        {!selectedDbId && <span className="material-symbols-outlined text-sm" style={{ color: "#52b788" }}>check</span>}
-                        <span>All Databases</span>
-                      </button>
-                      {databases.map((db) => (
-                        <button
-                          type="button"
-                          key={db.id}
-                          onClick={() => { handleDbChange(db.id); setDbDropdownOpen(false); }}
-                          className="w-full px-4 py-2.5 text-left text-xs font-medium cursor-pointer flex items-center gap-2"
-                          style={{
-                            color: selectedDbId === db.id ? "#fff" : "rgba(82,183,136,0.6)",
-                            background: selectedDbId === db.id ? "rgba(82,183,136,0.12)" : "transparent",
-                          }}
-                          onMouseEnter={(e) => { if (selectedDbId !== db.id) (e.currentTarget as HTMLElement).style.background = "rgba(82,183,136,0.07)"; }}
-                          onMouseLeave={(e) => { if (selectedDbId !== db.id) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-                        >
-                          {selectedDbId === db.id && <span className="material-symbols-outlined text-sm" style={{ color: "#52b788" }}>check</span>}
-                          <span className="truncate">{db.name}</span>
-                        </button>
-                      ))}
+                    <div ref={dbDropdownListRef} className="max-h-52 overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(82,183,136,0.2) transparent" }}>
+                      {allDbOptions.map((opt, idx) => {
+                        const isSelected = opt.id === selectedDbId;
+                        const isFocused = dbFocusedIndex === idx;
+                        return (
+                          <button
+                            type="button"
+                            key={opt.id || "__all__"}
+                            data-dbindex={idx}
+                            onClick={() => { handleDbChange(opt.id); setDbDropdownOpen(false); setDbFocusedIndex(-1); }}
+                            onMouseEnter={() => setDbFocusedIndex(idx)}
+                            className="w-full px-4 py-2.5 text-left text-xs font-medium cursor-pointer flex items-center gap-2"
+                            style={{
+                              color: isSelected ? "#fff" : "rgba(82,183,136,0.6)",
+                              background: isFocused
+                                ? "rgba(82,183,136,0.14)"
+                                : isSelected
+                                ? "rgba(82,183,136,0.12)"
+                                : "transparent",
+                              outline: "none",
+                            }}
+                          >
+                            {isSelected && <span className="material-symbols-outlined text-sm" style={{ color: "#52b788" }}>check</span>}
+                            <span className="truncate">{opt.name}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -616,35 +665,63 @@ export default function VerifySearch({
 
               {/* Subcategory chips — only when no specific DB selected */}
               {!selectedDbId && (
-                <div className="flex items-center gap-2 overflow-x-auto pb-0.5 flex-1 min-w-0" style={{ scrollbarWidth: "none" }}>
-                  {showSubCatHint && (
-                    <div
-                      className="flex items-center gap-1 flex-shrink-0 pointer-events-none select-none"
-                      style={{ animation: "slideUpFade 0.3s ease both" }}
-                    >
-                      <span className="text-[10px] font-semibold whitespace-nowrap" style={{ color: "rgba(82,183,136,0.55)" }}>Filter</span>
-                      <span
-                        className="material-symbols-outlined text-base"
-                        style={{ color: "#52b788", animation: "arrowNudge 0.9s ease-in-out infinite" }}
+                <div className="relative flex-1 min-w-0 flex items-center">
+                  {/* Scrollable chips */}
+                  <div
+                    ref={subCatScrollRef}
+                    className="flex items-center gap-2 overflow-x-auto pb-0.5 flex-1 min-w-0 pr-9"
+                    style={{ scrollbarWidth: "none" }}
+                  >
+                    {showSubCatHint && (
+                      <div
+                        className="flex items-center gap-1 flex-shrink-0 pointer-events-none select-none"
+                        style={{ animation: "slideUpFade 0.25s ease both" }}
                       >
-                        arrow_forward
-                      </span>
-                    </div>
-                  )}
-                  {SUB_CATS.map((sub) => (
-                    <button
-                      key={sub}
-                      onClick={() => handleSubCatToggle(sub)}
-                      className="flex-shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-medium cursor-pointer transition-all whitespace-nowrap"
-                      style={{
-                        background: selectedSubCat === sub ? "rgba(82,183,136,0.22)" : "rgba(82,183,136,0.06)",
-                        border: selectedSubCat === sub ? "1px solid rgba(82,183,136,0.45)" : "1px solid rgba(82,183,136,0.1)",
-                        color: selectedSubCat === sub ? "#fff" : "rgba(82,183,136,0.4)",
-                      }}
-                    >
-                      {sub}
-                    </button>
-                  ))}
+                        <span className="text-[10px] font-semibold whitespace-nowrap" style={{ color: "rgba(82,183,136,0.55)" }}>Filter</span>
+                        <span
+                          className="material-symbols-outlined text-base"
+                          style={{ color: "#52b788", animation: "arrowNudge 0.9s ease-in-out infinite" }}
+                        >
+                          arrow_forward
+                        </span>
+                      </div>
+                    )}
+                    {SUB_CATS.map((sub) => (
+                      <button
+                        key={sub}
+                        onClick={() => handleSubCatToggle(sub)}
+                        className="flex-shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-medium cursor-pointer transition-all whitespace-nowrap"
+                        style={{
+                          background: selectedSubCat === sub ? "rgba(82,183,136,0.22)" : "rgba(82,183,136,0.06)",
+                          border: selectedSubCat === sub ? "1px solid rgba(82,183,136,0.45)" : "1px solid rgba(82,183,136,0.1)",
+                          color: selectedSubCat === sub ? "#fff" : "rgba(82,183,136,0.4)",
+                        }}
+                      >
+                        {sub}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Right fade + scroll button */}
+                  <div
+                    className="absolute right-0 top-0 bottom-0 flex items-center pointer-events-none"
+                    style={{ width: 48, background: "linear-gradient(90deg,transparent,rgba(6,16,10,0.95))" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => subCatScrollRef.current?.scrollBy({ left: 110, behavior: "smooth" })}
+                    className="absolute right-0 flex-shrink-0 flex items-center justify-center cursor-pointer"
+                    style={{
+                      width: 28, height: 28, borderRadius: "50%",
+                      background: "linear-gradient(135deg,rgba(82,183,136,0.22),rgba(34,197,94,0.1))",
+                      border: "1px solid rgba(82,183,136,0.3)",
+                      color: "#52b788",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                    }}
+                    aria-label="Scroll categories"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>chevron_right</span>
+                  </button>
                 </div>
               )}
 
