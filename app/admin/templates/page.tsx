@@ -66,6 +66,7 @@ export default function TemplatesPage() {
     name: "John Doe",
     certId: "2026-PZ-CRS-0001",
   });
+  const isFixedElement = (id: string | null): id is 'name' | 'certId' | 'qr' => id === 'name' || id === 'certId' || id === 'qr';
   const [activeDrag, setActiveDrag] = useState<'name' | 'certId' | 'qr' | string | null>(null);
   const [activeResize, setActiveResize] = useState<'name' | 'certId' | 'qr' | string | null>(null);
   const [selectedElement, setSelectedElement] = useState<'name' | 'certId' | 'qr' | string | null>(null);
@@ -719,42 +720,45 @@ export default function TemplatesPage() {
               <p className="text-[10px] text-gray-400 leading-tight">Template Editor</p>
             </div>
 
-            {/* Context toolbar — shows quick controls for selected element */}
+            {/* Context toolbar — shows quick controls for fixed elements only */}
             <div className="flex-1 flex items-center justify-center">
-              {selectedElement && (
+              {isFixedElement(selectedElement) && (() => {
+                const fk = selectedElement;
+                return (
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-xl border border-gray-200 text-xs">
                   <span className="font-bold text-gray-600 uppercase text-[10px] mr-1">
-                    {selectedElement === 'name' ? 'Name' : selectedElement === 'certId' ? 'ID' : 'QR'}
+                    {fk === 'name' ? 'Name' : fk === 'certId' ? 'ID' : 'QR'}
                   </span>
                   <div className="w-px h-4 bg-gray-300" />
                   <span className="text-gray-400">X:</span>
                   <input type="number" min={0} max={100} step={0.5}
-                    value={Math.round(positions[selectedElement].x * 10) / 10}
-                    onChange={e => { const v = Number(e.target.value); if (!isNaN(v)) setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], x: Math.max(0, Math.min(100, v)) } })); }}
+                    value={Math.round(positions[fk].x * 10) / 10}
+                    onChange={e => { const v = Number(e.target.value); if (!isNaN(v)) setPositions(prev => ({ ...prev, [fk]: { ...prev[fk], x: Math.max(0, Math.min(100, v)) } })); }}
                     className="w-14 text-center border border-gray-200 rounded px-1 py-0.5 font-mono bg-white outline-none focus:border-brand-vivid-green" />
                   <span className="text-gray-400">Y:</span>
                   <input type="number" min={0} max={100} step={0.5}
-                    value={Math.round(positions[selectedElement].y * 10) / 10}
-                    onChange={e => { const v = Number(e.target.value); if (!isNaN(v)) setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], y: Math.max(0, Math.min(100, v)) } })); }}
+                    value={Math.round(positions[fk].y * 10) / 10}
+                    onChange={e => { const v = Number(e.target.value); if (!isNaN(v)) setPositions(prev => ({ ...prev, [fk]: { ...prev[fk], y: Math.max(0, Math.min(100, v)) } })); }}
                     className="w-14 text-center border border-gray-200 rounded px-1 py-0.5 font-mono bg-white outline-none focus:border-brand-vivid-green" />
-                  {selectedElement !== 'qr' && (
+                  {fk !== 'qr' && (
                     <>
                       <div className="w-px h-4 bg-gray-300" />
                       <span className="text-gray-400">Size:</span>
-                      <input type="number" min={selectedElement === 'name' ? 8 : 6} max={selectedElement === 'name' ? 80 : 24} step={0.5}
-                        value={positions[selectedElement].size ?? (selectedElement === 'name' ? 48 : 12)}
-                        onChange={e => { const v = Number(e.target.value); if (!isNaN(v)) setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], size: v } })); }}
+                      <input type="number" min={fk === 'name' ? 8 : 6} max={fk === 'name' ? 80 : 24} step={0.5}
+                        value={positions[fk].size ?? (fk === 'name' ? 48 : 12)}
+                        onChange={e => { const v = Number(e.target.value); if (!isNaN(v)) setPositions(prev => ({ ...prev, [fk]: { ...prev[fk], size: v } })); }}
                         className="w-14 text-center border border-gray-200 rounded px-1 py-0.5 font-mono bg-white outline-none focus:border-brand-vivid-green" />
                       <span className="text-gray-400 text-[10px]">pt</span>
                       <div className="w-px h-4 bg-gray-300" />
                       <input type="color"
-                        value={(positions[selectedElement] as PositionConfig).color || (selectedElement === 'name' ? '#1b4332' : '#333333')}
-                        onChange={e => setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], color: e.target.value } }))}
+                        value={(positions[fk] as PositionConfig).color || (fk === 'name' ? '#1b4332' : '#333333')}
+                        onChange={e => setPositions(prev => ({ ...prev, [fk]: { ...prev[fk], color: e.target.value } }))}
                         className="w-6 h-6 rounded cursor-pointer border border-gray-200" title="Text color" />
                     </>
                   )}
                 </div>
-              )}
+                );
+              })()}
             </div>
 
             <div className="flex items-center gap-2">
@@ -1020,10 +1024,11 @@ export default function TemplatesPage() {
                   );
                 }
 
+                const fixedKey = selectedElement as 'name' | 'certId' | 'qr';
                 return (
                 <div className="p-4 space-y-5">
                   <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
-                    <span className="material-symbols-outlined text-base" style={{ color: selectedElement === 'qr' ? '#3b82f6' : selectedElement === 'name' ? (positions.name.color || '#1b4332') : (positions.certId.color || '#333333') }}>
+                    <span className="material-symbols-outlined text-base" style={{ color: fixedKey === 'qr' ? '#3b82f6' : fixedKey === 'name' ? (positions.name.color || '#1b4332') : (positions.certId.color || '#333333') }}>
                       {selectedElement === 'name' ? 'person' : selectedElement === 'certId' ? 'badge' : 'qr_code_2'}
                     </span>
                     <p className="font-bold text-brand-dark-green text-sm">
@@ -1053,15 +1058,15 @@ export default function TemplatesPage() {
                   <div className="space-y-3">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Position</p>
                     <SliderField label="Horizontal (%)" min={0} max={100} step={0.5}
-                      value={positions[selectedElement].x}
-                      onChange={v => setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], x: v } }))} />
+                      value={positions[fixedKey].x}
+                      onChange={v => setPositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], x: v } }))} />
                     <SliderField label="Vertical (%)" min={0} max={100} step={0.5}
-                      value={positions[selectedElement].y}
-                      onChange={v => setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], y: v } }))} />
+                      value={positions[fixedKey].y}
+                      onChange={v => setPositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], y: v } }))} />
                     <div className="flex gap-2">
-                      <button onClick={() => setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], x: 50 } }))}
+                      <button onClick={() => setPositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], x: 50 } }))}
                         className="flex-1 py-1.5 text-[11px] bg-green-50 border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors font-medium">Center H</button>
-                      <button onClick={() => setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], y: 50 } }))}
+                      <button onClick={() => setPositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], y: 50 } }))}
                         className="flex-1 py-1.5 text-[11px] bg-green-50 border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors font-medium">Center V</button>
                     </div>
                   </div>
@@ -1122,16 +1127,16 @@ export default function TemplatesPage() {
                           <div className="flex items-center gap-2">
                             <input type="color"
                               value={selectedElement === 'name' ? (positions.name.color || "#1b4332") : (positions.certId.color || "#333333")}
-                              onChange={e => setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], color: e.target.value } }))}
+                              onChange={e => setPositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], color: e.target.value } }))}
                               className="w-8 h-8 rounded cursor-pointer border border-gray-200" />
                             <span className="text-xs font-mono text-gray-500">
-                              {selectedElement === 'name' ? (positions.name.color || "#1b4332") : (positions.certId.color || "#333333")}
+                              {fixedKey === 'name' ? (positions.name.color || "#1b4332") : (positions.certId.color || "#333333")}
                             </span>
                           </div>
                         </div>
                         <FontSelect
-                          value={selectedElement === 'name' ? (positions.name.font || "") : (positions.certId.font || "")}
-                          onChange={v => setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], font: v } }))} />
+                          value={fixedKey === 'name' ? (positions.name.font || "") : (positions.certId.font || "")}
+                          onChange={v => setPositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], font: v } }))} />
                       </>
                     )}
                   </div>
