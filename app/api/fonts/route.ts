@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loadFontBytes } from "@/lib/fonts";
+import { loadFontBytes } from "@/lib/fonts.server";
 
 export async function GET(request: NextRequest) {
   const fontName = request.nextUrl.searchParams.get("name");

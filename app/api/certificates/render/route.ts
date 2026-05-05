@@ -3,7 +3,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import QRCode from "qrcode";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
-import { loadFontBytes } from "@/lib/fonts";
+import { loadFontBytes } from "@/lib/fonts.server";
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
