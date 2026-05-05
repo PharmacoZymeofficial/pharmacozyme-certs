@@ -24,66 +24,56 @@ export function getGoogleFontsUrl(fontNames: string[]): string {
   return `https://fonts.googleapis.com/css2?${families}&display=swap`;
 }
 
-// Module-level cache: avoid re-fetching fonts on every certificate render
+import fs from "fs";
+import path from "path";
+
+// Module-level cache: avoid re-reading fonts on every certificate render
 const fontBytesCache = new Map<string, Uint8Array | null>();
 
-// User-agents that cause Google Fonts to return TTF (pdf-lib only supports TTF/OTF)
-const FONT_USER_AGENTS = [
-  // Old Android 2.2 → reliably returns TTF for most fonts
-  "Mozilla/5.0 (Linux; U; Android 2.2; en-us; Nexus One Build/FRF91) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
-  // IE6 → Google Fonts fallback returns TTF
-  "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)",
-  // Old BlackBerry
-  "BlackBerry9700/5.0.0.743 Profile/MIDP-2.1 Configuration/CLDC-1.1 VendorID/100",
-  // Old Nokia S40
-  "NokiaC3-00/5.0 (07.20) Profile/MIDP-2.1 Configuration/CLDC-1.1",
-];
-
-// Extract font URL from Google Fonts CSS, preferring truetype format
-function parseFontUrl(css: string): string | null {
-  // Prefer URL explicitly paired with truetype format hint
-  const truetypeMatch = css.match(/url\(['"]?([^'"\n)]+)['"]?\)\s+format\(['"]truetype['"]\)/);
-  if (truetypeMatch) return truetypeMatch[1];
-
-  // Fall back: any URL containing .ttf
-  const allUrls = [...css.matchAll(/url\(['"]?([^'"\n)]+)['"]?\)/g)].map(m => m[1]);
-  const ttfUrl = allUrls.find(u => u.toLowerCase().includes(".ttf"));
-  if (ttfUrl) return ttfUrl;
-
-  // Last resort: first URL in CSS
-  return allUrls[0] ?? null;
-}
-
-// Server-side only: fetch TTF bytes from Google Fonts for pdf-lib embedding
+// Server-side only: load TTF bytes — local public/fonts/ first, Google Fonts fallback
 export async function loadFontBytes(fontName: string): Promise<Uint8Array | null> {
   if (!fontName) return null;
   if (fontBytesCache.has(fontName)) return fontBytesCache.get(fontName)!;
 
-  for (const ua of FONT_USER_AGENTS) {
+  // 1. Try local font file (public/fonts/{Name}.ttf — spaces replaced with _)
+  try {
+    const fileName = fontName.replace(/ /g, "_") + ".ttf";
+    const localPath = path.join(process.cwd(), "public", "fonts", fileName);
+    if (fs.existsSync(localPath)) {
+      const bytes = new Uint8Array(fs.readFileSync(localPath));
+      fontBytesCache.set(fontName, bytes);
+      return bytes;
+    }
+  } catch { /* fall through to network */ }
+
+  // 2. Fallback: fetch from Google Fonts (TTF via old user-agent trick)
+  const USER_AGENTS = [
+    "Mozilla/5.0 (Linux; U; Android 2.2; en-us; Nexus One Build/FRF91) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
+    "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)",
+    "BlackBerry9700/5.0.0.743 Profile/MIDP-2.1 Configuration/CLDC-1.1 VendorID/100",
+  ];
+
+  for (const ua of USER_AGENTS) {
     try {
       const cssUrl = `https://fonts.googleapis.com/css?family=${encodeURIComponent(fontName)}`;
       const cssRes = await fetch(cssUrl, { headers: { "User-Agent": ua } });
       if (!cssRes.ok) continue;
       const css = await cssRes.text();
 
-      const fontUrl = parseFontUrl(css);
+      const allUrls = [...css.matchAll(/url\(['"]?([^'"\n)]+)['"]?\)/g)].map(m => m[1]);
+      const fontUrl = allUrls.find(u => u.toLowerCase().includes(".ttf")) ?? allUrls[0] ?? null;
       if (!fontUrl) continue;
 
       const fontRes = await fetch(fontUrl);
       if (!fontRes.ok) continue;
-      const buf = await fontRes.arrayBuffer();
-      const bytes = new Uint8Array(buf);
+      const bytes = new Uint8Array(await fontRes.arrayBuffer());
 
-      // Reject WOFF / WOFF2 — pdf-lib only supports TTF/OTF
-      const isWOFF  = bytes[0] === 0x77 && bytes[1] === 0x4F && bytes[2] === 0x46 && bytes[3] === 0x46;
-      const isWOFF2 = bytes[0] === 0x77 && bytes[1] === 0x4F && bytes[2] === 0x46 && bytes[3] === 0x32;
-      if (isWOFF || isWOFF2) continue; // try next UA
+      const isWOFF = bytes[0] === 0x77 && bytes[1] === 0x4F && bytes[2] === 0x46 && (bytes[3] === 0x46 || bytes[3] === 0x32);
+      if (isWOFF) continue;
 
       fontBytesCache.set(fontName, bytes);
       return bytes;
-    } catch {
-      continue;
-    }
+    } catch { continue; }
   }
 
   fontBytesCache.set(fontName, null);

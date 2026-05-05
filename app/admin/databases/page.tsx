@@ -85,7 +85,7 @@ export default function DatabaseManagementPage() {
   const [isGeneratingIds, setIsGeneratingIds] = useState(false);
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [showExportModal, setShowExportModal] = useState(false);
-  const [sortBy, setSortBy] = useState<"name" | "email" | "certId" | "date" | "status">("certId");
+  const [sortBy, setSortBy] = useState<"name" | "email" | "certId" | "date" | "status" | "sheet">("sheet");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [participantSearch, setParticipantSearch] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -1356,15 +1356,15 @@ export default function DatabaseManagementPage() {
 
       {/* ID Format Choice Modal */}
       {showIdFormatModal && (
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="p-6 border-b border-green-50">
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md my-auto flex flex-col" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
+            <div className="p-6 border-b border-green-50 flex-shrink-0">
               <h3 className="text-xl font-headline font-bold text-brand-dark-green">Choose ID Format</h3>
               <p className="text-sm text-on-surface-variant mt-1">
                 Select how certificate IDs should be generated for {participants.filter(p => !p.certificateId).length} unassigned participant(s).
               </p>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
               {/* 1 — App Format */}
               <label className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${idFormat === "app" ? "border-brand-vivid-green bg-green-50" : "border-gray-100 hover:border-green-200"}`}>
                 <input type="radio" className="mt-1 accent-green-700" checked={idFormat === "app"} onChange={() => setIdFormat("app")} />
@@ -1469,7 +1469,7 @@ export default function DatabaseManagementPage() {
                 </div>
               </label>
             </div>
-            <div className="p-6 border-t border-green-50 flex justify-end gap-3">
+            <div className="p-6 border-t border-green-50 flex justify-end gap-3 flex-shrink-0">
               <button onClick={() => setShowIdFormatModal(false)} className="px-5 py-2.5 text-sm font-bold text-on-surface-variant hover:bg-green-50 rounded-xl">
                 Cancel
               </button>
@@ -1484,7 +1484,7 @@ export default function DatabaseManagementPage() {
               >
                 Generate IDs
               </button>
-            </div>
+            </div>{/* end footer, flex-shrink-0 implicitly */}
           </div>
         </div>
       )}
@@ -1563,7 +1563,7 @@ export default function DatabaseManagementPage() {
             {databases.map((db) => (
               <div
                 key={db.id}
-                onClick={() => { setSelectedDatabase(db); setFilterStatus("all"); setFilterEmailed("all"); }}
+                onClick={() => { setSelectedDatabase(db); setFilterStatus("all"); setFilterEmailed("all"); setSortBy("sheet"); setSortOrder("asc"); }}
                 className="bg-white rounded-xl border-2 border-green-100 hover:border-brand-vivid-green/60 hover:shadow-md p-6 cursor-pointer transition-all"
               >
                 <div className="flex items-start justify-between mb-4">
@@ -1843,8 +1843,10 @@ export default function DatabaseManagementPage() {
               </div>
             ) : (
               <>
+                {/* Sticky toolbar: actions + search + sort + filters */}
+                <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm -mx-6 px-6 pt-3 pb-3 border-b border-green-100 mb-4">
                 {/* Actions */}
-                <div className="flex flex-wrap gap-3 mb-6">
+                <div className="flex flex-wrap gap-3 mb-4">
                   <button
                     onClick={handleGenerateIds}
                     disabled={isGeneratingIds || participants.filter(p => !p.certificateId).length === 0}
@@ -1887,7 +1889,7 @@ export default function DatabaseManagementPage() {
                 </div>
 
                 {/* Search */}
-                <div className="mb-3">
+                <div className="mb-2">
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
                     <input
@@ -1914,6 +1916,7 @@ export default function DatabaseManagementPage() {
                       onChange={(e) => setSortBy(e.target.value as any)}
                       className="bg-white border border-green-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-vivid-green"
                     >
+                      <option value="sheet">Sheet Order</option>
                       <option value="certId">Certificate ID</option>
                       <option value="name">Name</option>
                       <option value="email">Email</option>
@@ -2159,6 +2162,7 @@ export default function DatabaseManagementPage() {
                     </button>
                   )}
                 </div>
+                </div>{/* end sticky toolbar */}
 
                 {/* Table */}
                 <div className="overflow-x-auto">
@@ -2255,11 +2259,16 @@ export default function DatabaseManagementPage() {
                         }
                         const sorted = [...filtered].sort((a, b) => {
                           let aVal = "", bVal = "";
-                          if (sortBy === "certId") {
-                            aVal = a.certificateId || "";
-                            bVal = b.certificateId || "";
-                            const aNum = parseInt(aVal.split("-").pop() || "0");
-                            const bNum = parseInt(bVal.split("-").pop() || "0");
+                          if (sortBy === "sheet") {
+                            // Preserve import order: sort by createdAt ascending always
+                            return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+                          } else if (sortBy === "certId") {
+                            // Empty certId goes to end (not top) in ascending order
+                            if (!a.certificateId && !b.certificateId) return 0;
+                            if (!a.certificateId) return sortOrder === "asc" ? 1 : -1;
+                            if (!b.certificateId) return sortOrder === "asc" ? -1 : 1;
+                            const aNum = parseInt(a.certificateId.split("-").pop() || "0");
+                            const bNum = parseInt(b.certificateId.split("-").pop() || "0");
                             return sortOrder === "asc" ? aNum - bNum : bNum - aNum;
                           } else if (sortBy === "name") {
                             aVal = a.name || "";
