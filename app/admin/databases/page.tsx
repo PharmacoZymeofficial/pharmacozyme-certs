@@ -106,9 +106,12 @@ export default function DatabaseManagementPage() {
   const [focusedRowIndex, setFocusedRowIndex] = useState(-1);
   const [anchorRowIndex, setAnchorRowIndex] = useState(-1);
   const displayedRowsRef = useRef<typeof participants>([]);
-  const [idFormat, setIdFormat] = useState<"app" | "name">("app");
+  const [idFormat, setIdFormat] = useState<"app" | "name" | "custom">("app");
   const [idFormatCode, setIdFormatCode] = useState("");
   const [idFormatCategoryNo, setIdFormatCategoryNo] = useState("");
+  const [idFormatCustomizeSubCat, setIdFormatCustomizeSubCat] = useState(false);
+  const [idFormatAppSubCat, setIdFormatAppSubCat] = useState("");
+  const [idFormatCustomPrefix, setIdFormatCustomPrefix] = useState("");
   
   // Undo/Redo history
   const [history, setHistory] = useState<Participant[][]>([]);
@@ -1023,6 +1026,10 @@ export default function DatabaseManagementPage() {
     })();
     setIdFormatCode(detectedCode);
     setIdFormat("app");
+    const subCatShortDefault = subCategoryShortMap[selectedDatabase.subCategory] || selectedDatabase.subCategory.slice(0, 3).toUpperCase();
+    setIdFormatAppSubCat(subCatShortDefault);
+    setIdFormatCustomizeSubCat(false);
+    setIdFormatCustomPrefix("");
     setShowIdFormatModal(true);
   };
 
@@ -1055,10 +1062,13 @@ export default function DatabaseManagementPage() {
         const serial = String(maxSerial + i + 1).padStart(3, "0");
         let certId: string;
         if (idFormat === "app") {
-          certId = `PZ-${subCatShort}-${idFormatCategoryNo.trim()}-${serial}`;
-        } else {
+          const catCode = idFormatCustomizeSubCat ? idFormatAppSubCat.trim() : subCatShort;
+          certId = `PZ-${catCode}-${idFormatCategoryNo.trim()}-${serial}`;
+        } else if (idFormat === "name") {
           const firstName = participant.name.split(" ")[0];
           certId = `${firstName}-${idFormatCode}-${serial}`;
+        } else {
+          certId = `${idFormatCustomPrefix.trim()}-${serial}`;
         }
         return { id: participant.id, certificateId: certId, status: "pending" };
       });
@@ -1355,35 +1365,61 @@ export default function DatabaseManagementPage() {
               </p>
             </div>
             <div className="p-6 space-y-4">
+              {/* 1 — App Format */}
               <label className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${idFormat === "app" ? "border-brand-vivid-green bg-green-50" : "border-gray-100 hover:border-green-200"}`}>
                 <input type="radio" className="mt-1 accent-green-700" checked={idFormat === "app"} onChange={() => setIdFormat("app")} />
                 <div className="flex-1">
                   <p className="font-bold text-sm text-brand-dark-green">App Format</p>
                   <p className="text-xs text-on-surface-variant mt-0.5 mb-2">
-                    Pattern: <span className="font-mono bg-gray-100 px-1 rounded">PZ-{subCategoryShortMap[selectedDatabase?.subCategory || ""] || "CRS"}-{idFormatCategoryNo || "No"}-001</span>
+                    Pattern: <span className="font-mono bg-gray-100 px-1 rounded">PZ-{idFormatCustomizeSubCat ? (idFormatAppSubCat || "CAT") : (subCategoryShortMap[selectedDatabase?.subCategory || ""] || "CRS")}-{idFormatCategoryNo || "No"}-001</span>
                   </p>
                   {idFormat === "app" && (
-                    <div>
-                      <label className="block text-xs font-bold text-brand-grass-green uppercase mb-1">Category Number</label>
-                      <input
-                        type="text"
-                        value={idFormatCategoryNo}
-                        onChange={e => setIdFormatCategoryNo(e.target.value)}
-                        placeholder="e.g. 11"
-                        maxLength={6}
-                        className="w-full bg-surface-container-low border border-green-100 rounded-lg p-2 text-sm font-mono outline-none focus:border-brand-vivid-green"
-                      />
-                      <p className="text-xs text-on-surface-variant mt-1">
-                        Preview: <span className="font-mono">PZ-{subCategoryShortMap[selectedDatabase?.subCategory || ""] || "CRS"}-{idFormatCategoryNo || "No"}-001</span>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-bold text-brand-grass-green uppercase mb-1">Category Number</label>
+                        <input
+                          type="text"
+                          value={idFormatCategoryNo}
+                          onChange={e => setIdFormatCategoryNo(e.target.value)}
+                          placeholder="e.g. 11"
+                          maxLength={6}
+                          className="w-full bg-surface-container-low border border-green-100 rounded-lg p-2 text-sm font-mono outline-none focus:border-brand-vivid-green"
+                        />
+                      </div>
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={idFormatCustomizeSubCat}
+                          onChange={e => setIdFormatCustomizeSubCat(e.target.checked)}
+                          className="accent-green-700 w-3.5 h-3.5"
+                        />
+                        <span className="text-xs font-bold text-brand-grass-green uppercase">Customise Category Code</span>
+                      </label>
+                      {idFormatCustomizeSubCat && (
+                        <div>
+                          <input
+                            type="text"
+                            value={idFormatAppSubCat}
+                            onChange={e => setIdFormatAppSubCat(e.target.value.toUpperCase())}
+                            placeholder={subCategoryShortMap[selectedDatabase?.subCategory || ""] || "CRS"}
+                            maxLength={6}
+                            className="w-full bg-surface-container-low border border-green-100 rounded-lg p-2 text-sm font-mono outline-none focus:border-brand-vivid-green"
+                          />
+                        </div>
+                      )}
+                      <p className="text-xs text-on-surface-variant">
+                        Preview: <span className="font-mono">PZ-{idFormatCustomizeSubCat ? (idFormatAppSubCat || "CAT") : (subCategoryShortMap[selectedDatabase?.subCategory || ""] || "CRS")}-{idFormatCategoryNo || "No"}-001</span>
                       </p>
                     </div>
                   )}
                 </div>
               </label>
+
+              {/* 2 — Name Format */}
               <label className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${idFormat === "name" ? "border-brand-vivid-green bg-green-50" : "border-gray-100 hover:border-green-200"}`}>
                 <input type="radio" className="mt-1 accent-green-700" checked={idFormat === "name"} onChange={() => setIdFormat("name")} />
                 <div className="flex-1">
-                  <p className="font-bold text-sm text-brand-dark-green">Name-Based Format</p>
+                  <p className="font-bold text-sm text-brand-dark-green">Name Format</p>
                   <p className="text-xs text-on-surface-variant mt-0.5 mb-2">
                     Pattern: <span className="font-mono bg-gray-100 px-1 rounded">FirstName-CODE-001</span>
                   </p>
@@ -1405,12 +1441,47 @@ export default function DatabaseManagementPage() {
                   )}
                 </div>
               </label>
+
+              {/* 3 — Custom ID */}
+              <label className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${idFormat === "custom" ? "border-brand-vivid-green bg-green-50" : "border-gray-100 hover:border-green-200"}`}>
+                <input type="radio" className="mt-1 accent-green-700" checked={idFormat === "custom"} onChange={() => setIdFormat("custom")} />
+                <div className="flex-1">
+                  <p className="font-bold text-sm text-brand-dark-green">Custom ID</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5 mb-2">
+                    Pattern: <span className="font-mono bg-gray-100 px-1 rounded">PREFIX-001</span>
+                  </p>
+                  {idFormat === "custom" && (
+                    <div>
+                      <label className="block text-xs font-bold text-brand-grass-green uppercase mb-1">Prefix</label>
+                      <input
+                        type="text"
+                        value={idFormatCustomPrefix}
+                        onChange={e => setIdFormatCustomPrefix(e.target.value.toUpperCase())}
+                        placeholder="e.g. CERT-2025"
+                        maxLength={20}
+                        className="w-full bg-surface-container-low border border-green-100 rounded-lg p-2 text-sm font-mono outline-none focus:border-brand-vivid-green"
+                      />
+                      <p className="text-xs text-on-surface-variant mt-1">
+                        Preview: <span className="font-mono">{idFormatCustomPrefix || "PREFIX"}-001</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </label>
             </div>
             <div className="p-6 border-t border-green-50 flex justify-end gap-3">
               <button onClick={() => setShowIdFormatModal(false)} className="px-5 py-2.5 text-sm font-bold text-on-surface-variant hover:bg-green-50 rounded-xl">
                 Cancel
               </button>
-              <button onClick={handleConfirmGenerateIds} disabled={(idFormat === "name" && !idFormatCode.trim()) || (idFormat === "app" && !idFormatCategoryNo.trim())} className="px-5 py-2.5 vivid-gradient-cta text-white rounded-xl font-bold text-sm disabled:opacity-50">
+              <button
+                onClick={handleConfirmGenerateIds}
+                disabled={
+                  (idFormat === "name" && !idFormatCode.trim()) ||
+                  (idFormat === "app" && (!idFormatCategoryNo.trim() || (idFormatCustomizeSubCat && !idFormatAppSubCat.trim()))) ||
+                  (idFormat === "custom" && !idFormatCustomPrefix.trim())
+                }
+                className="px-5 py-2.5 vivid-gradient-cta text-white rounded-xl font-bold text-sm disabled:opacity-50"
+              >
                 Generate IDs
               </button>
             </div>
