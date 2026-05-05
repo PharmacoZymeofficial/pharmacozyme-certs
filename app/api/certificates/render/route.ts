@@ -103,11 +103,20 @@ export async function POST(request: NextRequest) {
       certIdFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
     }
 
-    // Draw name
-    const nameFontSize = pos.namePos.size;
+    // Draw name — auto-scale down if too wide, then clamp to page bounds
+    const nameMargin = 20;
+    const maxNameWidth = width - 2 * nameMargin;
+    let nameFontSize = pos.namePos.size;
+    let nameTextWidth = nameFont.widthOfTextAtSize(recipientName, nameFontSize);
+    while (nameTextWidth > maxNameWidth && nameFontSize > 8) {
+      nameFontSize -= 1;
+      nameTextWidth = nameFont.widthOfTextAtSize(recipientName, nameFontSize);
+    }
     const nameColor = pos.namePos.color;
+    const nameXCentered = pos.namePos.x - nameTextWidth / 2;
+    const nameX = Math.max(nameMargin, Math.min(width - nameTextWidth - nameMargin, nameXCentered));
     page.drawText(recipientName, {
-      x: pos.namePos.x - nameFont.widthOfTextAtSize(recipientName, nameFontSize) / 2,
+      x: nameX,
       y: pos.namePos.y,
       size: nameFontSize,
       font: nameFont,
