@@ -56,6 +56,7 @@ export default function TemplatesPage() {
   });
   const [activeDrag, setActiveDrag] = useState<'name' | 'certId' | 'qr' | null>(null);
   const [activeResize, setActiveResize] = useState<'name' | 'certId' | 'qr' | null>(null);
+  const [selectedElement, setSelectedElement] = useState<'name' | 'certId' | 'qr' | null>(null);
   const [loadingTemplate, setLoadingTemplate] = useState(true);
   const [generatingPreview, setGeneratingPreview] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -113,6 +114,7 @@ export default function TemplatesPage() {
   const startDrag = (e: React.MouseEvent, type: 'name' | 'certId' | 'qr') => {
     e.preventDefault();
     e.stopPropagation();
+    setSelectedElement(type);
     setActiveDrag(type);
   };
 
@@ -139,9 +141,10 @@ export default function TemplatesPage() {
     const certIdDist = Math.sqrt(Math.pow(x - positions.certId.x, 2) + Math.pow(y - positions.certId.y, 2));
     const qrDist = Math.sqrt(Math.pow(x - positions.qr.x, 2) + Math.pow(y - positions.qr.y, 2));
     
-    if (nameDist < threshold) setActiveDrag('name');
-    else if (certIdDist < threshold) setActiveDrag('certId');
-    else if (qrDist < threshold) setActiveDrag('qr');
+    if (nameDist < threshold) { setSelectedElement('name'); setActiveDrag('name'); }
+    else if (certIdDist < threshold) { setSelectedElement('certId'); setActiveDrag('certId'); }
+    else if (qrDist < threshold) { setSelectedElement('qr'); setActiveDrag('qr'); }
+    else setSelectedElement(null);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -221,6 +224,51 @@ export default function TemplatesPage() {
     observer.observe(previewRef.current);
     return () => observer.disconnect();
   }, [editingTemplate]);
+
+  // Keyboard navigation for selected element
+  useEffect(() => {
+    if (!editingTemplate) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!selectedElement) return;
+      if (e.key === 'Escape') { setSelectedElement(null); return; }
+      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
+      e.preventDefault();
+      const step = e.shiftKey ? 5 : 0.5;
+      setPositions(prev => {
+        const el = prev[selectedElement];
+        if (e.key === 'ArrowLeft')  return { ...prev, [selectedElement]: { ...el, x: Math.max(0, el.x - step) } };
+        if (e.key === 'ArrowRight') return { ...prev, [selectedElement]: { ...el, x: Math.min(100, el.x + step) } };
+        if (e.key === 'ArrowUp')    return { ...prev, [selectedElement]: { ...el, y: Math.max(0, el.y - step) } };
+        if (e.key === 'ArrowDown')  return { ...prev, [selectedElement]: { ...el, y: Math.min(100, el.y + step) } };
+        return prev;
+      });
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [editingTemplate, selectedElement]);
+
+  const handleSavePositions = async () => {
+    setSavingPositions(true);
+    try {
+      const response = await fetch("/api/templates", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingTemplate?.id, positions }),
+      });
+      if (response.ok) {
+        fetchTemplates();
+        setEditingTemplate(null);
+        alert("Positions saved!");
+      } else {
+        alert("Failed to save positions");
+      }
+    } catch (err) {
+      console.error("Error saving positions:", err);
+      alert("Error saving positions");
+    } finally {
+      setSavingPositions(false);
+    }
+  };
 
   // Dynamically load selected Google Fonts for live preview
   useEffect(() => {
@@ -596,305 +644,314 @@ export default function TemplatesPage() {
         </div>
       )}
 
-      {/* Position Editor Modal */}
+      {/* Canva-like Full-Screen Template Editor */}
       {editingTemplate && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-          style={{ overflow: 'auto' }}
-        >
-          <div className="bg-white w-full max-w-6xl rounded-xl shadow-2xl my-4 max-h-[96vh] overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-green-50 flex justify-between items-center">
-              <div>
-                <h3 className="text-xl font-headline font-bold text-brand-dark-green">Edit Overlay Positions</h3>
-                <p className="text-sm text-on-surface-variant">{editingTemplate.name}</p>
-              </div>
-              <button
-                onClick={() => setEditingTemplate(null)}
-                className="p-2 hover:bg-green-50 rounded-lg"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
+        <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#f3f4f6' }}>
+
+          {/* ── Top Bar ── */}
+          <div className="h-14 bg-white border-b border-gray-200 flex items-center gap-3 px-4 flex-shrink-0 shadow-sm">
+            <button onClick={() => setEditingTemplate(null)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Close editor">
+              <span className="material-symbols-outlined text-gray-600">arrow_back</span>
+            </button>
+            <div className="border-l border-gray-200 pl-3 mr-2">
+              <p className="font-bold text-brand-dark-green text-sm leading-tight">{editingTemplate.name}</p>
+              <p className="text-[10px] text-gray-400 leading-tight">Template Editor</p>
             </div>
 
-            {/* SPLIT PANEL: left controls, right preview */}
-            <div className="flex-1 flex overflow-hidden min-h-0">
+            {/* Context toolbar — shows quick controls for selected element */}
+            <div className="flex-1 flex items-center justify-center">
+              {selectedElement && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-xl border border-gray-200 text-xs">
+                  <span className="font-bold text-gray-600 uppercase text-[10px] mr-1">
+                    {selectedElement === 'name' ? 'Name' : selectedElement === 'certId' ? 'ID' : 'QR'}
+                  </span>
+                  <div className="w-px h-4 bg-gray-300" />
+                  <span className="text-gray-400">X:</span>
+                  <input type="number" min={0} max={100} step={0.5}
+                    value={Math.round(positions[selectedElement].x * 10) / 10}
+                    onChange={e => { const v = Number(e.target.value); if (!isNaN(v)) setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], x: Math.max(0, Math.min(100, v)) } })); }}
+                    className="w-14 text-center border border-gray-200 rounded px-1 py-0.5 font-mono bg-white outline-none focus:border-brand-vivid-green" />
+                  <span className="text-gray-400">Y:</span>
+                  <input type="number" min={0} max={100} step={0.5}
+                    value={Math.round(positions[selectedElement].y * 10) / 10}
+                    onChange={e => { const v = Number(e.target.value); if (!isNaN(v)) setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], y: Math.max(0, Math.min(100, v)) } })); }}
+                    className="w-14 text-center border border-gray-200 rounded px-1 py-0.5 font-mono bg-white outline-none focus:border-brand-vivid-green" />
+                  {selectedElement !== 'qr' && (
+                    <>
+                      <div className="w-px h-4 bg-gray-300" />
+                      <span className="text-gray-400">Size:</span>
+                      <input type="number" min={selectedElement === 'name' ? 8 : 6} max={selectedElement === 'name' ? 80 : 24} step={0.5}
+                        value={positions[selectedElement].size ?? (selectedElement === 'name' ? 48 : 12)}
+                        onChange={e => { const v = Number(e.target.value); if (!isNaN(v)) setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], size: v } })); }}
+                        className="w-14 text-center border border-gray-200 rounded px-1 py-0.5 font-mono bg-white outline-none focus:border-brand-vivid-green" />
+                      <span className="text-gray-400 text-[10px]">pt</span>
+                      <div className="w-px h-4 bg-gray-300" />
+                      <input type="color"
+                        value={(positions[selectedElement] as PositionConfig).color || (selectedElement === 'name' ? '#1b4332' : '#333333')}
+                        onChange={e => setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], color: e.target.value } }))}
+                        className="w-6 h-6 rounded cursor-pointer border border-gray-200" title="Text color" />
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
 
-              {/* LEFT PANEL — Controls (always visible, independently scrollable) */}
-              <div className="w-72 flex-shrink-0 overflow-y-auto border-r border-green-100 bg-slate-50/40">
-                <div className="p-3 space-y-3">
+            <div className="flex items-center gap-2">
+              <button onClick={generatePreview} disabled={generatingPreview}
+                className="px-3 py-1.5 text-xs font-bold bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-1.5 text-gray-700 border border-gray-200 transition-colors disabled:opacity-50">
+                {generatingPreview
+                  ? <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                  : <span className="material-symbols-outlined text-sm">preview</span>}
+                {generatingPreview ? "Generating..." : "Preview PDF"}
+              </button>
+              <button onClick={handleSavePositions} disabled={savingPositions}
+                className="px-4 py-1.5 vivid-gradient-cta text-white rounded-lg font-bold text-sm flex items-center gap-1.5 disabled:opacity-50">
+                {savingPositions
+                  ? <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                  : <span className="material-symbols-outlined text-sm">save</span>}
+                {savingPositions ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
 
-                  {/* Test Data */}
-                  <div className="p-3 bg-green-50 rounded-xl">
-                    <p className="text-xs font-bold text-brand-grass-green uppercase mb-2">Test Data</p>
-                    <div className="space-y-2">
-                      <div>
-                        <label className="block text-xs text-on-surface-variant mb-1">Name</label>
-                        <input type="text" value={testData.name}
-                          onChange={(e) => setTestData({ ...testData, name: e.target.value })}
-                          className="w-full bg-white border border-green-200 rounded-lg px-3 py-1.5 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-on-surface-variant mb-1">Certificate ID</label>
-                        <input type="text" value={testData.certId}
-                          onChange={(e) => setTestData({ ...testData, certId: e.target.value })}
-                          className="w-full bg-white border border-green-200 rounded-lg px-3 py-1.5 text-sm" />
-                      </div>
-                    </div>
+          {/* ── Body ── */}
+          <div className="flex-1 flex overflow-hidden min-h-0">
+
+            {/* Left panel — test data + elements list */}
+            <div className="w-52 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 overflow-y-auto">
+              <div className="p-3 border-b border-gray-100">
+                <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Test Data</p>
+                <div className="space-y-1.5">
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Name</label>
+                    <input type="text" value={testData.name}
+                      onChange={(e) => setTestData({ ...testData, name: e.target.value })}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-brand-vivid-green" />
                   </div>
-
-                  {/* Name Position */}
-                  <div className="bg-white border border-green-100 p-3 rounded-xl space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-brand-green text-base">person</span>
-                      <span className="font-bold text-brand-dark-green text-sm">Name</span>
-                    </div>
-                    <SliderField label="Horizontal (%)" min={0} max={100} step={0.5}
-                      value={positions.name.x}
-                      onChange={v => setPositions({ ...positions, name: { ...positions.name, x: v } })} />
-                    <SliderField label="Vertical (%)" min={0} max={100} step={0.5}
-                      value={positions.name.y}
-                      onChange={v => setPositions({ ...positions, name: { ...positions.name, y: v } })} />
-                    <SliderField label="Font Size (pt)" min={1} max={80} step={1}
-                      value={positions.name.size ?? 48}
-                      onChange={v => setPositions({ ...positions, name: { ...positions.name, size: v } })} />
-                    <div>
-                      <label className="text-xs text-on-surface-variant">Color</label>
-                      <div className="flex items-center gap-2 mt-1">
-                        <input type="color" value={positions.name.color || "#1b4332"}
-                          onChange={e => setPositions({ ...positions, name: { ...positions.name, color: e.target.value } })}
-                          className="w-8 h-8 rounded cursor-pointer border-0" />
-                        <span className="text-xs font-mono">{positions.name.color || "#1b4332"}</span>
-                      </div>
-                    </div>
-                    <FontSelect value={positions.name.font || ""}
-                      onChange={v => setPositions({ ...positions, name: { ...positions.name, font: v } })} />
-                    <div className="flex gap-2">
-                      <button onClick={() => setPositions({ ...positions, name: { ...positions.name, x: 50 } })}
-                        className="flex-1 py-1 text-[11px] bg-green-50 border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">Center H</button>
-                      <button onClick={() => setPositions({ ...positions, name: { ...positions.name, y: 50 } })}
-                        className="flex-1 py-1 text-[11px] bg-green-50 border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">Center V</button>
-                    </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Certificate ID</label>
+                    <input type="text" value={testData.certId}
+                      onChange={(e) => setTestData({ ...testData, certId: e.target.value })}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-brand-vivid-green" />
                   </div>
-
-                  {/* Certificate ID Position */}
-                  <div className="bg-white border border-green-100 p-3 rounded-xl space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-brand-green text-base">badge</span>
-                      <span className="font-bold text-brand-dark-green text-sm">Certificate ID</span>
-                    </div>
-                    <SliderField label="Horizontal (%)" min={0} max={100} step={0.5}
-                      value={positions.certId.x}
-                      onChange={v => setPositions({ ...positions, certId: { ...positions.certId, x: v } })} />
-                    <SliderField label="Vertical (%)" min={0} max={100} step={0.5}
-                      value={positions.certId.y}
-                      onChange={v => setPositions({ ...positions, certId: { ...positions.certId, y: v } })} />
-                    <SliderField label="Font Size (pt)" min={1} max={24} step={0.5}
-                      value={positions.certId.size ?? 12}
-                      onChange={v => setPositions({ ...positions, certId: { ...positions.certId, size: v } })} />
-                    <div>
-                      <label className="text-xs text-on-surface-variant">Color</label>
-                      <div className="flex items-center gap-2 mt-1">
-                        <input type="color" value={positions.certId.color || "#333333"}
-                          onChange={e => setPositions({ ...positions, certId: { ...positions.certId, color: e.target.value } })}
-                          className="w-8 h-8 rounded cursor-pointer border-0" />
-                        <span className="text-xs font-mono">{positions.certId.color || "#333333"}</span>
-                      </div>
-                    </div>
-                    <FontSelect value={positions.certId.font || ""}
-                      onChange={v => setPositions({ ...positions, certId: { ...positions.certId, font: v } })} />
-                    <div className="flex gap-2">
-                      <button onClick={() => setPositions({ ...positions, certId: { ...positions.certId, x: 50 } })}
-                        className="flex-1 py-1 text-[11px] bg-green-50 border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">Center H</button>
-                      <button onClick={() => setPositions({ ...positions, certId: { ...positions.certId, y: 50 } })}
-                        className="flex-1 py-1 text-[11px] bg-green-50 border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">Center V</button>
-                    </div>
-                  </div>
-
-                  {/* QR Code Position */}
-                  <div className="bg-white border border-green-100 p-3 rounded-xl space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-brand-green text-base">qr_code_2</span>
-                      <span className="font-bold text-brand-dark-green text-sm">QR Code</span>
-                    </div>
-                    <SliderField label="Horizontal (%)" min={0} max={100} step={0.5}
-                      value={positions.qr.x}
-                      onChange={v => setPositions({ ...positions, qr: { ...positions.qr, x: v } })} />
-                    <SliderField label="Vertical (%)" min={0} max={100} step={0.5}
-                      value={positions.qr.y}
-                      onChange={v => setPositions({ ...positions, qr: { ...positions.qr, y: v } })} />
-                    <SliderField label="Size (%)" min={1} max={25} step={0.5}
-                      value={positions.qr.size ?? 12}
-                      onChange={v => setPositions({ ...positions, qr: { ...positions.qr, size: v } })} />
-                    <div>
-                      <label className="text-xs text-on-surface-variant">Dot Color</label>
-                      <div className="flex items-center gap-2 mt-1">
-                        <input type="color" value={positions.qr.darkColor || "#000000"}
-                          onChange={e => setPositions({ ...positions, qr: { ...positions.qr, darkColor: e.target.value } })}
-                          className="w-8 h-8 rounded cursor-pointer border-0" />
-                        <span className="text-xs font-mono">{positions.qr.darkColor || "#000000"}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-xs text-on-surface-variant">Background</label>
-                      <div className="flex items-center gap-2 mt-1">
-                        <input type="checkbox" id="qr-transparent" checked={positions.qr.transparentBg ?? false}
-                          onChange={e => setPositions({ ...positions, qr: { ...positions.qr, transparentBg: e.target.checked } })}
-                          className="w-4 h-4 accent-brand-vivid-green" />
-                        <label htmlFor="qr-transparent" className="text-xs text-on-surface-variant cursor-pointer">Transparent</label>
-                      </div>
-                      {!positions.qr.transparentBg && (
-                        <div className="flex items-center gap-2 mt-1">
-                          <input type="color" value={positions.qr.lightColor || "#ffffff"}
-                            onChange={e => setPositions({ ...positions, qr: { ...positions.qr, lightColor: e.target.value } })}
-                            className="w-8 h-8 rounded cursor-pointer border-0" />
-                          <span className="text-xs font-mono">{positions.qr.lightColor || "#ffffff"}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => setPositions({ ...positions, qr: { ...positions.qr, x: 50 } })}
-                        className="flex-1 py-1 text-[11px] bg-green-50 border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">Center H</button>
-                      <button onClick={() => setPositions({ ...positions, qr: { ...positions.qr, y: 50 } })}
-                        className="flex-1 py-1 text-[11px] bg-green-50 border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors cursor-pointer">Center V</button>
-                    </div>
-                  </div>
-
                 </div>
               </div>
-
-              {/* RIGHT PANEL — Live Preview (always visible) */}
-              <div className="flex-1 flex flex-col p-4 overflow-hidden">
-                <div className="flex items-center justify-between mb-3 flex-shrink-0">
-                  <div className="flex items-center gap-3">
-                    <p className="text-xs font-bold text-brand-grass-green uppercase">Live Preview</p>
-                    <button onClick={generatePreview} disabled={generatingPreview}
-                      className="px-3 py-1 text-xs bg-brand-vivid-green text-white rounded-lg flex items-center gap-1 hover:bg-green-700 disabled:opacity-50">
-                      {generatingPreview
-                        ? <span className="material-symbols-outlined animate-spin text-xs">progress_activity</span>
-                        : <span className="material-symbols-outlined text-xs">refresh</span>}
-                      {generatingPreview ? "Generating..." : "Generate Preview"}
+              <div className="p-3 flex-1">
+                <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Elements</p>
+                <div className="space-y-1">
+                  {([
+                    { key: 'name' as const, label: 'Recipient Name', icon: 'person', color: positions.name.color || '#1b4332' },
+                    { key: 'certId' as const, label: 'Certificate ID', icon: 'badge', color: positions.certId.color || '#333333' },
+                    { key: 'qr' as const, label: 'QR Code', icon: 'qr_code_2', color: '#3b82f6' },
+                  ]).map(el => (
+                    <button key={el.key}
+                      onClick={() => setSelectedElement(selectedElement === el.key ? null : el.key)}
+                      className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-xs font-medium transition-all ${
+                        selectedElement === el.key
+                          ? 'bg-green-50 border border-brand-vivid-green text-brand-dark-green shadow-sm'
+                          : 'hover:bg-gray-50 text-gray-600 border border-transparent'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-sm" style={{ color: el.color }}>{el.icon}</span>
+                      <span>{el.label}</span>
+                      {selectedElement === el.key && (
+                        <span className="ml-auto material-symbols-outlined text-brand-vivid-green text-sm">check_circle</span>
+                      )}
                     </button>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="flex items-center gap-1"><span className="w-3 h-3 bg-brand-vivid-green rounded"></span> Name</span>
-                    <span className="flex items-center gap-1"><span className="w-3 h-3 bg-brand-dark-green rounded"></span> ID</span>
-                    <span className="flex items-center gap-1"><span className="w-3 h-3 bg-blue-500 rounded"></span> QR</span>
-                  </div>
+                  ))}
                 </div>
+                {selectedElement && (
+                  <div className="mt-3 p-2.5 bg-blue-50 rounded-xl border border-blue-100">
+                    <p className="text-[10px] font-bold text-blue-500 uppercase mb-1.5">Keyboard Shortcuts</p>
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] text-blue-400">Arrow keys → move ±0.5%</p>
+                      <p className="text-[10px] text-blue-400">Shift+Arrow → move ±5%</p>
+                      <p className="text-[10px] text-blue-400">Esc → deselect</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
 
+            {/* Center — canvas */}
+            <div className="flex-1 flex items-start justify-center p-6 overflow-auto">
+              <div className="w-full" style={{ maxWidth: Math.round((templateDimensions.width / templateDimensions.height) * 620) }}>
                 {previewPdfUrl && (
-                  <div className="mb-2 p-2 bg-green-50 rounded-lg flex items-center justify-between flex-shrink-0">
-                    <span className="text-xs text-brand-dark-green">Preview generated!</span>
+                  <div className="mb-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-xl flex items-center justify-between text-xs">
+                    <span className="text-brand-dark-green font-medium flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm text-brand-vivid-green">check_circle</span>
+                      Preview ready
+                    </span>
                     <a href={previewPdfUrl} target="_blank" rel="noopener noreferrer"
-                      className="text-xs text-brand-vivid-green hover:underline flex items-center gap-1">
-                      <span className="material-symbols-outlined text-xs">open_in_new</span>
-                      Open Full Preview
+                      className="text-brand-vivid-green hover:underline flex items-center gap-1">
+                      <span className="material-symbols-outlined text-xs">open_in_new</span>Open
                     </a>
                   </div>
                 )}
-
-                <div className="flex-1 overflow-auto">
-                  <div
-                    className="relative w-full bg-white rounded-xl overflow-hidden border-2 border-green-200 cursor-crosshair select-none"
-                    style={{ aspectRatio: `${templateDimensions.width} / ${templateDimensions.height}` }}
-                    ref={previewRef}
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseUp}
-                  >
-                    {activeDrag && (() => {
-                      const pos = activeDrag === 'name' ? positions.name : activeDrag === 'certId' ? positions.certId : positions.qr;
-                      return (
-                        <>
-                          <div className="absolute inset-y-0 pointer-events-none z-40 border-l border-dashed border-brand-vivid-green/40" style={{ left: `${pos.x}%` }} />
-                          <div className="absolute inset-x-0 pointer-events-none z-40 border-t border-dashed border-brand-vivid-green/40" style={{ top: `${pos.y}%` }} />
-                        </>
-                      );
-                    })()}
-                    {loadingTemplate && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 z-50">
-                        <span className="material-symbols-outlined animate-spin text-4xl text-brand-green mb-2">progress_activity</span>
-                        <span className="text-sm text-gray-500">Loading template...</span>
-                      </div>
-                    )}
-                    {previewPdfUrl ? (
-                      <iframe src={`${previewPdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
-                        className="w-full h-full pointer-events-none" title="Generated Preview" />
-                    ) : (
-                      <iframe src={`/api/templates/${editingTemplate.id}/pdf#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
-                        className="w-full h-full border-0 pointer-events-none" title="Template Preview"
-                        onLoad={() => setLoadingTemplate(false)} />
-                    )}
-                    <DraggableMarker x={positions.name.x} y={positions.name.y}
-                      color={positions.name.color || "#1b4332"} label={testData.name}
-                      fontSize={positions.name.size ?? 48} fontFamily={positions.name.font}
-                      isActive={activeDrag === 'name' || activeResize === 'name'}
-                      onMouseDown={(e) => startDrag(e, 'name')} onResize={(e) => startResize(e, 'name')}
-                      pdfWidth={templateDimensions.width} containerWidth={containerSizeRef.current.width} />
-                    <DraggableMarker x={positions.certId.x} y={positions.certId.y}
-                      color={positions.certId.color || "#333333"} label={testData.certId}
-                      fontSize={positions.certId.size ?? 12} fontFamily={positions.certId.font}
-                      isActive={activeDrag === 'certId' || activeResize === 'certId'}
-                      onMouseDown={(e) => startDrag(e, 'certId')} onResize={(e) => startResize(e, 'certId')}
-                      pdfWidth={templateDimensions.width} containerWidth={containerSizeRef.current.width} />
-                    <DraggableMarker x={positions.qr.x} y={positions.qr.y}
-                      color="#3b82f6" isQR size={positions.qr.size ?? 12}
-                      isActive={activeDrag === 'qr' || activeResize === 'qr'}
-                      onMouseDown={(e) => startDrag(e, 'qr')} onResize={(e) => startResize(e, 'qr')}
-                      pdfWidth={templateDimensions.width} containerWidth={containerSizeRef.current.width} />
-                  </div>
+                <div
+                  className="relative bg-white shadow-xl overflow-hidden select-none border border-gray-300"
+                  style={{ aspectRatio: `${templateDimensions.width} / ${templateDimensions.height}`, cursor: activeDrag ? 'grabbing' : 'default' }}
+                  ref={previewRef}
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                >
+                  {activeDrag && (() => {
+                    const dragPos = activeDrag === 'name' ? positions.name : activeDrag === 'certId' ? positions.certId : positions.qr;
+                    return (
+                      <>
+                        <div className="absolute inset-y-0 pointer-events-none z-40 border-l border-dashed border-brand-vivid-green/60" style={{ left: `${dragPos.x}%` }} />
+                        <div className="absolute inset-x-0 pointer-events-none z-40 border-t border-dashed border-brand-vivid-green/60" style={{ top: `${dragPos.y}%` }} />
+                      </>
+                    );
+                  })()}
+                  {loadingTemplate && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 z-50">
+                      <span className="material-symbols-outlined animate-spin text-4xl text-brand-green mb-2">progress_activity</span>
+                      <span className="text-sm text-gray-500">Loading template...</span>
+                    </div>
+                  )}
+                  {previewPdfUrl ? (
+                    <iframe src={`${previewPdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                      className="w-full h-full pointer-events-none" title="Generated Preview" />
+                  ) : (
+                    <iframe src={`/api/templates/${editingTemplate.id}/pdf#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                      className="w-full h-full border-0 pointer-events-none" title="Template Preview"
+                      onLoad={() => setLoadingTemplate(false)} />
+                  )}
+                  <DraggableMarker x={positions.name.x} y={positions.name.y}
+                    color={positions.name.color || "#1b4332"} label={testData.name}
+                    fontSize={positions.name.size ?? 48} fontFamily={positions.name.font}
+                    isActive={activeDrag === 'name' || activeResize === 'name'}
+                    isSelected={selectedElement === 'name'}
+                    onMouseDown={(e) => startDrag(e, 'name')} onResize={(e) => startResize(e, 'name')}
+                    pdfWidth={templateDimensions.width} containerWidth={containerSizeRef.current.width} />
+                  <DraggableMarker x={positions.certId.x} y={positions.certId.y}
+                    color={positions.certId.color || "#333333"} label={testData.certId}
+                    fontSize={positions.certId.size ?? 12} fontFamily={positions.certId.font}
+                    isActive={activeDrag === 'certId' || activeResize === 'certId'}
+                    isSelected={selectedElement === 'certId'}
+                    onMouseDown={(e) => startDrag(e, 'certId')} onResize={(e) => startResize(e, 'certId')}
+                    pdfWidth={templateDimensions.width} containerWidth={containerSizeRef.current.width} />
+                  <DraggableMarker x={positions.qr.x} y={positions.qr.y}
+                    color="#3b82f6" isQR size={positions.qr.size ?? 12}
+                    isActive={activeDrag === 'qr' || activeResize === 'qr'}
+                    isSelected={selectedElement === 'qr'}
+                    onMouseDown={(e) => startDrag(e, 'qr')} onResize={(e) => startResize(e, 'qr')}
+                    pdfWidth={templateDimensions.width} containerWidth={containerSizeRef.current.width} />
                 </div>
+                <p className="text-center text-[10px] text-gray-400 mt-2">Drag placeholders · ↘ handle to resize · Click to select · Arrow keys for precision</p>
               </div>
             </div>
 
-            <div className="p-4 border-t border-green-50 flex justify-between items-center flex-shrink-0">
-              <button
-                onClick={() => setEditingTemplate(null)}
-                className="px-6 py-3 text-sm font-bold text-on-surface-variant hover:bg-green-50 rounded-xl"
-              >
-                Cancel
-              </button>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={async () => {
-                    setSavingPositions(true);
-                    try {
-                      const response = await fetch("/api/templates", {
-                        method: "PUT",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ id: editingTemplate?.id, positions }),
-                      });
-                      if (response.ok) {
-                        fetchTemplates();
-                        setEditingTemplate(null);
-                        alert("Positions saved!");
-                      } else {
-                        alert("Failed to save positions");
-                      }
-                    } catch (err) {
-                      console.error("Error saving positions:", err);
-                      alert("Error saving positions");
-                    } finally {
-                      setSavingPositions(false);
-                    }
-                  }}
-                  disabled={savingPositions}
-                  className="px-6 py-3 vivid-gradient-cta text-white rounded-xl font-bold flex items-center gap-2 disabled:opacity-50"
-                >
-                  {savingPositions ? (
-                    <>
-                      <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <span className="material-symbols-outlined text-sm">save</span>
-                      Save Positions
-                    </>
-                  )}
-                </button>
-              </div>
+            {/* Right panel — properties of selected element */}
+            <div className="w-64 bg-white border-l border-gray-200 flex-shrink-0 overflow-y-auto">
+              {!selectedElement ? (
+                <div className="flex flex-col items-center justify-center h-full text-center p-6">
+                  <span className="material-symbols-outlined text-5xl mb-3 text-gray-300">ads_click</span>
+                  <p className="text-sm font-medium text-gray-500">Select an element</p>
+                  <p className="text-xs text-gray-400 mt-1 leading-relaxed">Click a placeholder on the canvas or choose from the Elements list on the left</p>
+                </div>
+              ) : (
+                <div className="p-4 space-y-5">
+                  <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
+                    <span className="material-symbols-outlined text-base" style={{ color: selectedElement === 'qr' ? '#3b82f6' : selectedElement === 'name' ? (positions.name.color || '#1b4332') : (positions.certId.color || '#333333') }}>
+                      {selectedElement === 'name' ? 'person' : selectedElement === 'certId' ? 'badge' : 'qr_code_2'}
+                    </span>
+                    <p className="font-bold text-brand-dark-green text-sm">
+                      {selectedElement === 'name' ? 'Recipient Name' : selectedElement === 'certId' ? 'Certificate ID' : 'QR Code'}
+                    </p>
+                  </div>
+
+                  {/* Position */}
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Position</p>
+                    <SliderField label="Horizontal (%)" min={0} max={100} step={0.5}
+                      value={positions[selectedElement].x}
+                      onChange={v => setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], x: v } }))} />
+                    <SliderField label="Vertical (%)" min={0} max={100} step={0.5}
+                      value={positions[selectedElement].y}
+                      onChange={v => setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], y: v } }))} />
+                    <div className="flex gap-2">
+                      <button onClick={() => setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], x: 50 } }))}
+                        className="flex-1 py-1.5 text-[11px] bg-green-50 border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors font-medium">Center H</button>
+                      <button onClick={() => setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], y: 50 } }))}
+                        className="flex-1 py-1.5 text-[11px] bg-green-50 border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors font-medium">Center V</button>
+                    </div>
+                  </div>
+
+                  {/* Size */}
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Size</p>
+                    {selectedElement === 'qr' ? (
+                      <SliderField label="Size (%)" min={1} max={25} step={0.5}
+                        value={positions.qr.size ?? 12}
+                        onChange={v => setPositions(prev => ({ ...prev, qr: { ...prev.qr, size: v } }))} />
+                    ) : selectedElement === 'name' ? (
+                      <SliderField label="Font Size (pt)" min={8} max={80} step={1}
+                        value={positions.name.size ?? 48}
+                        onChange={v => setPositions(prev => ({ ...prev, name: { ...prev.name, size: v } }))} />
+                    ) : (
+                      <SliderField label="Font Size (pt)" min={6} max={24} step={0.5}
+                        value={positions.certId.size ?? 12}
+                        onChange={v => setPositions(prev => ({ ...prev, certId: { ...prev.certId, size: v } }))} />
+                    )}
+                  </div>
+
+                  {/* Appearance */}
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Appearance</p>
+                    {selectedElement === 'qr' ? (
+                      <>
+                        <div>
+                          <label className="text-xs text-gray-500 block mb-1.5">Dot Color</label>
+                          <div className="flex items-center gap-2">
+                            <input type="color" value={positions.qr.darkColor || "#000000"}
+                              onChange={e => setPositions(prev => ({ ...prev, qr: { ...prev.qr, darkColor: e.target.value } }))}
+                              className="w-8 h-8 rounded cursor-pointer border border-gray-200" />
+                            <span className="text-xs font-mono text-gray-500">{positions.qr.darkColor || "#000000"}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <input type="checkbox" id="qr-transparent-rp" checked={positions.qr.transparentBg ?? false}
+                              onChange={e => setPositions(prev => ({ ...prev, qr: { ...prev.qr, transparentBg: e.target.checked } }))}
+                              className="w-4 h-4 accent-brand-vivid-green" />
+                            <label htmlFor="qr-transparent-rp" className="text-xs text-gray-500 cursor-pointer">Transparent background</label>
+                          </div>
+                          {!positions.qr.transparentBg && (
+                            <div className="flex items-center gap-2">
+                              <input type="color" value={positions.qr.lightColor || "#ffffff"}
+                                onChange={e => setPositions(prev => ({ ...prev, qr: { ...prev.qr, lightColor: e.target.value } }))}
+                                className="w-8 h-8 rounded cursor-pointer border border-gray-200" />
+                              <span className="text-xs font-mono text-gray-500">{positions.qr.lightColor || "#ffffff"}</span>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <label className="text-xs text-gray-500 block mb-1.5">Text Color</label>
+                          <div className="flex items-center gap-2">
+                            <input type="color"
+                              value={selectedElement === 'name' ? (positions.name.color || "#1b4332") : (positions.certId.color || "#333333")}
+                              onChange={e => setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], color: e.target.value } }))}
+                              className="w-8 h-8 rounded cursor-pointer border border-gray-200" />
+                            <span className="text-xs font-mono text-gray-500">
+                              {selectedElement === 'name' ? (positions.name.color || "#1b4332") : (positions.certId.color || "#333333")}
+                            </span>
+                          </div>
+                        </div>
+                        <FontSelect
+                          value={selectedElement === 'name' ? (positions.name.font || "") : (positions.certId.font || "")}
+                          onChange={v => setPositions(prev => ({ ...prev, [selectedElement!]: { ...prev[selectedElement!], font: v } }))} />
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1010,10 +1067,10 @@ function getContrastColor(hex: string): string {
 
 // ── DraggableMarker: visually scaled to match PDF output ────────────────────
 function DraggableMarker({
-  x, y, color, label, isActive, onMouseDown, onResize, isQR, size, fontSize,
+  x, y, color, label, isActive, isSelected, onMouseDown, onResize, isQR, size, fontSize,
   fontFamily, pdfWidth, containerWidth,
 }: {
-  x: number; y: number; color: string; label?: string; isActive: boolean;
+  x: number; y: number; color: string; label?: string; isActive: boolean; isSelected?: boolean;
   onMouseDown: (e: React.MouseEvent) => void;
   onResize?: (e: React.MouseEvent) => void;
   isQR?: boolean; size?: number; fontSize?: number; fontFamily?: string;
@@ -1032,7 +1089,7 @@ function DraggableMarker({
 
   return (
     <div
-      className={`absolute -translate-x-1/2 -translate-y-1/2 ${isActive ? 'z-50' : 'z-10'}`}
+      className={`absolute -translate-x-1/2 -translate-y-1/2 ${isActive ? 'z-50' : isSelected ? 'z-30' : 'z-10'}`}
       style={{ left: `${x}%`, top: `${y}%` }}
       onMouseDown={onMouseDown}
     >
@@ -1042,8 +1099,9 @@ function DraggableMarker({
             className="w-full h-full rounded-lg flex items-center justify-center shadow-lg"
             style={{
               backgroundColor: '#3b82f6',
-              border: isActive ? '2px solid #22c55e' : '2px solid white',
-              opacity: isActive ? 1 : 0.85,
+              border: isActive ? '2px solid #22c55e' : isSelected ? '2.5px solid #22c55e' : '2px solid white',
+              opacity: isActive || isSelected ? 1 : 0.85,
+              boxShadow: isSelected && !isActive ? '0 0 0 3px rgba(34,197,94,0.25)' : undefined,
             }}
           >
             <span className="material-symbols-outlined text-white" style={{ fontSize: Math.max(12, qrPx * 0.4) }}>qr_code_2</span>
@@ -1068,8 +1126,9 @@ function DraggableMarker({
               fontFamily: fontFamily || "inherit",
               backgroundColor: markerColor,
               color: textColor,
-              border: isActive ? '2px solid #22c55e' : '2px solid rgba(255,255,255,0.8)',
-              opacity: isActive ? 1 : 0.85,
+              border: isActive ? '2px solid #22c55e' : isSelected ? '2.5px solid #22c55e' : '2px solid rgba(255,255,255,0.8)',
+              opacity: isActive || isSelected ? 1 : 0.85,
+              boxShadow: isSelected && !isActive ? '0 0 0 3px rgba(34,197,94,0.25)' : undefined,
             }}
           >
             {label}
