@@ -864,6 +864,24 @@ export default function TemplatesPage() {
                     </p>
                   </div>
 
+                  {/* Preview Text — custom placeholder for live canvas */}
+                  {selectedElement !== 'qr' && (
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Preview Text</p>
+                      <input
+                        type="text"
+                        value={selectedElement === 'name' ? testData.name : testData.certId}
+                        onChange={e => setTestData(prev => ({
+                          ...prev,
+                          [selectedElement === 'name' ? 'name' : 'certId']: e.target.value,
+                        }))}
+                        placeholder={selectedElement === 'name' ? "e.g. Ahmad Bilal Saeed" : "e.g. 2026-PZ-CRS-0001"}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-brand-vivid-green"
+                      />
+                      <p className="text-[10px] text-gray-400">Updates marker on canvas in real time</p>
+                    </div>
+                  )}
+
                   {/* Position */}
                   <div className="space-y-3">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Position</p>

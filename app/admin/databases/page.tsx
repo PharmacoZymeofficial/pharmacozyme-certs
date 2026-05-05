@@ -1700,7 +1700,7 @@ export default function DatabaseManagementPage() {
 
       {/* Selected Database Detail View */}
       {selectedDatabase && (
-        <div className="bg-white rounded-xl border border-green-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-green-100 shadow-sm overflow-clip">
           {/* Database Header */}
           <div className="p-6 border-b border-green-50 bg-green-50/30">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
