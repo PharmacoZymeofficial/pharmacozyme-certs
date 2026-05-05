@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, addDoc, query, where, updateDoc, doc } from "firebase/firestore";
+import { collection, getDocs, addDoc, query, where, updateDoc, deleteDoc, doc } from "firebase/firestore";
 
 export async function GET() {
   try {
@@ -54,6 +54,25 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     );
+  }
+}
+
+// Delete certificate records from the certificates collection by uniqueCertId.
+// Called when a certificate is revoked / deleted from the Databases page.
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const uniqueCertId = searchParams.get("uniqueCertId");
+    if (!uniqueCertId) {
+      return NextResponse.json({ error: "uniqueCertId is required" }, { status: 400 });
+    }
+    const q = query(collection(db, "certificates"), where("uniqueCertId", "==", uniqueCertId));
+    const snap = await getDocs(q);
+    await Promise.all(snap.docs.map(d => deleteDoc(doc(db, "certificates", d.id))));
+    return NextResponse.json({ success: true, deleted: snap.size });
+  } catch (error: any) {
+    console.error("Error deleting certificate:", error);
+    return NextResponse.json({ error: "Failed to delete certificate", details: error?.message }, { status: 500 });
   }
 }
 

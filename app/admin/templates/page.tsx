@@ -11,10 +11,22 @@ interface PositionConfig {
   font?: string;
 }
 
+interface CustomElement {
+  id: string;
+  label: string; // display name in editor
+  text: string;  // static text drawn on the certificate
+  x: number;
+  y: number;
+  size?: number;
+  color?: string;
+  font?: string;
+}
+
 interface Positions {
   name: PositionConfig;
   certId: PositionConfig;
   qr: PositionConfig & { darkColor?: string; lightColor?: string; transparentBg?: boolean };
+  customElements?: CustomElement[];
 }
 
 interface CertificateTemplate {
@@ -54,9 +66,9 @@ export default function TemplatesPage() {
     name: "John Doe",
     certId: "2026-PZ-CRS-0001",
   });
-  const [activeDrag, setActiveDrag] = useState<'name' | 'certId' | 'qr' | null>(null);
-  const [activeResize, setActiveResize] = useState<'name' | 'certId' | 'qr' | null>(null);
-  const [selectedElement, setSelectedElement] = useState<'name' | 'certId' | 'qr' | null>(null);
+  const [activeDrag, setActiveDrag] = useState<'name' | 'certId' | 'qr' | string | null>(null);
+  const [activeResize, setActiveResize] = useState<'name' | 'certId' | 'qr' | string | null>(null);
+  const [selectedElement, setSelectedElement] = useState<'name' | 'certId' | 'qr' | string | null>(null);
   const [loadingTemplate, setLoadingTemplate] = useState(true);
   const [generatingPreview, setGeneratingPreview] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -111,73 +123,106 @@ export default function TemplatesPage() {
     }
   };
 
-  const startDrag = (e: React.MouseEvent, type: 'name' | 'certId' | 'qr') => {
+  const addCustomElement = () => {
+    const id = `custom-${Date.now()}`;
+    setPositions(prev => ({
+      ...prev,
+      customElements: [...(prev.customElements || []), {
+        id, label: `Text ${(prev.customElements?.length ?? 0) + 1}`,
+        text: "Custom Text", x: 50, y: 70, size: 18, color: "#333333",
+      }],
+    }));
+    setSelectedElement(id);
+  };
+
+  const deleteCustomElement = (id: string) => {
+    setPositions(prev => ({ ...prev, customElements: (prev.customElements || []).filter(el => el.id !== id) }));
+    if (selectedElement === id) setSelectedElement(null);
+  };
+
+  const updateCustomElement = (id: string, patch: Partial<CustomElement>) => {
+    setPositions(prev => ({
+      ...prev,
+      customElements: (prev.customElements || []).map(el => el.id === id ? { ...el, ...patch } : el),
+    }));
+  };
+
+  const startDrag = (e: React.MouseEvent, type: string) => {
     e.preventDefault();
     e.stopPropagation();
     setSelectedElement(type);
     setActiveDrag(type);
   };
 
-  const startResize = (e: React.MouseEvent, type: 'name' | 'certId' | 'qr') => {
+  const startResize = (e: React.MouseEvent, type: string) => {
     e.preventDefault();
     e.stopPropagation();
+    const customEl = (positions.customElements || []).find(el => el.id === type);
     const startSize = type === 'qr' ? (positions.qr.size ?? 12)
       : type === 'name' ? (positions.name.size ?? 48)
-      : (positions.certId.size ?? 12);
+      : type === 'certId' ? (positions.certId.size ?? 12)
+      : (customEl?.size ?? 18);
     resizeStartRef.current = { clientX: e.clientX, clientY: e.clientY, startSize };
     setActiveResize(type);
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!previewRef.current) return;
-    
+
     const rect = previewRef.current.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
-    
-    // Check which marker is closest to click
+
     const threshold = 8;
-    const nameDist = Math.sqrt(Math.pow(x - positions.name.x, 2) + Math.pow(y - positions.name.y, 2));
-    const certIdDist = Math.sqrt(Math.pow(x - positions.certId.x, 2) + Math.pow(y - positions.certId.y, 2));
-    const qrDist = Math.sqrt(Math.pow(x - positions.qr.x, 2) + Math.pow(y - positions.qr.y, 2));
-    
-    if (nameDist < threshold) { setSelectedElement('name'); setActiveDrag('name'); }
-    else if (certIdDist < threshold) { setSelectedElement('certId'); setActiveDrag('certId'); }
-    else if (qrDist < threshold) { setSelectedElement('qr'); setActiveDrag('qr'); }
+    const dist = (ax: number, ay: number) => Math.sqrt((x - ax) ** 2 + (y - ay) ** 2);
+
+    const nameDist = dist(positions.name.x, positions.name.y);
+    const certIdDist = dist(positions.certId.x, positions.certId.y);
+    const qrDist = dist(positions.qr.x, positions.qr.y);
+
+    let best: string | null = null;
+    let bestD = threshold;
+    if (nameDist < bestD) { best = 'name'; bestD = nameDist; }
+    if (certIdDist < bestD) { best = 'certId'; bestD = certIdDist; }
+    if (qrDist < bestD) { best = 'qr'; bestD = qrDist; }
+    for (const cel of positions.customElements || []) {
+      const d = dist(cel.x, cel.y);
+      if (d < bestD) { best = cel.id; bestD = d; }
+    }
+    if (best) { setSelectedElement(best); setActiveDrag(best); }
     else setSelectedElement(null);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!previewRef.current) return;
-    
+
     const rect = previewRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
     const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
-    
-    // Handle dragging
+
     if (activeDrag) {
-      if (activeDrag === 'name') {
-        setPositions(prev => ({ ...prev, name: { ...prev.name, x, y } }));
-      } else if (activeDrag === 'certId') {
-        setPositions(prev => ({ ...prev, certId: { ...prev.certId, x, y } }));
-      } else if (activeDrag === 'qr') {
-        setPositions(prev => ({ ...prev, qr: { ...prev.qr, x, y } }));
-      }
+      if (activeDrag === 'name') setPositions(prev => ({ ...prev, name: { ...prev.name, x, y } }));
+      else if (activeDrag === 'certId') setPositions(prev => ({ ...prev, certId: { ...prev.certId, x, y } }));
+      else if (activeDrag === 'qr') setPositions(prev => ({ ...prev, qr: { ...prev.qr, x, y } }));
+      else setPositions(prev => ({ ...prev, customElements: (prev.customElements || []).map(el => el.id === activeDrag ? { ...el, x, y } : el) }));
     }
-    
-    // Handle resizing — delta from drag-start position (drag right/down = bigger, left/up = smaller)
+
     if (activeResize && resizeStartRef.current) {
       const { clientX: startX, clientY: startY, startSize } = resizeStartRef.current;
       const delta = ((e.clientX - startX) + (e.clientY - startY)) / 2;
-      let newSize: number;
       if (activeResize === 'qr') {
-        newSize = Math.max(1, Math.min(25, Math.round(startSize + delta * 0.08)));
+        const s = Math.max(1, Math.min(25, Math.round(startSize + delta * 0.08)));
+        setPositions(prev => ({ ...prev, qr: { ...prev.qr, size: s } }));
       } else if (activeResize === 'name') {
-        newSize = Math.max(8, Math.min(80, Math.round(startSize + delta * 0.25)));
+        const s = Math.max(8, Math.min(80, Math.round(startSize + delta * 0.25)));
+        setPositions(prev => ({ ...prev, name: { ...prev.name, size: s } }));
+      } else if (activeResize === 'certId') {
+        const s = Math.max(6, Math.min(24, Math.round(startSize + delta * 0.08)));
+        setPositions(prev => ({ ...prev, certId: { ...prev.certId, size: s } }));
       } else {
-        newSize = Math.max(6, Math.min(24, Math.round(startSize + delta * 0.08)));
+        const s = Math.max(6, Math.min(72, Math.round(startSize + delta * 0.15)));
+        setPositions(prev => ({ ...prev, customElements: (prev.customElements || []).map(el => el.id === activeResize ? { ...el, size: s } : el) }));
       }
-      setPositions(prev => ({ ...prev, [activeResize]: { ...prev[activeResize], size: newSize } }));
     }
   };
 
@@ -234,13 +279,27 @@ export default function TemplatesPage() {
       if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
       e.preventDefault();
       const step = e.shiftKey ? 5 : 0.5;
+      const isFixed = selectedElement === 'name' || selectedElement === 'certId' || selectedElement === 'qr';
       setPositions(prev => {
-        const el = prev[selectedElement];
-        if (e.key === 'ArrowLeft')  return { ...prev, [selectedElement]: { ...el, x: Math.max(0, el.x - step) } };
-        if (e.key === 'ArrowRight') return { ...prev, [selectedElement]: { ...el, x: Math.min(100, el.x + step) } };
-        if (e.key === 'ArrowUp')    return { ...prev, [selectedElement]: { ...el, y: Math.max(0, el.y - step) } };
-        if (e.key === 'ArrowDown')  return { ...prev, [selectedElement]: { ...el, y: Math.min(100, el.y + step) } };
-        return prev;
+        if (isFixed) {
+          const el = prev[selectedElement as 'name' | 'certId' | 'qr'];
+          if (e.key === 'ArrowLeft')  return { ...prev, [selectedElement]: { ...el, x: Math.max(0, el.x - step) } };
+          if (e.key === 'ArrowRight') return { ...prev, [selectedElement]: { ...el, x: Math.min(100, el.x + step) } };
+          if (e.key === 'ArrowUp')    return { ...prev, [selectedElement]: { ...el, y: Math.max(0, el.y - step) } };
+          if (e.key === 'ArrowDown')  return { ...prev, [selectedElement]: { ...el, y: Math.min(100, el.y + step) } };
+          return prev;
+        }
+        return {
+          ...prev,
+          customElements: (prev.customElements || []).map(el => {
+            if (el.id !== selectedElement) return el;
+            if (e.key === 'ArrowLeft')  return { ...el, x: Math.max(0, el.x - step) };
+            if (e.key === 'ArrowRight') return { ...el, x: Math.min(100, el.x + step) };
+            if (e.key === 'ArrowUp')    return { ...el, y: Math.max(0, el.y - step) };
+            if (e.key === 'ArrowDown')  return { ...el, y: Math.min(100, el.y + step) };
+            return el;
+          }),
+        };
       });
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -272,7 +331,8 @@ export default function TemplatesPage() {
 
   // Dynamically load selected Google Fonts for live preview
   useEffect(() => {
-    const fonts = [positions.name.font, positions.certId.font].filter(Boolean) as string[];
+    const customFonts = (positions.customElements || []).map(el => el.font).filter(Boolean) as string[];
+    const fonts = [positions.name.font, positions.certId.font, ...customFonts].filter(Boolean) as string[];
     const url = getGoogleFontsUrl(fonts);
     if (!url) return;
     const id = "pz-template-fonts";
@@ -509,6 +569,7 @@ export default function TemplatesPage() {
                       name: { ...{ x: 50, y: 45, size: 48 }, ...template.positions.name },
                       certId: { ...{ x: 50, y: 30, size: 12, color: "#333333" }, ...template.positions.certId },
                       qr: { ...{ x: 85, y: 60, size: 12, darkColor: "#000000", lightColor: "#ffffff", transparentBg: false }, ...template.positions.qr },
+                      customElements: template.positions.customElements || [],
                     } : {
                       name: { x: 50, y: 45, size: 48 },
                       certId: { x: 50, y: 30, size: 12, color: "#333333" },
@@ -740,9 +801,9 @@ export default function TemplatesPage() {
                 <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Elements</p>
                 <div className="space-y-1">
                   {([
-                    { key: 'name' as const, label: 'Recipient Name', icon: 'person', color: positions.name.color || '#1b4332' },
-                    { key: 'certId' as const, label: 'Certificate ID', icon: 'badge', color: positions.certId.color || '#333333' },
-                    { key: 'qr' as const, label: 'QR Code', icon: 'qr_code_2', color: '#3b82f6' },
+                    { key: 'name', label: 'Recipient Name', icon: 'person', color: positions.name.color || '#1b4332' },
+                    { key: 'certId', label: 'Certificate ID', icon: 'badge', color: positions.certId.color || '#333333' },
+                    { key: 'qr', label: 'QR Code', icon: 'qr_code_2', color: '#3b82f6' },
                   ]).map(el => (
                     <button key={el.key}
                       onClick={() => setSelectedElement(selectedElement === el.key ? null : el.key)}
@@ -759,6 +820,31 @@ export default function TemplatesPage() {
                       )}
                     </button>
                   ))}
+                  {(positions.customElements || []).map(cel => (
+                    <div key={cel.id} className="flex items-center gap-1">
+                      <button
+                        onClick={() => setSelectedElement(selectedElement === cel.id ? null : cel.id)}
+                        className={`flex-1 flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-xs font-medium transition-all min-w-0 ${
+                          selectedElement === cel.id
+                            ? 'bg-purple-50 border border-purple-400 text-purple-900 shadow-sm'
+                            : 'hover:bg-gray-50 text-gray-600 border border-transparent'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-sm flex-shrink-0" style={{ color: cel.color || '#6b7280' }}>text_fields</span>
+                        <span className="truncate">{cel.label}</span>
+                        {selectedElement === cel.id && <span className="ml-auto material-symbols-outlined text-purple-500 text-sm flex-shrink-0">check_circle</span>}
+                      </button>
+                      <button onClick={() => deleteCustomElement(cel.id)} title="Remove element"
+                        className="p-1 text-gray-300 hover:text-red-500 transition-colors flex-shrink-0">
+                        <span className="material-symbols-outlined text-sm">close</span>
+                      </button>
+                    </div>
+                  ))}
+                  <button onClick={addCustomElement}
+                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium text-purple-600 hover:bg-purple-50 border border-dashed border-purple-200 transition-all mt-1">
+                    <span className="material-symbols-outlined text-sm">add</span>
+                    Add Custom Text
+                  </button>
                 </div>
                 {selectedElement && (
                   <div className="mt-3 p-2.5 bg-blue-50 rounded-xl border border-blue-100">
@@ -798,7 +884,10 @@ export default function TemplatesPage() {
                   onMouseLeave={handleMouseUp}
                 >
                   {activeDrag && (() => {
-                    const dragPos = activeDrag === 'name' ? positions.name : activeDrag === 'certId' ? positions.certId : positions.qr;
+                    const dragPos = activeDrag === 'name' ? positions.name
+                      : activeDrag === 'certId' ? positions.certId
+                      : activeDrag === 'qr' ? positions.qr
+                      : (positions.customElements || []).find(el => el.id === activeDrag) || positions.name;
                     return (
                       <>
                         <div className="absolute inset-y-0 pointer-events-none z-40 border-l border-dashed border-brand-vivid-green/60" style={{ left: `${dragPos.x}%` }} />
@@ -840,6 +929,16 @@ export default function TemplatesPage() {
                     isSelected={selectedElement === 'qr'}
                     onMouseDown={(e) => startDrag(e, 'qr')} onResize={(e) => startResize(e, 'qr')}
                     pdfWidth={templateDimensions.width} containerWidth={containerSizeRef.current.width} />
+                  {(positions.customElements || []).map(cel => (
+                    <DraggableMarker key={cel.id}
+                      x={cel.x} y={cel.y}
+                      color={cel.color || "#6b7280"} label={cel.text}
+                      fontSize={cel.size ?? 18} fontFamily={cel.font}
+                      isActive={activeDrag === cel.id || activeResize === cel.id}
+                      isSelected={selectedElement === cel.id}
+                      onMouseDown={(e) => startDrag(e, cel.id)} onResize={(e) => startResize(e, cel.id)}
+                      pdfWidth={templateDimensions.width} containerWidth={containerSizeRef.current.width} />
+                  ))}
                 </div>
                 <p className="text-center text-[10px] text-gray-400 mt-2">Drag placeholders · ↘ handle to resize · Click to select · Arrow keys for precision</p>
               </div>
@@ -853,7 +952,75 @@ export default function TemplatesPage() {
                   <p className="text-sm font-medium text-gray-500">Select an element</p>
                   <p className="text-xs text-gray-400 mt-1 leading-relaxed">Click a placeholder on the canvas or choose from the Elements list on the left</p>
                 </div>
-              ) : (
+              ) : (() => {
+                const isFixed = selectedElement === 'name' || selectedElement === 'certId' || selectedElement === 'qr';
+                const customEl = !isFixed ? (positions.customElements || []).find(el => el.id === selectedElement) : null;
+                if (!isFixed && !customEl) return null;
+
+                if (!isFixed && customEl) {
+                  // ── Custom element properties ──
+                  return (
+                    <div className="p-4 space-y-5">
+                      <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
+                        <span className="material-symbols-outlined text-base text-purple-500">text_fields</span>
+                        <p className="font-bold text-purple-900 text-sm truncate">{customEl.label}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Element Name</p>
+                        <input type="text" value={customEl.label}
+                          onChange={e => updateCustomElement(customEl.id, { label: e.target.value })}
+                          placeholder="Label (editor only)"
+                          className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-purple-400" />
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Text on Certificate</p>
+                        <input type="text" value={customEl.text}
+                          onChange={e => updateCustomElement(customEl.id, { text: e.target.value })}
+                          placeholder="e.g. Issued: 2026-05-01"
+                          className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-purple-400" />
+                        <p className="text-[10px] text-gray-400">This exact text will be printed on the certificate</p>
+                      </div>
+                      <div className="space-y-3">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Position</p>
+                        <SliderField label="Horizontal (%)" min={0} max={100} step={0.5} value={customEl.x}
+                          onChange={v => updateCustomElement(customEl.id, { x: v })} />
+                        <SliderField label="Vertical (%)" min={0} max={100} step={0.5} value={customEl.y}
+                          onChange={v => updateCustomElement(customEl.id, { y: v })} />
+                        <div className="flex gap-2">
+                          <button onClick={() => updateCustomElement(customEl.id, { x: 50 })}
+                            className="flex-1 py-1.5 text-[11px] bg-purple-50 border border-purple-200 rounded-lg text-purple-700 hover:bg-purple-100 transition-colors font-medium">Center H</button>
+                          <button onClick={() => updateCustomElement(customEl.id, { y: 50 })}
+                            className="flex-1 py-1.5 text-[11px] bg-purple-50 border border-purple-200 rounded-lg text-purple-700 hover:bg-purple-100 transition-colors font-medium">Center V</button>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Size</p>
+                        <SliderField label="Font Size (pt)" min={6} max={72} step={1} value={customEl.size ?? 18}
+                          onChange={v => updateCustomElement(customEl.id, { size: v })} />
+                      </div>
+                      <div className="space-y-3">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Appearance</p>
+                        <div>
+                          <label className="text-xs text-gray-500 block mb-1.5">Text Color</label>
+                          <div className="flex items-center gap-2">
+                            <input type="color" value={customEl.color || "#333333"}
+                              onChange={e => updateCustomElement(customEl.id, { color: e.target.value })}
+                              className="w-8 h-8 rounded cursor-pointer border border-gray-200" />
+                            <span className="text-xs font-mono text-gray-500">{customEl.color || "#333333"}</span>
+                          </div>
+                        </div>
+                        <FontSelect value={customEl.font || ""}
+                          onChange={v => updateCustomElement(customEl.id, { font: v })} />
+                      </div>
+                      <button onClick={() => deleteCustomElement(customEl.id)}
+                        className="w-full py-2 text-xs font-medium text-red-500 hover:bg-red-50 rounded-lg border border-red-200 transition-colors flex items-center justify-center gap-1.5">
+                        <span className="material-symbols-outlined text-sm">delete</span>Remove Element
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
                 <div className="p-4 space-y-5">
                   <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
                     <span className="material-symbols-outlined text-base" style={{ color: selectedElement === 'qr' ? '#3b82f6' : selectedElement === 'name' ? (positions.name.color || '#1b4332') : (positions.certId.color || '#333333') }}>
@@ -969,7 +1136,8 @@ export default function TemplatesPage() {
                     )}
                   </div>
                 </div>
-              )}
+                );
+              })()}
             </div>
           </div>
         </div>

@@ -1,4 +1,11 @@
+"use client";
+
+import { useState } from "react";
+import Tutorial from "@/components/Tutorial";
+
 export default function HelpPage() {
+  const [showTutorial, setShowTutorial] = useState(false);
+
   const faqs = [
     {
       question: "How do I issue a new certificate?",
@@ -20,6 +27,8 @@ export default function HelpPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
+      {showTutorial && <Tutorial onClose={() => setShowTutorial(false)} />}
+
       {/* Header */}
       <header className="mb-6 lg:mb-8">
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-headline font-bold text-brand-dark-green tracking-tight mb-2">
@@ -30,10 +39,34 @@ export default function HelpPage() {
         </p>
       </header>
 
+      {/* Tutorial Banner */}
+      <div className="max-w-3xl mb-8">
+        <div className="bg-gradient-to-br from-brand-dark-green to-brand-grass-green rounded-2xl p-6 sm:p-8 relative overflow-hidden">
+          <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-white/10" />
+          <div className="absolute -bottom-8 -left-4 w-24 h-24 rounded-full bg-white/10" />
+          <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+              <span className="material-symbols-outlined text-white text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>school</span>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-headline font-bold text-white mb-1">New to PharmacoZyme Certs?</h3>
+              <p className="text-white/80 text-sm">Take the interactive tour to learn how to create databases, upload templates, generate certificates, and send emails — in under 5 minutes.</p>
+            </div>
+            <button
+              onClick={() => setShowTutorial(true)}
+              className="flex-shrink-0 flex items-center gap-2 px-5 py-2.5 bg-white rounded-xl text-brand-dark-green font-bold text-sm hover:bg-white/90 active:scale-95 transition-all shadow-sm"
+            >
+              <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>play_circle</span>
+              Start Tour
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* FAQ Section */}
       <div className="max-w-3xl space-y-4 mb-12">
         <h3 className="text-xl font-headline font-bold text-brand-dark-green">Frequently Asked Questions</h3>
-        
+
         <div className="space-y-4">
           {faqs.map((faq, index) => (
             <div key={index} className="bg-white p-4 sm:p-6 rounded-xl border border-green-100 shadow-sm">

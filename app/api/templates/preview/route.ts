@@ -17,7 +17,9 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   return { r: 0.1, g: 0.26, b: 0.2 };
 }
 
-function getTemplatePositions(width: number, height: number, positions?: { name: { x: number; y: number; size?: number; color?: string; font?: string }; certId: { x: number; y: number; size?: number; color?: string; font?: string }; qr: { x: number; y: number; size: number; darkColor?: string; lightColor?: string; transparentBg?: boolean } }) {
+interface CustomElementInput { id: string; text: string; x: number; y: number; size?: number; color?: string; font?: string; }
+
+function getTemplatePositions(width: number, height: number, positions?: { name: { x: number; y: number; size?: number; color?: string; font?: string }; certId: { x: number; y: number; size?: number; color?: string; font?: string }; qr: { x: number; y: number; size: number; darkColor?: string; lightColor?: string; transparentBg?: boolean }; customElements?: CustomElementInput[] }) {
   if (positions) {
     const qrSizeValue = positions.qr.size || 12;
     const qrDimension = (Math.min(width, height) * qrSizeValue) / 100;
@@ -32,14 +34,21 @@ function getTemplatePositions(width: number, height: number, positions?: { name:
         height: qrDimension,
         darkColor: positions.qr.darkColor || "#000000",
         lightColor: positions.qr.transparentBg ? "#00000000" : (positions.qr.lightColor || "#ffffff"),
-      }
+      },
+      customElements: (positions.customElements || []).map(el => ({
+        ...el,
+        px: (width * el.x) / 100,
+        py: height - (height * el.y) / 100,
+        color: hexToRgb(el.color || "#333333"),
+      })),
     };
   }
-  
+
   return {
     namePos: { x: width / 2, y: height * 0.55, size: 48, color: { r: 0.1, g: 0.26, b: 0.2 } },
     certIdPos: { x: width / 2, y: height * 0.38, size: 12, color: { r: 0.2, g: 0.2, b: 0.2 } },
-    qrPos: { x: width - 150, y: height * 0.42, width: 100, height: 100 }
+    qrPos: { x: width - 150, y: height * 0.42, width: 100, height: 100 },
+    customElements: [] as any[],
   };
 }
 
@@ -86,10 +95,15 @@ export async function POST(request: NextRequest) {
     console.log("Calculated positions:", JSON.stringify(positions, null, 2));
 
     // Embed fonts — use custom Google Font if specified, else fall back to Helvetica
-    const [nameFontBytes, certIdFontBytes] = await Promise.all([
+    const customEls = positions.customElements || [];
+    const uniqueCustomFonts = [...new Set(customEls.map((el: any) => el.font).filter(Boolean))];
+    const [nameFontBytes, certIdFontBytes, ...customFontBytesArr] = await Promise.all([
       positions.namePos.font ? loadFontBytes(positions.namePos.font) : Promise.resolve(null),
       positions.certIdPos.font ? loadFontBytes(positions.certIdPos.font) : Promise.resolve(null),
+      ...uniqueCustomFonts.map((f: any) => loadFontBytes(f)),
     ]);
+    const customFontMap = new Map<string, Uint8Array | null>();
+    uniqueCustomFonts.forEach((f: any, i: number) => customFontMap.set(f, customFontBytesArr[i] ?? null));
     let nameFont, certIdFont;
     try {
       nameFont = nameFontBytes
@@ -180,8 +194,28 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Draw custom text elements
+    for (const cel of customEls) {
+      try {
+        const fontBytes = cel.font ? customFontMap.get(cel.font) ?? null : null;
+        let font;
+        try { font = fontBytes ? await pdfDoc.embedFont(fontBytes, { subset: true }) : await pdfDoc.embedFont(StandardFonts.Helvetica); }
+        catch { font = await pdfDoc.embedFont(StandardFonts.Helvetica); }
+        const sz = cel.size || 18;
+        const col = cel.color || { r: 0.2, g: 0.2, b: 0.2 };
+        const textW = font.widthOfTextAtSize(cel.text, sz);
+        page.drawText(cel.text, {
+          x: cel.px - textW / 2,
+          y: cel.py,
+          size: sz,
+          font,
+          color: rgb(col.r, col.g, col.b),
+        });
+      } catch { /* skip broken custom element */ }
+    }
+
     const pdfBytes = await pdfDoc.save();
-    
+
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         "Content-Type": "application/pdf",

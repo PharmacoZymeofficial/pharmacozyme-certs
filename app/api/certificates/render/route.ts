@@ -24,6 +24,7 @@ function getPositions(width: number, height: number, positions: any) {
       namePos: { x: width / 2, y: height * 0.55, size: 48, color: { r: 0.1, g: 0.26, b: 0.2 }, font: null },
       certIdPos: { x: width / 2, y: height * 0.38, size: 12, color: { r: 0.2, g: 0.2, b: 0.2 }, font: null },
       qrPos: { x: width - qrSize - 60, y: height * 0.42, width: qrSize, height: qrSize, darkColor: "#000000", lightColor: "#ffffff" },
+      customElements: [] as any[],
     };
   }
   const qrSizeValue = positions.qr?.size || 12;
@@ -51,6 +52,12 @@ function getPositions(width: number, height: number, positions: any) {
       darkColor: positions.qr.darkColor || "#000000",
       lightColor: positions.qr.transparentBg ? "#00000000" : (positions.qr.lightColor || "#ffffff"),
     },
+    customElements: (positions.customElements || []).map((el: any) => ({
+      ...el,
+      px: (width * el.x) / 100,
+      py: height - (height * el.y) / 100,
+      color: hexToRgb(el.color || "#333333"),
+    })),
   };
 }
 
@@ -78,11 +85,16 @@ export async function POST(request: NextRequest) {
 
     const pos = getPositions(width, height, templateData.positions);
 
-    // Embed fonts server-side (User-Agent trick works here)
-    const [nameFontBytes, certIdFontBytes] = await Promise.all([
+    // Embed fonts server-side
+    const customEls = pos.customElements || [];
+    const uniqueCustomFonts = [...new Set(customEls.map((el: any) => el.font).filter(Boolean))];
+    const [nameFontBytes, certIdFontBytes, ...customFontBytesArr] = await Promise.all([
       pos.namePos.font ? loadFontBytes(pos.namePos.font) : Promise.resolve(null),
       pos.certIdPos.font ? loadFontBytes(pos.certIdPos.font) : Promise.resolve(null),
+      ...uniqueCustomFonts.map((f: any) => loadFontBytes(f)),
     ]);
+    const customFontMap = new Map<string, Uint8Array | null>();
+    uniqueCustomFonts.forEach((f: any, i: number) => customFontMap.set(f, customFontBytesArr[i] ?? null));
     console.log("[render] nameFont:", pos.namePos.font, "loaded:", !!nameFontBytes);
 
     let nameFont, certIdFont;
@@ -154,6 +166,26 @@ export async function POST(request: NextRequest) {
     } catch (qrErr) {
       console.error("[render] QR error:", qrErr);
       page.drawRectangle({ x: qrX, y: qrY, width: qrSize, height: qrSize, borderColor: rgb(0, 0, 0), borderWidth: 1 });
+    }
+
+    // Draw custom text elements
+    for (const cel of customEls) {
+      try {
+        const fontBytes = cel.font ? customFontMap.get(cel.font) ?? null : null;
+        let font;
+        try { font = fontBytes ? await pdfDoc.embedFont(fontBytes, { subset: true }) : await pdfDoc.embedFont(StandardFonts.Helvetica); }
+        catch { font = await pdfDoc.embedFont(StandardFonts.Helvetica); }
+        const sz = cel.size || 18;
+        const col = cel.color;
+        const textW = font.widthOfTextAtSize(cel.text, sz);
+        page.drawText(cel.text, {
+          x: cel.px - textW / 2,
+          y: cel.py,
+          size: sz,
+          font,
+          color: rgb(col.r, col.g, col.b),
+        });
+      } catch { /* skip broken custom element */ }
     }
 
     const pdfBytes = await pdfDoc.save();

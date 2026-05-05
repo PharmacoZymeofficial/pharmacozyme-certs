@@ -796,6 +796,21 @@ export default function DatabaseManagementPage() {
 
       if (selectedDatabase?.id) fetchParticipants(selectedDatabase.id!);
 
+      // Log activity
+      if (totalSent > 0) {
+        fetch("/api/activity-logs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "email_sent",
+            databaseId: selectedDatabase?.id,
+            databaseName: selectedDatabase?.name,
+            count: totalSent,
+            details: `Sent to ${totalSent} recipient${totalSent !== 1 ? "s" : ""}${totalFailed > 0 ? ` (${totalFailed} failed)` : ""}`,
+          }),
+        }).catch(() => {});
+      }
+
       sfx.send();
       toast.success(`Emails sent! ${totalSent} delivered${totalFailed > 0 ? `, ${totalFailed} failed` : ""}.`);
       if (allErrors.length > 0) toast.error(`Send error: ${allErrors[0].error}`);
@@ -1159,9 +1174,14 @@ export default function DatabaseManagementPage() {
     if (!ok) return;
 
     try {
-      if (participant.driveFileId) {
-        await fetch(`/api/drive-upload?fileId=${participant.driveFileId}`, { method: "DELETE" });
-      }
+      await Promise.all([
+        participant.driveFileId
+          ? fetch(`/api/drive-upload?fileId=${participant.driveFileId}`, { method: "DELETE" })
+          : Promise.resolve(),
+        participant.certificateId
+          ? fetch(`/api/certificates?uniqueCertId=${encodeURIComponent(participant.certificateId)}`, { method: "DELETE" })
+          : Promise.resolve(),
+      ]);
 
       const response = await fetch(`/api/participants/${participant.id}`, {
         method: "PUT",
@@ -1195,6 +1215,9 @@ export default function DatabaseManagementPage() {
     if (!ok) return;
 
     try {
+      // Revoke from certificates collection (cert ID removed → no longer valid)
+      await fetch(`/api/certificates?uniqueCertId=${encodeURIComponent(participant.certificateId)}`, { method: "DELETE" });
+
       const response = await fetch(`/api/participants/${participant.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -2022,6 +2045,11 @@ export default function DatabaseManagementPage() {
                                 setBulkDeleteLabel("Deleting Certificate IDs");
                                 setIsBulkDeleting(true);
                                 try {
+                                  // Revoke from certificates collection
+                                  await Promise.all(selectedParticipants.map(id => {
+                                    const p = participants.find(x => x.id === id);
+                                    return p?.certificateId ? fetch(`/api/certificates?uniqueCertId=${encodeURIComponent(p.certificateId)}`, { method: "DELETE" }) : Promise.resolve();
+                                  }));
                                   await fetch("/api/participants/batch-update", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
@@ -2048,10 +2076,13 @@ export default function DatabaseManagementPage() {
                                 setBulkDeleteLabel("Deleting IDs + PDFs");
                                 setIsBulkDeleting(true);
                                 try {
-                                  // Delete Drive files in parallel
-                                  await Promise.all(selectedParticipants.map(id => {
+                                  // Delete Drive files + revoke from certificates collection in parallel
+                                  await Promise.all(selectedParticipants.flatMap(id => {
                                     const p = participants.find(x => x.id === id);
-                                    return p?.driveFileId ? fetch(`/api/drive-upload?fileId=${p.driveFileId}`, { method: "DELETE" }) : Promise.resolve();
+                                    return [
+                                      p?.driveFileId ? fetch(`/api/drive-upload?fileId=${p.driveFileId}`, { method: "DELETE" }) : Promise.resolve(),
+                                      p?.certificateId ? fetch(`/api/certificates?uniqueCertId=${encodeURIComponent(p.certificateId)}`, { method: "DELETE" }) : Promise.resolve(),
+                                    ];
                                   }));
                                   // Batch-clear all cert+pdf fields
                                   await fetch("/api/participants/batch-update", {
@@ -3081,9 +3112,19 @@ Ahmed Khan, ahmed@email.com"
                   : participants}
                 onGenerated={() => {
                   saveToHistory(participants);
-                  if (selectedDatabase?.id) {
-                    fetchParticipants(selectedDatabase.id!);
-                  }
+                  if (selectedDatabase?.id) fetchParticipants(selectedDatabase.id!);
+                  const targetCount = selectedParticipants.length > 0 ? selectedParticipants.length : participants.length;
+                  fetch("/api/activity-logs", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      type: "cert_generated",
+                      databaseId: selectedDatabase?.id,
+                      databaseName: selectedDatabase?.name,
+                      count: targetCount,
+                      details: `Generated PDFs for ${targetCount} participant${targetCount !== 1 ? "s" : ""}`,
+                    }),
+                  }).catch(() => {});
                 }}
               />
             </div>
