@@ -115,12 +115,12 @@ export async function POST(request: NextRequest) {
       certIdFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
     }
 
-    // Draw name — tighter budget for 3+ word names, then direct-compute scale
+    // Draw name — proactively scale for word count, then hard overflow guard
     const nameMargin = 20;
     const nameWordCount = recipientName.trim().split(/\s+/).length;
-    const nameBudget = nameWordCount > 2 ? 0.80 : 1.0;
-    const maxNameWidth = (width - 2 * nameMargin) * nameBudget;
-    let nameFontSize = pos.namePos.size;
+    const wordCountFactor = nameWordCount <= 2 ? 1.0 : nameWordCount === 3 ? 0.82 : 0.70;
+    let nameFontSize = Math.max(8, Math.floor(pos.namePos.size * wordCountFactor));
+    const maxNameWidth = width - 2 * nameMargin;
     let nameTextWidth = nameFont.widthOfTextAtSize(recipientName, nameFontSize);
     if (nameTextWidth > maxNameWidth) {
       nameFontSize = Math.max(8, Math.floor(nameFontSize * (maxNameWidth / nameTextWidth)));

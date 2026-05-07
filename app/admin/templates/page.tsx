@@ -63,7 +63,7 @@ export default function TemplatesPage() {
   });
   const [savingPositions, setSavingPositions] = useState(false);
   const [testData, setTestData] = useState({
-    name: "John Doe",
+    name: "Dr John Doe Wright",
     certId: "2026-PZ-CRS-0001",
   });
   const isFixedElement = (id: string | null): id is 'name' | 'certId' | 'qr' => id === 'name' || id === 'certId' || id === 'qr';
