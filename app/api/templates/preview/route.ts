@@ -122,16 +122,22 @@ export async function POST(request: NextRequest) {
       certIdFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
     }
 
-    // Name — auto-scale down if too wide, then clamp to page bounds
+    // Name — tighter budget for 3+ word names, then direct-compute scale
     const nameText = testData?.name || "John Doe";
     const nameColor = positions.namePos.color || { r: 0.1, g: 0.26, b: 0.2 };
     const nameMargin = 20;
-    const maxNameWidth = width - 2 * nameMargin;
+    const nameWordCount = nameText.trim().split(/\s+/).length;
+    const nameBudget = nameWordCount > 2 ? 0.80 : 1.0;
+    const maxNameWidth = (width - 2 * nameMargin) * nameBudget;
     let nameFontSize = positions.namePos.size || 48;
     let nameTextWidth = nameFont.widthOfTextAtSize(nameText, nameFontSize);
-    while (nameTextWidth > maxNameWidth && nameFontSize > 8) {
-      nameFontSize -= 1;
+    if (nameTextWidth > maxNameWidth) {
+      nameFontSize = Math.max(8, Math.floor(nameFontSize * (maxNameWidth / nameTextWidth)));
       nameTextWidth = nameFont.widthOfTextAtSize(nameText, nameFontSize);
+      while (nameTextWidth > maxNameWidth && nameFontSize > 8) {
+        nameFontSize -= 1;
+        nameTextWidth = nameFont.widthOfTextAtSize(nameText, nameFontSize);
+      }
     }
     const nameXCentered = positions.namePos.x - nameTextWidth / 2;
     const nameX = Math.max(nameMargin, Math.min(width - nameTextWidth - nameMargin, nameXCentered));
