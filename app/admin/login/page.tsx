@@ -88,6 +88,7 @@ function LoginForm() {
             role: "super_admin",
             status: "approved",
             createdAt: new Date().toISOString(),
+            tutorialSeen: false,
           });
         } else {
           await setDoc(doc(db, "admins", user.uid), {
@@ -96,6 +97,7 @@ function LoginForm() {
             role: "admin",
             status: "pending",
             createdAt: new Date().toISOString(),
+            tutorialSeen: false,
           });
           await auth.signOut();
           setInfo("Your account is awaiting super admin approval.");

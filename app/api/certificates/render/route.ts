@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
 import QRCode from "qrcode";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
@@ -80,6 +81,7 @@ export async function POST(request: NextRequest) {
     const templateBytes = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 
     const pdfDoc = await PDFDocument.load(templateBytes);
+    pdfDoc.registerFontkit(fontkit);
     const page = pdfDoc.getPage(0);
     const { width, height } = page.getSize();
 

@@ -1,8 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, ComponentType } from "react";
+import {
+  SceneWelcome, SceneDatabases, SceneTemplates, SceneGenerateIds,
+  SceneGeneratePdfs, SceneSendEmails, SceneVerify, SceneHistory, SceneDone,
+} from "./tutorial-scenes";
 
-const STEPS = [
+const STEPS: {
+  id: string;
+  icon: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  color: string;
+  accent: string;
+  Scene: ComponentType<{ accent: string }>;
+  tip: string | null;
+}[] = [
   {
     id: "welcome",
     icon: "waving_hand",
@@ -11,7 +25,7 @@ const STEPS = [
     description: "This quick tour will show you how to create, manage, and send professional certificates in minutes. You can re-open this tour any time from the Help page.",
     color: "from-brand-dark-green to-brand-grass-green",
     accent: "#52b788",
-    image: null,
+    Scene: SceneWelcome,
     tip: null,
   },
   {
@@ -22,7 +36,7 @@ const STEPS = [
     description: 'Go to Databases and click "New Database". Choose a category (General / Official), pick a sub-category and topic, then add participants manually, via CSV import, or by linking a Google Sheet.',
     color: "from-emerald-700 to-emerald-500",
     accent: "#10b981",
-    image: null,
+    Scene: SceneDatabases,
     tip: "💡 Linking a Google Sheet lets you sync participants automatically with one click.",
   },
   {
@@ -33,7 +47,7 @@ const STEPS = [
     description: "Go to Templates and upload a PDF. Then open the position editor to drag the Name, Certificate ID, QR Code, and any custom text elements onto exactly the right spot on your design.",
     color: "from-purple-700 to-purple-500",
     accent: "#a855f7",
-    image: null,
+    Scene: SceneTemplates,
     tip: '💡 Use the "Preview PDF" button in the editor to see the real rendered output with your chosen fonts.',
   },
   {
@@ -44,7 +58,7 @@ const STEPS = [
     description: 'Inside a database, click "Generate IDs". Choose App Format (e.g. 2026-PZ-CRS-0001), Name Format, or a Custom prefix. IDs are assigned to participants without one and saved instantly.',
     color: "from-blue-700 to-blue-500",
     accent: "#3b82f6",
-    image: null,
+    Scene: SceneGenerateIds,
     tip: "💡 App Format automatically uses your database category code — no manual entry needed.",
   },
   {
@@ -55,7 +69,7 @@ const STEPS = [
     description: 'Click "Generate PDFs" and select a template. The system renders each participant\'s name, ID, and QR code onto your template and uploads the PDF to Google Drive automatically.',
     color: "from-amber-700 to-amber-500",
     accent: "#f59e0b",
-    image: null,
+    Scene: SceneGeneratePdfs,
     tip: "💡 Select specific participants first if you only want to regenerate a subset.",
   },
   {
@@ -66,7 +80,7 @@ const STEPS = [
     description: 'Click "Send Emails" to open the email composer. Customise the subject and message (use [Name] and [VerificationLink] placeholders), choose a sender identity, and send or schedule the batch.',
     color: "from-rose-700 to-rose-500",
     accent: "#f43f5e",
-    image: null,
+    Scene: SceneSendEmails,
     tip: "💡 Schedule emails to deliver at a specific date and time — great for cohort graduations.",
   },
   {
@@ -77,7 +91,7 @@ const STEPS = [
     description: "Every QR code links to verify.pharmacozyme.com. Recipients and employers can scan it or enter the certificate ID to confirm authenticity, view recipient details, and download the PDF.",
     color: "from-teal-700 to-teal-500",
     accent: "#14b8a6",
-    image: null,
+    Scene: SceneVerify,
     tip: "💡 The verification page shows the certificate status live — if you revoke an ID it shows as invalid.",
   },
   {
@@ -88,7 +102,7 @@ const STEPS = [
     description: "The History page logs every certificate generation and email send with timestamps and admin names. Use it to audit activity, check delivery counts, or troubleshoot missed sends.",
     color: "from-slate-700 to-slate-500",
     accent: "#64748b",
-    image: null,
+    Scene: SceneHistory,
     tip: null,
   },
   {
@@ -99,7 +113,7 @@ const STEPS = [
     description: "Head to Databases to add your first participants, or upload a template to get started. Come back to this tutorial any time from the Help page in the sidebar.",
     color: "from-brand-dark-green to-brand-vivid-green",
     accent: "#52b788",
-    image: null,
+    Scene: SceneDone,
     tip: null,
   },
 ];
@@ -200,6 +214,19 @@ export default function Tutorial({ onClose }: TutorialProps) {
                 : "translateX(0)",
             }}
           >
+            {/* Visual scene for this step */}
+            <div
+              key={current.id}
+              className="mb-5 rounded-2xl p-5 flex items-center justify-center"
+              style={{
+                background: `linear-gradient(135deg,${current.accent}08,${current.accent}18)`,
+                border: `1px solid ${current.accent}25`,
+                minHeight: "11rem",
+              }}
+            >
+              <current.Scene accent={current.accent} />
+            </div>
+
             <p className="text-on-surface-variant leading-relaxed text-sm mb-4">{current.description}</p>
 
             {current.tip && (

@@ -130,10 +130,10 @@ function VerifyContent() {
             autoPlay loop muted playsInline
           />
 
-          {/* Gradient overlay — fades to section bg at bottom */}
+          {/* Gradient overlay — fades to white section bg at bottom */}
           <div
             className="absolute inset-0"
-            style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.1) 35%, rgba(6,15,8,0.7) 75%, rgba(6,15,8,1) 100%)" }}
+            style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.1) 35%, rgba(255,255,255,0.7) 80%, rgba(255,255,255,1) 100%)" }}
           />
 
           {/* Spacer — pushes scroll indicator to bottom */}

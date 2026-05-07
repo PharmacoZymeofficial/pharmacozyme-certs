@@ -49,7 +49,7 @@ const SUB_CATS = [
 
 const AVATAR_GRADIENTS = [
   "linear-gradient(135deg,#52b788,#1b4332)",
-  "linear-gradient(135deg,#40916c,#081c15)",
+  "linear-gradient(135deg,#40916c,#1b4332)",
   "linear-gradient(135deg,#22c55e,#166534)",
   "linear-gradient(135deg,#4ade80,#15803d)",
   "linear-gradient(135deg,#86efac,#166534)",
@@ -87,26 +87,25 @@ function fmtDate(d: string) {
 function SkeletonCard({ delay }: { delay: number }) {
   return (
     <div
-      className="rounded-2xl p-5 relative overflow-hidden"
+      className="rounded-2xl p-5 relative overflow-hidden bg-white border border-gray-100"
       style={{
-        background: "rgba(10,26,16,0.5)",
-        border: "1px solid rgba(82,183,136,0.08)",
+        boxShadow: "0 1px 4px rgba(15,46,28,0.04)",
         animation: `slideUpFade 0.35s ease ${delay}ms both`,
       }}
     >
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 rounded-xl animate-pulse flex-shrink-0" style={{ background: "rgba(82,183,136,0.1)" }} />
+        <div className="w-10 h-10 rounded-xl animate-pulse flex-shrink-0 bg-gray-100" />
         <div className="flex-1 space-y-2">
-          <div className="h-3 rounded-full animate-pulse w-3/4" style={{ background: "rgba(82,183,136,0.1)" }} />
-          <div className="h-2 rounded-full animate-pulse w-1/2" style={{ background: "rgba(82,183,136,0.07)" }} />
+          <div className="h-3 rounded-full animate-pulse w-3/4 bg-gray-100" />
+          <div className="h-2 rounded-full animate-pulse w-1/2 bg-gray-100" />
         </div>
       </div>
-      <div className="h-8 rounded-lg animate-pulse mb-3" style={{ background: "rgba(82,183,136,0.06)" }} />
-      <div className="h-9 rounded-xl animate-pulse" style={{ background: "rgba(82,183,136,0.06)" }} />
+      <div className="h-8 rounded-lg animate-pulse mb-3 bg-gray-50" />
+      <div className="h-9 rounded-xl animate-pulse bg-gray-50" />
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: "linear-gradient(90deg,transparent,rgba(82,183,136,0.05),transparent)",
+          background: "linear-gradient(90deg,transparent,rgba(82,183,136,0.06),transparent)",
           animation: "shimmerSlide 1.6s ease infinite",
         }}
       />
@@ -135,14 +134,13 @@ function ResultCard({
       onKeyDown={(e) => e.key === "Enter" && onSelect(result.uniqueCertId)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="rounded-2xl p-5 flex flex-col gap-3 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#52b788]/60"
+      className="rounded-2xl p-5 flex flex-col gap-3 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-grass-green/50"
       style={{
-        background: hovered ? "rgba(16,42,26,0.95)" : "rgba(10,26,16,0.55)",
-        border: hovered ? "1px solid rgba(82,183,136,0.4)" : "1px solid rgba(82,183,136,0.1)",
+        background: "#ffffff",
+        border: hovered ? "1px solid #52b788" : "1px solid #e5ebe5",
         boxShadow: hovered
-          ? "0 12px 40px rgba(0,0,0,0.35),0 0 0 1px rgba(82,183,136,0.12)"
-          : "0 2px 12px rgba(0,0,0,0.15)",
-        backdropFilter: "blur(14px)",
+          ? "0 12px 32px rgba(27,67,50,0.10),0 0 0 1px rgba(82,183,136,0.20)"
+          : "0 1px 4px rgba(15,46,28,0.04)",
         transform: hovered ? "translateY(-4px)" : "translateY(0)",
         transition: "all 0.22s cubic-bezier(0.16,1,0.3,1)",
         animation: `slideUpFade 0.4s cubic-bezier(0.16,1,0.3,1) ${index * 65}ms both`,
@@ -151,38 +149,38 @@ function ResultCard({
       <div className="flex items-center gap-3">
         <div
           className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-sm font-bold text-white"
-          style={{ background: avatarGradient(result.recipientName), boxShadow: "0 2px 8px rgba(0,0,0,0.3)" }}
+          style={{ background: avatarGradient(result.recipientName), boxShadow: "0 2px 6px rgba(27,67,50,0.20)" }}
         >
           {initials(result.recipientName)}
         </div>
         <div className="min-w-0">
-          <p className="text-white font-semibold text-sm leading-tight truncate">{result.recipientName}</p>
-          <p className="text-xs truncate mt-0.5" style={{ color: "rgba(82,183,136,0.55)" }}>
+          <p className="text-brand-dark-green font-semibold text-sm leading-tight truncate">{result.recipientName}</p>
+          <p className="text-xs text-gray-500 truncate mt-0.5">
             {label || "Certificate"}
           </p>
         </div>
       </div>
 
-      <div className="px-3 py-2 rounded-xl" style={{ background: "rgba(82,183,136,0.06)", border: "1px solid rgba(82,183,136,0.09)" }}>
-        <p className="text-[9px] uppercase tracking-widest mb-0.5" style={{ color: "rgba(82,183,136,0.4)" }}>
+      <div className="px-3 py-2 rounded-xl bg-green-50 border border-green-100">
+        <p className="text-[9px] uppercase tracking-widest mb-0.5 text-brand-grass-green/70 font-bold">
           Certificate ID
         </p>
-        <p className="text-xs font-mono truncate" style={{ color: "rgba(82,183,136,0.8)" }}>
+        <p className="text-xs font-mono truncate text-brand-dark-green">
           {result.uniqueCertId || "—"}
         </p>
       </div>
 
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[9px] uppercase tracking-widest" style={{ color: "rgba(82,183,136,0.3)" }}>Issued</p>
-          <p className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>{fmtDate(result.issueDate)}</p>
+          <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold">Issued</p>
+          <p className="text-xs text-gray-600">{fmtDate(result.issueDate)}</p>
         </div>
         <div className="flex items-center gap-1.5">
           <div
             className="w-1.5 h-1.5 rounded-full"
-            style={{ background: isActive ? "#22c55e" : "#94a3b8", boxShadow: isActive ? "0 0 6px #22c55e" : "none" }}
+            style={{ background: isActive ? "#22c55e" : "#94a3b8", boxShadow: isActive ? "0 0 6px rgba(34,197,94,0.6)" : "none" }}
           />
-          <span className="text-[10px] font-medium" style={{ color: isActive ? "#22c55e" : "#94a3b8" }}>
+          <span className="text-[10px] font-medium" style={{ color: isActive ? "#16a34a" : "#94a3b8" }}>
             {isActive ? "Issued" : result.status}
           </span>
         </div>
@@ -191,10 +189,10 @@ function ResultCard({
       <div
         className="w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5"
         style={{
-          background: hovered ? "linear-gradient(135deg,#22c55e,#16a34a)" : "rgba(82,183,136,0.08)",
-          color: hovered ? "#fff" : "#52b788",
-          border: hovered ? "1px solid rgba(34,197,94,0.4)" : "1px solid rgba(82,183,136,0.15)",
-          boxShadow: hovered ? "0 4px 16px rgba(34,197,94,0.25)" : "none",
+          background: hovered ? "linear-gradient(135deg,#22c55e,#16a34a)" : "#f3f7f3",
+          color: hovered ? "#fff" : "#1b4332",
+          border: hovered ? "1px solid #16a34a" : "1px solid #e5ebe5",
+          boxShadow: hovered ? "0 4px 14px rgba(34,197,94,0.30)" : "none",
           transition: "all 0.2s cubic-bezier(0.16,1,0.3,1)",
         }}
       >
@@ -217,7 +215,7 @@ function IdlePlaceholder() {
             className="rounded-xl flex items-center justify-center text-xs font-bold text-white"
             style={{
               background: AVATAR_GRADIENTS[i % AVATAR_GRADIENTS.length],
-              opacity: 0.18 + i * 0.12,
+              opacity: 0.35 + i * 0.10,
               width: 32 + i * 4,
               height: 32 + i * 4,
               transform: `translateY(${i % 2 === 0 ? -4 : 4}px)`,
@@ -229,7 +227,7 @@ function IdlePlaceholder() {
           </div>
         ))}
       </div>
-      <p className="text-sm" style={{ color: "rgba(82,183,136,0.22)" }}>
+      <p className="text-sm text-gray-400">
         Type a name to find matching certificates
       </p>
     </div>
@@ -457,34 +455,34 @@ export default function VerifySearch({
       id="verify-search"
       className="relative overflow-hidden"
       style={{
-        background: "linear-gradient(180deg,#060f08 0%,#081c15 50%,#0a1e12 100%)",
+        background: "linear-gradient(180deg,#ffffff 0%,#f6faf7 50%,#eef5f0 100%)",
         opacity: isVisible ? 1 : 0,
         transform: isVisible ? "translateY(0)" : "translateY(30px)",
         transition: "opacity 0.75s cubic-bezier(0.16,1,0.3,1), transform 0.75s cubic-bezier(0.16,1,0.3,1)",
       }}
     >
-      {/* Grid overlay */}
+      {/* Subtle grid overlay */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage: `linear-gradient(rgba(82,183,136,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(82,183,136,0.03) 1px,transparent 1px)`,
+          backgroundImage: `linear-gradient(rgba(27,67,50,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(27,67,50,0.025) 1px,transparent 1px)`,
           backgroundSize: "48px 48px",
         }}
       />
 
-      {/* Top spotlight beam */}
+      {/* Soft top spotlight */}
       <div
         className="absolute pointer-events-none"
         style={{
           top: 0, left: "50%", transform: "translateX(-50%)",
           width: 600, height: 300,
-          background: "radial-gradient(ellipse at top,rgba(82,183,136,0.1) 0%,transparent 70%)",
+          background: "radial-gradient(ellipse at top,rgba(82,183,136,0.10) 0%,transparent 70%)",
         }}
       />
 
-      {/* Orbs */}
-      <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle,rgba(34,197,94,0.08) 0%,transparent 68%)", animation: "orbFloat 10s ease-in-out infinite" }} />
-      <div className="absolute -bottom-40 -right-40 w-[28rem] h-[28rem] rounded-full pointer-events-none" style={{ background: "radial-gradient(circle,rgba(82,183,136,0.065) 0%,transparent 68%)", animation: "orbFloat 14s ease-in-out 2s infinite reverse" }} />
+      {/* Soft orbs */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle,rgba(82,183,136,0.08) 0%,transparent 70%)", animation: "orbFloat 10s ease-in-out infinite" }} />
+      <div className="absolute -bottom-40 -right-40 w-[28rem] h-[28rem] rounded-full pointer-events-none" style={{ background: "radial-gradient(circle,rgba(34,197,94,0.06) 0%,transparent 70%)", animation: "orbFloat 14s ease-in-out 2s infinite reverse" }} />
 
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
 
@@ -494,21 +492,21 @@ export default function VerifySearch({
           <div
             className="inline-flex items-center gap-2 mb-5 px-5 py-2 rounded-full"
             style={{
-              background: "linear-gradient(135deg,rgba(82,183,136,0.18),rgba(34,197,94,0.1))",
-              border: "1px solid rgba(82,183,136,0.35)",
-              boxShadow: "0 0 20px rgba(82,183,136,0.12), inset 0 1px 0 rgba(255,255,255,0.06)",
+              background: "linear-gradient(135deg,#dcfce7,#bbf7d0)",
+              border: "1px solid #86efac",
+              boxShadow: "0 2px 12px rgba(34,197,94,0.10)",
             }}
           >
-            <span className="material-symbols-outlined text-sm" style={{ color: "#22c55e", fontVariationSettings: "'FILL' 1" }}>verified</span>
-            <span className="text-xs font-bold tracking-widest uppercase" style={{ color: "#52b788", letterSpacing: "0.15em" }}>Certificate Lookup</span>
+            <span className="material-symbols-outlined text-sm" style={{ color: "#16a34a", fontVariationSettings: "'FILL' 1" }}>verified</span>
+            <span className="text-xs font-bold tracking-widest uppercase text-brand-dark-green" style={{ letterSpacing: "0.15em" }}>Certificate Lookup</span>
           </div>
 
-          {/* Gradient title */}
+          {/* Gradient title — dark to vivid green */}
           <h2
             className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3"
             style={{
               fontFamily: "Fredoka, sans-serif",
-              background: "linear-gradient(135deg,#ffffff 0%,#b7e4c7 45%,#52b788 100%)",
+              background: "linear-gradient(135deg,#1b4332 0%,#2d6a4f 50%,#52b788 100%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",
@@ -517,15 +515,15 @@ export default function VerifySearch({
             Find Your Certificate
           </h2>
 
-          <p className="text-sm sm:text-base max-w-md mx-auto" style={{ color: "rgba(82,183,136,0.55)" }}>
+          <p className="text-sm sm:text-base max-w-md mx-auto text-gray-600">
             Search by name or certificate ID across all PharmacoZyme databases
           </p>
 
           {/* Decorative divider */}
           <div className="flex items-center justify-center gap-3 mt-6">
-            <div style={{ width: 40, height: 1, background: "linear-gradient(90deg,transparent,rgba(82,183,136,0.3))" }} />
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#52b788", boxShadow: "0 0 8px rgba(82,183,136,0.7)" }} />
-            <div style={{ width: 40, height: 1, background: "linear-gradient(90deg,rgba(82,183,136,0.3),transparent)" }} />
+            <div style={{ width: 40, height: 1, background: "linear-gradient(90deg,transparent,rgba(82,183,136,0.4))" }} />
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#52b788", boxShadow: "0 0 8px rgba(82,183,136,0.5)" }} />
+            <div style={{ width: 40, height: 1, background: "linear-gradient(90deg,rgba(82,183,136,0.4),transparent)" }} />
           </div>
         </div>
 
@@ -534,26 +532,25 @@ export default function VerifySearch({
           style={{
             ...visStyle(180),
             borderRadius: "1.5rem",
-            background: "rgba(6,16,10,0.82)",
-            border: "1px solid rgba(82,183,136,0.22)",
-            backdropFilter: "blur(28px)",
-            boxShadow: "0 12px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(82,183,136,0.06), inset 0 1px 0 rgba(82,183,136,0.12)",
+            background: "#ffffff",
+            border: "1px solid #e5ebe5",
+            boxShadow: "0 12px 40px rgba(15,46,28,0.08), 0 2px 8px rgba(15,46,28,0.04)",
             position: "relative",
             overflow: "hidden",
           }}
         >
-          {/* Card top accent glow */}
+          {/* Card top accent */}
           <div
             style={{
-              position: "absolute", top: 0, left: "15%", right: "15%", height: 1,
-              background: "linear-gradient(90deg,transparent,rgba(82,183,136,0.6),transparent)",
+              position: "absolute", top: 0, left: "10%", right: "10%", height: 2,
+              background: "linear-gradient(90deg,transparent,#52b788,transparent)",
               pointerEvents: "none",
             }}
           />
           <div className="p-5 sm:p-7">
 
             {/* Mode tabs */}
-            <div className="flex items-center gap-1.5 mb-5 p-1 rounded-xl w-fit" style={{ background: "rgba(82,183,136,0.06)", border: "1px solid rgba(82,183,136,0.1)" }}>
+            <div className="flex items-center gap-1.5 mb-5 p-1 rounded-xl w-fit bg-gray-50 border border-gray-100">
               {(["name", "id"] as const).map((m) => (
                 <button
                   key={m}
@@ -561,11 +558,10 @@ export default function VerifySearch({
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer"
                   style={{
                     background: mode === m
-                      ? "linear-gradient(135deg,rgba(82,183,136,0.3),rgba(34,197,94,0.18))"
+                      ? "linear-gradient(135deg,#22c55e,#16a34a)"
                       : "transparent",
-                    color: mode === m ? "#fff" : "rgba(82,183,136,0.4)",
-                    border: mode === m ? "1px solid rgba(82,183,136,0.45)" : "1px solid transparent",
-                    boxShadow: mode === m ? "0 2px 12px rgba(82,183,136,0.2), inset 0 1px 0 rgba(255,255,255,0.06)" : "none",
+                    color: mode === m ? "#fff" : "#4b5563",
+                    boxShadow: mode === m ? "0 2px 10px rgba(34,197,94,0.30)" : "none",
                     transition: "all 0.2s cubic-bezier(0.16,1,0.3,1)",
                   }}
                 >
@@ -583,7 +579,7 @@ export default function VerifySearch({
               <div ref={dbDropdownRef} className="relative flex-shrink-0 sm:w-56">
                 <span
                   className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-base pointer-events-none z-10"
-                  style={{ color: "rgba(82,183,136,0.45)", fontVariationSettings: "'FILL' 1" }}
+                  style={{ color: "#52b788", fontVariationSettings: "'FILL' 1" }}
                 >
                   database
                 </span>
@@ -598,9 +594,10 @@ export default function VerifySearch({
                   disabled={loadingDbs}
                   className="w-full h-10 pl-9 pr-8 rounded-xl text-xs font-medium text-left outline-none cursor-pointer truncate"
                   style={{
-                    background: "rgba(82,183,136,0.07)",
-                    border: selectedDbId ? "1px solid rgba(82,183,136,0.4)" : "1px solid rgba(82,183,136,0.12)",
-                    color: selectedDbId ? "#fff" : "rgba(82,183,136,0.45)",
+                    background: "#ffffff",
+                    border: selectedDbId ? "1px solid #52b788" : "1px solid #e5ebe5",
+                    color: selectedDbId ? "#1b4332" : "#6b7280",
+                    boxShadow: selectedDbId ? "0 0 0 3px rgba(82,183,136,0.10)" : "none",
                   }}
                 >
                   {loadingDbs
@@ -612,7 +609,7 @@ export default function VerifySearch({
                 <span
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 material-symbols-outlined text-sm pointer-events-none"
                   style={{
-                    color: "rgba(82,183,136,0.35)",
+                    color: "#9ca3af",
                     transition: "transform 0.18s ease",
                     transform: dbDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
                   }}
@@ -624,14 +621,13 @@ export default function VerifySearch({
                   <div
                     className="absolute top-full left-0 right-0 mt-1.5 rounded-xl overflow-hidden z-50"
                     style={{
-                      background: "rgba(8,20,12,0.97)",
-                      border: "1px solid rgba(82,183,136,0.2)",
-                      backdropFilter: "blur(16px)",
-                      boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+                      background: "#ffffff",
+                      border: "1px solid #e5ebe5",
+                      boxShadow: "0 12px 32px rgba(15,46,28,0.12)",
                       animation: "slideUpFade 0.15s ease both",
                     }}
                   >
-                    <div ref={dbDropdownListRef} className="max-h-52 overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(82,183,136,0.2) transparent" }}>
+                    <div ref={dbDropdownListRef} className="max-h-52 overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#cbd5d6 transparent" }}>
                       {allDbOptions.map((opt, idx) => {
                         const isSelected = opt.id === selectedDbId;
                         const isFocused = dbFocusedIndex === idx;
@@ -644,16 +640,16 @@ export default function VerifySearch({
                             onMouseEnter={() => setDbFocusedIndex(idx)}
                             className="w-full px-4 py-2.5 text-left text-xs font-medium cursor-pointer flex items-center gap-2"
                             style={{
-                              color: isSelected ? "#fff" : "rgba(82,183,136,0.6)",
+                              color: isSelected ? "#1b4332" : "#374151",
                               background: isFocused
-                                ? "rgba(82,183,136,0.14)"
+                                ? "#f3f7f3"
                                 : isSelected
-                                ? "rgba(82,183,136,0.12)"
+                                ? "#dcfce7"
                                 : "transparent",
                               outline: "none",
                             }}
                           >
-                            {isSelected && <span className="material-symbols-outlined text-sm" style={{ color: "#52b788" }}>check</span>}
+                            {isSelected && <span className="material-symbols-outlined text-sm" style={{ color: "#16a34a" }}>check</span>}
                             <span className="truncate">{opt.name}</span>
                           </button>
                         );
@@ -677,7 +673,7 @@ export default function VerifySearch({
                         className="flex items-center gap-1 flex-shrink-0 pointer-events-none select-none"
                         style={{ animation: "slideUpFade 0.25s ease both" }}
                       >
-                        <span className="text-[10px] font-semibold whitespace-nowrap" style={{ color: "rgba(82,183,136,0.55)" }}>Filter</span>
+                        <span className="text-[10px] font-semibold whitespace-nowrap text-brand-grass-green">Filter</span>
                         <span
                           className="material-symbols-outlined text-base"
                           style={{ color: "#52b788", animation: "arrowNudge 0.9s ease-in-out infinite" }}
@@ -692,9 +688,9 @@ export default function VerifySearch({
                         onClick={() => handleSubCatToggle(sub)}
                         className="flex-shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-medium cursor-pointer transition-all whitespace-nowrap"
                         style={{
-                          background: selectedSubCat === sub ? "rgba(82,183,136,0.22)" : "rgba(82,183,136,0.06)",
-                          border: selectedSubCat === sub ? "1px solid rgba(82,183,136,0.45)" : "1px solid rgba(82,183,136,0.1)",
-                          color: selectedSubCat === sub ? "#fff" : "rgba(82,183,136,0.4)",
+                          background: selectedSubCat === sub ? "#dcfce7" : "#ffffff",
+                          border: selectedSubCat === sub ? "1px solid #52b788" : "1px solid #e5ebe5",
+                          color: selectedSubCat === sub ? "#16a34a" : "#4b5563",
                         }}
                       >
                         {sub}
@@ -705,7 +701,7 @@ export default function VerifySearch({
                   {/* Right fade + scroll button */}
                   <div
                     className="absolute right-0 top-0 bottom-0 flex items-center pointer-events-none"
-                    style={{ width: 48, background: "linear-gradient(90deg,transparent,rgba(6,16,10,0.95))" }}
+                    style={{ width: 48, background: "linear-gradient(90deg,transparent,#ffffff)" }}
                   />
                   <button
                     type="button"
@@ -713,10 +709,9 @@ export default function VerifySearch({
                     className="absolute right-0 flex-shrink-0 flex items-center justify-center cursor-pointer"
                     style={{
                       width: 28, height: 28, borderRadius: "50%",
-                      background: "linear-gradient(135deg,rgba(82,183,136,0.22),rgba(34,197,94,0.1))",
-                      border: "1px solid rgba(82,183,136,0.3)",
-                      color: "#52b788",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                      background: "linear-gradient(135deg,#22c55e,#16a34a)",
+                      color: "#ffffff",
+                      boxShadow: "0 2px 8px rgba(34,197,94,0.25)",
                     }}
                     aria-label="Scroll categories"
                   >
@@ -729,7 +724,7 @@ export default function VerifySearch({
               {selectedDb && (
                 <div
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium self-center"
-                  style={{ background: "rgba(82,183,136,0.12)", border: "1px solid rgba(82,183,136,0.25)", color: "#52b788" }}
+                  style={{ background: "#dcfce7", border: "1px solid #86efac", color: "#16a34a" }}
                 >
                   <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>folder</span>
                   {selectedDb.subCategory} · {selectedDb.topic || selectedDb.name}
@@ -745,15 +740,15 @@ export default function VerifySearch({
                     className="flex-1 relative"
                     style={{
                       borderRadius: "0.875rem",
-                      background: "rgba(4,12,7,0.8)",
-                      border: isFocused ? "1.5px solid rgba(82,183,136,0.65)" : "1.5px solid rgba(82,183,136,0.15)",
+                      background: "#fafcfa",
+                      border: isFocused ? "1.5px solid #52b788" : "1.5px solid #e5ebe5",
                       boxShadow: isFocused
-                        ? "0 0 0 4px rgba(82,183,136,0.12), 0 0 24px rgba(82,183,136,0.1)"
+                        ? "0 0 0 4px rgba(82,183,136,0.12)"
                         : "none",
                       transition: "border-color 0.2s,box-shadow 0.2s",
                     }}
                   >
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-lg pointer-events-none" style={{ color: "rgba(82,183,136,0.4)" }}>badge</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-lg pointer-events-none" style={{ color: "#52b788" }}>badge</span>
                     <input
                       ref={inputRef}
                       type="text"
@@ -762,7 +757,7 @@ export default function VerifySearch({
                       onFocus={() => setIsFocused(true)}
                       onBlur={() => setIsFocused(false)}
                       placeholder="e.g. PZ-2024-XXXX-9821"
-                      className="w-full bg-transparent text-white outline-none pl-11 pr-4 py-3.5 text-sm font-mono"
+                      className="w-full bg-transparent text-brand-dark-green placeholder-gray-400 outline-none pl-11 pr-4 py-3.5 text-sm font-mono"
                       style={{ caretColor: "#52b788" }}
                       aria-label="Certificate ID"
                       autoComplete="off"
@@ -771,14 +766,13 @@ export default function VerifySearch({
                   <button
                     type="submit"
                     disabled={!certIdInput.trim() || isLoading}
-                    className="flex-shrink-0 px-5 py-3.5 rounded-[0.875rem] text-sm font-bold flex items-center gap-2 transition-all cursor-pointer"
+                    className="flex-shrink-0 px-5 py-3.5 rounded-[0.875rem] text-sm font-bold flex items-center gap-2 transition-all"
                     style={{
                       background: certIdInput.trim() && !isLoading
                         ? "linear-gradient(135deg,#22c55e,#16a34a)"
-                        : "rgba(82,183,136,0.07)",
-                      color: certIdInput.trim() && !isLoading ? "#fff" : "rgba(82,183,136,0.3)",
-                      border: certIdInput.trim() && !isLoading ? "1px solid rgba(34,197,94,0.4)" : "1px solid rgba(82,183,136,0.1)",
-                      boxShadow: certIdInput.trim() && !isLoading ? "0 4px 20px rgba(34,197,94,0.3)" : "none",
+                        : "#f3f4f6",
+                      color: certIdInput.trim() && !isLoading ? "#fff" : "#9ca3af",
+                      boxShadow: certIdInput.trim() && !isLoading ? "0 4px 16px rgba(34,197,94,0.30)" : "none",
                       cursor: certIdInput.trim() && !isLoading ? "pointer" : "not-allowed",
                       transition: "all 0.2s cubic-bezier(0.16,1,0.3,1)",
                     }}
@@ -799,10 +793,10 @@ export default function VerifySearch({
                 className="relative"
                 style={{
                   borderRadius: "0.875rem",
-                  background: "rgba(4,12,7,0.8)",
-                  border: isFocused ? "1.5px solid rgba(82,183,136,0.65)" : "1.5px solid rgba(82,183,136,0.15)",
+                  background: "#fafcfa",
+                  border: isFocused ? "1.5px solid #52b788" : "1.5px solid #e5ebe5",
                   boxShadow: isFocused
-                    ? "0 0 0 4px rgba(82,183,136,0.12), 0 0 24px rgba(82,183,136,0.1)"
+                    ? "0 0 0 4px rgba(82,183,136,0.12)"
                     : "none",
                   transition: "border-color 0.2s,box-shadow 0.2s",
                 }}
@@ -811,7 +805,7 @@ export default function VerifySearch({
                   {isSearching ? (
                     <div className="w-5 h-5 rounded-full border-2 animate-spin" style={{ borderColor: "rgba(82,183,136,0.2)", borderTopColor: "#52b788" }} />
                   ) : (
-                    <span className="material-symbols-outlined text-lg" style={{ color: "rgba(82,183,136,0.4)" }}>person_search</span>
+                    <span className="material-symbols-outlined text-lg" style={{ color: "#52b788" }}>person_search</span>
                   )}
                 </div>
                 <input
@@ -822,7 +816,7 @@ export default function VerifySearch({
                   onFocus={() => setIsFocused(true)}
                   onBlur={() => setIsFocused(false)}
                   placeholder="Type your full name..."
-                  className="w-full bg-transparent text-white outline-none pl-11 pr-10 py-3.5 text-sm"
+                  className="w-full bg-transparent text-brand-dark-green placeholder-gray-400 outline-none pl-11 pr-10 py-3.5 text-sm"
                   style={{ caretColor: "#52b788", fontFamily: "Poppins, sans-serif" }}
                   aria-label="Search certificate by name"
                   autoComplete="off"
@@ -832,9 +826,9 @@ export default function VerifySearch({
                     onClick={() => { setNameInput(""); setNameResults([]); setHasSearched(false); setSearchError(null); inputRef.current?.focus(); }}
                     aria-label="Clear"
                     className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transition-colors"
-                    style={{ background: "rgba(82,183,136,0.1)", color: "#52b788" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(82,183,136,0.22)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(82,183,136,0.1)")}
+                    style={{ background: "#f3f4f6", color: "#52b788" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#dcfce7")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "#f3f4f6")}
                   >
                     <span className="material-symbols-outlined text-sm">close</span>
                   </button>
@@ -845,17 +839,17 @@ export default function VerifySearch({
             {/* Status hint */}
             <div className="mt-2.5 h-4">
               {mode === "name" && !hasSearched && !isSearching && (
-                <span className="text-[11px]" style={{ color: "rgba(82,183,136,0.28)" }}>Enter at least 2 characters to search</span>
+                <span className="text-[11px] text-gray-400">Enter at least 2 characters to search</span>
               )}
               {mode === "name" && hasSearched && nameResults.length > 0 && !isSearching && (
-                <span className="text-[11px]" style={{ color: "rgba(82,183,136,0.4)" }}>
+                <span className="text-[11px] text-brand-grass-green font-medium">
                   {nameResults.length} result{nameResults.length !== 1 ? "s" : ""} · click a card to verify
                 </span>
               )}
             </div>
 
             {/* How-to guide */}
-            <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(82,183,136,0.1)" }}>
+            <div className="mt-4 pt-4 border-t border-gray-100">
               <div className="flex flex-wrap gap-x-6 gap-y-2.5">
                 {[
                   { icon: "database", text: "Select a database (optional)" },
@@ -864,17 +858,16 @@ export default function VerifySearch({
                 ].map(({ icon, text }, i) => (
                   <div key={i} className="flex items-center gap-2">
                     <span
-                      className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                      className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-white"
                       style={{
-                        background: "linear-gradient(135deg,rgba(82,183,136,0.25),rgba(34,197,94,0.12))",
-                        border: "1px solid rgba(82,183,136,0.3)",
-                        color: "#52b788",
+                        background: "linear-gradient(135deg,#22c55e,#16a34a)",
+                        boxShadow: "0 1px 4px rgba(34,197,94,0.30)",
                       }}
                     >
                       {i + 1}
                     </span>
-                    <span className="material-symbols-outlined text-sm" style={{ color: "rgba(82,183,136,0.4)", fontVariationSettings: "'FILL' 1" }}>{icon}</span>
-                    <span className="text-[11px]" style={{ color: "rgba(82,183,136,0.4)" }}>{text}</span>
+                    <span className="material-symbols-outlined text-sm text-brand-grass-green" style={{ fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+                    <span className="text-[11px] text-gray-600">{text}</span>
                   </div>
                 ))}
               </div>
@@ -893,23 +886,23 @@ export default function VerifySearch({
 
             {!isSearching && searchError && (
               <div className="text-center py-10">
-                <div className="w-12 h-12 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)" }}>
-                  <span className="material-symbols-outlined text-red-400" style={{ fontVariationSettings: "'FILL' 1" }}>error</span>
+                <div className="w-12 h-12 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: "#fef2f2", border: "1px solid #fecaca" }}>
+                  <span className="material-symbols-outlined text-red-500" style={{ fontVariationSettings: "'FILL' 1" }}>error</span>
                 </div>
-                <p className="text-red-400/80 text-sm">{searchError}</p>
+                <p className="text-red-600 text-sm">{searchError}</p>
               </div>
             )}
 
             {showEmpty && (
               <div className="text-center py-12" style={{ animation: "slideUpFade 0.35s ease both" }}>
-                <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: "rgba(82,183,136,0.08)", border: "1px solid rgba(82,183,136,0.14)" }}>
+                <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: "#f3f7f3", border: "1px solid #e5ebe5" }}>
                   <span className="material-symbols-outlined text-2xl" style={{ color: "#52b788" }}>search_off</span>
                 </div>
-                <p className="text-sm mb-1" style={{ color: "rgba(255,255,255,0.5)" }}>
+                <p className="text-sm mb-1 text-gray-700">
                   No certificates found for{" "}
-                  <span style={{ color: "#52b788" }}>"{nameInput}"</span>
+                  <span className="text-brand-grass-green font-medium">"{nameInput}"</span>
                 </p>
-                <p className="text-xs" style={{ color: "rgba(82,183,136,0.3)" }}>Try a different name or check spelling</p>
+                <p className="text-xs text-gray-400">Try a different name or check spelling</p>
               </div>
             )}
 

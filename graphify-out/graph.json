@@ -1,13 +1,6 @@
 {
   "nodes": [
     {
-      "id": "file::adminlayoutclient",
-      "label": "AdminLayoutClient.tsx",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\AdminLayoutClient.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\AdminLayoutClient.tsx:1"
-    },
-    {
       "id": "page::handlecancel",
       "label": "handleCancel",
       "fileType": "code",
@@ -97,27 +90,6 @@
       "fileType": "code",
       "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\layout.tsx",
       "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\layout.tsx:9"
-    },
-    {
-      "id": "page::handlefirebaseerror",
-      "label": "handleFirebaseError",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx:50"
-    },
-    {
-      "id": "page::handlesignin",
-      "label": "handleSignIn",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx:69"
-    },
-    {
-      "id": "page::handleregister",
-      "label": "handleRegister",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx:147"
     },
     {
       "id": "page::exportcsv",
@@ -820,27 +792,6 @@
       "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\activity.ts:19"
     },
     {
-      "id": "file::auth_context",
-      "label": "auth-context.tsx",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx:1"
-    },
-    {
-      "id": "auth_context::authprovider",
-      "label": "AuthProvider",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx:30"
-    },
-    {
-      "id": "auth_context::useadminuser",
-      "label": "useAdminUser",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx:87"
-    },
-    {
       "id": "file::firebase",
       "label": "firebase.ts",
       "fileType": "code",
@@ -1142,41 +1093,6 @@
       "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\rateLimit.ts:18"
     },
     {
-      "id": "page::verifypage",
-      "label": "VerifyPage",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx:14"
-    },
-    {
-      "id": "page::scrolltosearch",
-      "label": "scrollToSearch",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx:56"
-    },
-    {
-      "id": "page::handleverify",
-      "label": "handleVerify",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx:60"
-    },
-    {
-      "id": "page::handleclose",
-      "label": "handleClose",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx:102"
-    },
-    {
-      "id": "page::handledatabaseselect",
-      "label": "handleDatabaseSelect",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx:107"
-    },
-    {
       "id": "file::publicdatabasecards",
       "label": "PublicDatabaseCards.tsx",
       "fileType": "code",
@@ -1240,111 +1156,6 @@
       "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\FontLoadGate.tsx:6"
     },
     {
-      "id": "file::verifysearch",
-      "label": "VerifySearch.tsx",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:1"
-    },
-    {
-      "id": "verifysearch::avatargradient",
-      "label": "avatarGradient",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:59"
-    },
-    {
-      "id": "verifysearch::initials",
-      "label": "initials",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:63"
-    },
-    {
-      "id": "verifysearch::fmtdate",
-      "label": "fmtDate",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:70"
-    },
-    {
-      "id": "VerifySearch::handler",
-      "label": "handler",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:287"
-    },
-    {
-      "id": "VerifySearch::cycle",
-      "label": "cycle",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:298"
-    },
-    {
-      "id": "VerifySearch::triggersearch",
-      "label": "triggerSearch",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:367"
-    },
-    {
-      "id": "VerifySearch::handlenameinput",
-      "label": "handleNameInput",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:372"
-    },
-    {
-      "id": "VerifySearch::handledbchange",
-      "label": "handleDbChange",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:378"
-    },
-    {
-      "id": "VerifySearch::handlesubcattoggle",
-      "label": "handleSubCatToggle",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:384"
-    },
-    {
-      "id": "VerifySearch::handlemodeswitch",
-      "label": "handleModeSwitch",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:392"
-    },
-    {
-      "id": "VerifySearch::handledropdownkeydown",
-      "label": "handleDropdownKeyDown",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:402"
-    },
-    {
-      "id": "VerifySearch::handleidsubmit",
-      "label": "handleIdSubmit",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:429"
-    },
-    {
-      "id": "VerifySearch::handleresultselect",
-      "label": "handleResultSelect",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:438"
-    },
-    {
-      "id": "VerifySearch::visstyle",
-      "label": "visStyle",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:447"
-    },
-    {
       "id": "file::fonts",
       "label": "fonts.ts",
       "fileType": "code",
@@ -1378,13 +1189,6 @@
       "fileType": "code",
       "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\fonts.server.ts",
       "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\fonts.server.ts:10"
-    },
-    {
-      "id": "file::page",
-      "label": "page.tsx",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:1"
     },
     {
       "id": "page::savetohistory",
@@ -1569,167 +1373,6 @@
       "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\databases\\page.tsx:2009"
     },
     {
-      "id": "page::generatepreview",
-      "label": "generatePreview",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:96"
-    },
-    {
-      "id": "page::addcustomelement",
-      "label": "addCustomElement",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:126"
-    },
-    {
-      "id": "page::deletecustomelement",
-      "label": "deleteCustomElement",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:138"
-    },
-    {
-      "id": "page::updatecustomelement",
-      "label": "updateCustomElement",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:143"
-    },
-    {
-      "id": "page::startdrag",
-      "label": "startDrag",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:150"
-    },
-    {
-      "id": "page::startresize",
-      "label": "startResize",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:157"
-    },
-    {
-      "id": "page::handlemousedown",
-      "label": "handleMouseDown",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:169"
-    },
-    {
-      "id": "page::handlemousemove",
-      "label": "handleMouseMove",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:196"
-    },
-    {
-      "id": "page::handlemouseup",
-      "label": "handleMouseUp",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:229"
-    },
-    {
-      "id": "page::updatepositionfromslider",
-      "label": "updatePositionFromSlider",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:235"
-    },
-    {
-      "id": "page::handlekeydown",
-      "label": "handleKeyDown",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:276"
-    },
-    {
-      "id": "page::handlesavepositions",
-      "label": "handleSavePositions",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:309"
-    },
-    {
-      "id": "page::fetchtemplates",
-      "label": "fetchTemplates",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:349"
-    },
-    {
-      "id": "page::handlefileselect",
-      "label": "handleFileSelect",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:363"
-    },
-    {
-      "id": "page::handleupload",
-      "label": "handleUpload",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:378"
-    },
-    {
-      "id": "page::handledelete",
-      "label": "handleDelete",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:417"
-    },
-    {
-      "id": "page::formatfilesize",
-      "label": "formatFileSize",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:444"
-    },
-    {
-      "id": "page::formatdate",
-      "label": "formatDate",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:450"
-    },
-    {
-      "id": "file::route",
-      "label": "route.ts",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\templates\\preview\\route.ts",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\templates\\preview\\route.ts:1"
-    },
-    {
-      "id": "route::hextorgb",
-      "label": "hexToRgb",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\templates\\preview\\route.ts",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\templates\\preview\\route.ts:8"
-    },
-    {
-      "id": "route::getpositions",
-      "label": "getPositions",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\certificates\\render\\route.ts",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\certificates\\render\\route.ts:20"
-    },
-    {
-      "id": "route::post",
-      "label": "POST",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\templates\\preview\\route.ts",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\templates\\preview\\route.ts:55"
-    },
-    {
-      "id": "route::get",
-      "label": "GET",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\certificates\\route.ts",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\certificates\\route.ts:5"
-    },
-    {
       "id": "route::delete",
       "label": "DELETE",
       "fileType": "code",
@@ -1744,18 +1387,410 @@
       "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\certificates\\route.ts:81"
     },
     {
-      "id": "route::gettemplatepositions",
-      "label": "getTemplatePositions",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\templates\\preview\\route.ts",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\templates\\preview\\route.ts:22"
-    },
-    {
       "id": "file::next_config",
       "label": "next.config.ts",
       "fileType": "code",
       "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\next.config.ts",
       "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\next.config.ts:1"
+    },
+    {
+      "id": "page::isfixedelement",
+      "label": "isFixedElement",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:69"
+    },
+    {
+      "id": "page::generatepreview",
+      "label": "generatePreview",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:97"
+    },
+    {
+      "id": "page::addcustomelement",
+      "label": "addCustomElement",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:127"
+    },
+    {
+      "id": "page::deletecustomelement",
+      "label": "deleteCustomElement",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:139"
+    },
+    {
+      "id": "page::updatecustomelement",
+      "label": "updateCustomElement",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:144"
+    },
+    {
+      "id": "page::startdrag",
+      "label": "startDrag",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:151"
+    },
+    {
+      "id": "page::startresize",
+      "label": "startResize",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:158"
+    },
+    {
+      "id": "page::handlemousedown",
+      "label": "handleMouseDown",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:170"
+    },
+    {
+      "id": "page::handlemousemove",
+      "label": "handleMouseMove",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:197"
+    },
+    {
+      "id": "page::handlemouseup",
+      "label": "handleMouseUp",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:230"
+    },
+    {
+      "id": "page::updatepositionfromslider",
+      "label": "updatePositionFromSlider",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:236"
+    },
+    {
+      "id": "page::handlekeydown",
+      "label": "handleKeyDown",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:277"
+    },
+    {
+      "id": "page::handlesavepositions",
+      "label": "handleSavePositions",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:310"
+    },
+    {
+      "id": "page::fetchtemplates",
+      "label": "fetchTemplates",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:350"
+    },
+    {
+      "id": "page::handlefileselect",
+      "label": "handleFileSelect",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:364"
+    },
+    {
+      "id": "page::handleupload",
+      "label": "handleUpload",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:379"
+    },
+    {
+      "id": "page::handledelete",
+      "label": "handleDelete",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:418"
+    },
+    {
+      "id": "page::formatfilesize",
+      "label": "formatFileSize",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:445"
+    },
+    {
+      "id": "page::formatdate",
+      "label": "formatDate",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:451"
+    },
+    {
+      "id": "file::adminlayoutclient",
+      "label": "AdminLayoutClient.tsx",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\AdminLayoutClient.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\AdminLayoutClient.tsx:1"
+    },
+    {
+      "id": "file::page",
+      "label": "page.tsx",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx:1"
+    },
+    {
+      "id": "page::handlefirebaseerror",
+      "label": "handleFirebaseError",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx:50"
+    },
+    {
+      "id": "page::handlesignin",
+      "label": "handleSignIn",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx:69"
+    },
+    {
+      "id": "page::handleregister",
+      "label": "handleRegister",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx:149"
+    },
+    {
+      "id": "file::route",
+      "label": "route.ts",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\admin\\tutorial-seen\\route.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\admin\\tutorial-seen\\route.ts:1"
+    },
+    {
+      "id": "route::get",
+      "label": "GET",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\admin\\me\\route.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\admin\\me\\route.ts:8"
+    },
+    {
+      "id": "route::hextorgb",
+      "label": "hexToRgb",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\templates\\preview\\route.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\templates\\preview\\route.ts:9"
+    },
+    {
+      "id": "route::getpositions",
+      "label": "getPositions",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\certificates\\render\\route.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\certificates\\render\\route.ts:21"
+    },
+    {
+      "id": "route::post",
+      "label": "POST",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\admin\\tutorial-seen\\route.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\admin\\tutorial-seen\\route.ts:8"
+    },
+    {
+      "id": "route::gettemplatepositions",
+      "label": "getTemplatePositions",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\templates\\preview\\route.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\templates\\preview\\route.ts:23"
+    },
+    {
+      "id": "page::verifypage",
+      "label": "VerifyPage",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx:14"
+    },
+    {
+      "id": "page::scrolltosearch",
+      "label": "scrollToSearch",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx:56"
+    },
+    {
+      "id": "page::handleverify",
+      "label": "handleVerify",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx:60"
+    },
+    {
+      "id": "page::handleclose",
+      "label": "handleClose",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx:102"
+    },
+    {
+      "id": "page::handledatabaseselect",
+      "label": "handleDatabaseSelect",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx:107"
+    },
+    {
+      "id": "file::tutorial",
+      "label": "Tutorial.tsx",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx:1"
+    },
+    {
+      "id": "Tutorial::go",
+      "label": "go",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx:134"
+    },
+    {
+      "id": "Tutorial::next",
+      "label": "next",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx:144"
+    },
+    {
+      "id": "Tutorial::prev",
+      "label": "prev",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx:145"
+    },
+    {
+      "id": "Tutorial::handler",
+      "label": "handler",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx:148"
+    },
+    {
+      "id": "file::verifysearch",
+      "label": "VerifySearch.tsx",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:1"
+    },
+    {
+      "id": "verifysearch::avatargradient",
+      "label": "avatarGradient",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:59"
+    },
+    {
+      "id": "verifysearch::initials",
+      "label": "initials",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:63"
+    },
+    {
+      "id": "verifysearch::fmtdate",
+      "label": "fmtDate",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:70"
+    },
+    {
+      "id": "verifysearch::skeletoncard",
+      "label": "SkeletonCard",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:87"
+    },
+    {
+      "id": "VerifySearch::handler",
+      "label": "handler",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:285"
+    },
+    {
+      "id": "VerifySearch::cycle",
+      "label": "cycle",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:296"
+    },
+    {
+      "id": "VerifySearch::handledbchange",
+      "label": "handleDbChange",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:376"
+    },
+    {
+      "id": "VerifySearch::handlesubcattoggle",
+      "label": "handleSubCatToggle",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:382"
+    },
+    {
+      "id": "VerifySearch::handlemodeswitch",
+      "label": "handleModeSwitch",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:390"
+    },
+    {
+      "id": "VerifySearch::handledropdownkeydown",
+      "label": "handleDropdownKeyDown",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:400"
+    },
+    {
+      "id": "VerifySearch::handleidsubmit",
+      "label": "handleIdSubmit",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:427"
+    },
+    {
+      "id": "VerifySearch::handleresultselect",
+      "label": "handleResultSelect",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:436"
+    },
+    {
+      "id": "VerifySearch::visstyle",
+      "label": "visStyle",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:445"
+    },
+    {
+      "id": "file::auth_context",
+      "label": "auth-context.tsx",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx:1"
+    },
+    {
+      "id": "auth_context::authprovider",
+      "label": "AuthProvider",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx:33"
+    },
+    {
+      "id": "auth_context::useadminuser",
+      "label": "useAdminUser",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx:99"
     },
     {
       "id": "file::core",
@@ -1975,39 +2010,11 @@
       "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.claude\\skills\\ui-ux-pro-max\\scripts\\search.py:30"
     },
     {
-      "id": "file::tutorial",
-      "label": "Tutorial.tsx",
+      "id": "file::tutorial_scenes",
+      "label": "tutorial-scenes.tsx",
       "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx:1"
-    },
-    {
-      "id": "Tutorial::go",
-      "label": "go",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx:120"
-    },
-    {
-      "id": "Tutorial::next",
-      "label": "next",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx:130"
-    },
-    {
-      "id": "Tutorial::prev",
-      "label": "prev",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx:131"
-    },
-    {
-      "id": "Tutorial::handler",
-      "label": "handler",
-      "fileType": "code",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx:134"
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\tutorial-scenes.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\tutorial-scenes.tsx:1"
     }
   ],
   "edges": [
@@ -2135,33 +2142,6 @@
       "confidence": "EXTRACTED",
       "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\layout.tsx",
       "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\layout.tsx:9",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::handlefirebaseerror",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx:50",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::handlesignin",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx:69",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::handleregister",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx:147",
       "weight": 1
     },
     {
@@ -2903,24 +2883,6 @@
       "weight": 1
     },
     {
-      "source": "file::auth_context",
-      "target": "auth_context::authprovider",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx:30",
-      "weight": 1
-    },
-    {
-      "source": "file::auth_context",
-      "target": "auth_context::useadminuser",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx:87",
-      "weight": 1
-    },
-    {
       "source": "file::firebase",
       "target": "firebase::getfirebaseapp",
       "relation": "contains",
@@ -3209,42 +3171,6 @@
       "weight": 1
     },
     {
-      "source": "file::page",
-      "target": "page::verifypage",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx:14",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::scrolltosearch",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx:56",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::handleverify",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx:60",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::handledatabaseselect",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx:107",
-      "weight": 1
-    },
-    {
       "source": "file::publicdatabasecards",
       "target": "publicdatabasecards::fallbackconfig",
       "relation": "contains",
@@ -3323,366 +3249,6 @@
       "confidence": "EXTRACTED",
       "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
       "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:402",
-      "weight": 1
-    },
-    {
-      "source": "file::verifysearch",
-      "target": "verifysearch::avatargradient",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:59",
-      "weight": 1
-    },
-    {
-      "source": "file::verifysearch",
-      "target": "verifysearch::initials",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:63",
-      "weight": 1
-    },
-    {
-      "source": "file::verifysearch",
-      "target": "verifysearch::fmtdate",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:70",
-      "weight": 1
-    },
-    {
-      "source": "file::verifysearch",
-      "target": "VerifySearch::handler",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:287",
-      "weight": 1
-    },
-    {
-      "source": "file::verifysearch",
-      "target": "VerifySearch::triggersearch",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:367",
-      "weight": 1
-    },
-    {
-      "source": "file::verifysearch",
-      "target": "VerifySearch::handlenameinput",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:372",
-      "weight": 1
-    },
-    {
-      "source": "file::verifysearch",
-      "target": "VerifySearch::handledbchange",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:378",
-      "weight": 1
-    },
-    {
-      "source": "file::verifysearch",
-      "target": "VerifySearch::handlesubcattoggle",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:384",
-      "weight": 1
-    },
-    {
-      "source": "file::verifysearch",
-      "target": "VerifySearch::handlemodeswitch",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:392",
-      "weight": 1
-    },
-    {
-      "source": "file::verifysearch",
-      "target": "VerifySearch::handleidsubmit",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:429",
-      "weight": 1
-    },
-    {
-      "source": "file::verifysearch",
-      "target": "VerifySearch::handleresultselect",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:438",
-      "weight": 1
-    },
-    {
-      "source": "file::verifysearch",
-      "target": "VerifySearch::visstyle",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:447",
-      "weight": 1
-    },
-    {
-      "source": "file::core",
-      "target": "core::bm25",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:96",
-      "weight": 1
-    },
-    {
-      "source": "core::bm25",
-      "target": "core::bm25::__init__",
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:99",
-      "weight": 1
-    },
-    {
-      "source": "core::bm25",
-      "target": "core::bm25::tokenize",
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:109",
-      "weight": 1
-    },
-    {
-      "source": "core::bm25",
-      "target": "core::bm25::fit",
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:114",
-      "weight": 1
-    },
-    {
-      "source": "core::bm25",
-      "target": "core::bm25::score",
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:133",
-      "weight": 1
-    },
-    {
-      "source": "file::core",
-      "target": "core::_load_csv",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:159",
-      "weight": 1
-    },
-    {
-      "source": "file::core",
-      "target": "core::_search_csv",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:165",
-      "weight": 1
-    },
-    {
-      "source": "file::core",
-      "target": "core::detect_domain",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:190",
-      "weight": 1
-    },
-    {
-      "source": "file::core",
-      "target": "core::search",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:212",
-      "weight": 1
-    },
-    {
-      "source": "file::core",
-      "target": "core::search_stack",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:234",
-      "weight": 1
-    },
-    {
-      "source": "file::design_system",
-      "target": "design_system::designsystemgenerator",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:37",
-      "weight": 1
-    },
-    {
-      "source": "design_system::designsystemgenerator",
-      "target": "design_system::designsystemgenerator::__init__",
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:40",
-      "weight": 1
-    },
-    {
-      "source": "design_system::designsystemgenerator",
-      "target": "design_system::designsystemgenerator::_load_reasoning",
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:43",
-      "weight": 1
-    },
-    {
-      "source": "design_system::designsystemgenerator",
-      "target": "design_system::designsystemgenerator::_multi_domain_search",
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:51",
-      "weight": 1
-    },
-    {
-      "source": "design_system::designsystemgenerator",
-      "target": "design_system::designsystemgenerator::_find_reasoning_rule",
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:64",
-      "weight": 1
-    },
-    {
-      "source": "design_system::designsystemgenerator",
-      "target": "design_system::designsystemgenerator::_apply_reasoning",
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:88",
-      "weight": 1
-    },
-    {
-      "source": "design_system::designsystemgenerator",
-      "target": "design_system::designsystemgenerator::_select_best_match",
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:122",
-      "weight": 1
-    },
-    {
-      "source": "design_system::designsystemgenerator",
-      "target": "design_system::designsystemgenerator::_extract_results",
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:159",
-      "weight": 1
-    },
-    {
-      "source": "design_system::designsystemgenerator",
-      "target": "design_system::designsystemgenerator::generate",
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:163",
-      "weight": 1
-    },
-    {
-      "source": "file::design_system",
-      "target": "design_system::format_ascii_box",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:242",
-      "weight": 1
-    },
-    {
-      "source": "file::design_system",
-      "target": "design_system::format_markdown",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:367",
-      "weight": 1
-    },
-    {
-      "source": "file::design_system",
-      "target": "design_system::generate_design_system",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:462",
-      "weight": 1
-    },
-    {
-      "source": "file::design_system",
-      "target": "design_system::persist_design_system",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:491",
-      "weight": 1
-    },
-    {
-      "source": "file::design_system",
-      "target": "design_system::format_master_md",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:542",
-      "weight": 1
-    },
-    {
-      "source": "file::design_system",
-      "target": "design_system::format_page_override_md",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:805",
-      "weight": 1
-    },
-    {
-      "source": "file::design_system",
-      "target": "design_system::_generate_intelligent_overrides",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:914",
-      "weight": 1
-    },
-    {
-      "source": "file::design_system",
-      "target": "design_system::_detect_page_type",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:1020",
-      "weight": 1
-    },
-    {
-      "source": "file::search",
-      "target": "search::format_output",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\search.py",
-      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\search.py:30",
       "weight": 1
     },
     {
@@ -3947,177 +3513,6 @@
       "weight": 1
     },
     {
-      "source": "file::page",
-      "target": "page::generatepreview",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:96",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::addcustomelement",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:126",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::deletecustomelement",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:138",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::updatecustomelement",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:143",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::startdrag",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:150",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::startresize",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:157",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::handlemousedown",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:169",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::handlemousemove",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:196",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::handlemouseup",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:229",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::updatepositionfromslider",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:235",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::handlekeydown",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:276",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::handlesavepositions",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:309",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::fetchtemplates",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:349",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::handlefileselect",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:363",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::handleupload",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:378",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::handledelete",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:417",
-      "weight": 1
-    },
-    {
-      "source": "file::page",
-      "target": "page::formatfilesize",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:444",
-      "weight": 1
-    },
-    {
-      "source": "file::route",
-      "target": "route::hextorgb",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\certificates\\render\\route.ts",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\certificates\\render\\route.ts:8",
-      "weight": 1
-    },
-    {
-      "source": "file::route",
-      "target": "route::getpositions",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\certificates\\render\\route.ts",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\certificates\\render\\route.ts:20",
-      "weight": 1
-    },
-    {
       "source": "file::route",
       "target": "route::patch",
       "relation": "contains",
@@ -4127,12 +3522,507 @@
       "weight": 1
     },
     {
+      "source": "file::page",
+      "target": "page::isfixedelement",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:69",
+      "weight": 1
+    },
+    {
+      "source": "file::core",
+      "target": "core::bm25",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:96",
+      "weight": 1
+    },
+    {
+      "source": "core::bm25",
+      "target": "core::bm25::__init__",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:99",
+      "weight": 1
+    },
+    {
+      "source": "core::bm25",
+      "target": "core::bm25::tokenize",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:109",
+      "weight": 1
+    },
+    {
+      "source": "core::bm25",
+      "target": "core::bm25::fit",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:114",
+      "weight": 1
+    },
+    {
+      "source": "core::bm25",
+      "target": "core::bm25::score",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:133",
+      "weight": 1
+    },
+    {
+      "source": "file::core",
+      "target": "core::_load_csv",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:159",
+      "weight": 1
+    },
+    {
+      "source": "file::core",
+      "target": "core::_search_csv",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:165",
+      "weight": 1
+    },
+    {
+      "source": "file::core",
+      "target": "core::detect_domain",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:190",
+      "weight": 1
+    },
+    {
+      "source": "file::core",
+      "target": "core::search",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:212",
+      "weight": 1
+    },
+    {
+      "source": "file::core",
+      "target": "core::search_stack",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\core.py:234",
+      "weight": 1
+    },
+    {
+      "source": "file::design_system",
+      "target": "design_system::designsystemgenerator",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:37",
+      "weight": 1
+    },
+    {
+      "source": "design_system::designsystemgenerator",
+      "target": "design_system::designsystemgenerator::__init__",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:40",
+      "weight": 1
+    },
+    {
+      "source": "design_system::designsystemgenerator",
+      "target": "design_system::designsystemgenerator::_load_reasoning",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:43",
+      "weight": 1
+    },
+    {
+      "source": "design_system::designsystemgenerator",
+      "target": "design_system::designsystemgenerator::_multi_domain_search",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:51",
+      "weight": 1
+    },
+    {
+      "source": "design_system::designsystemgenerator",
+      "target": "design_system::designsystemgenerator::_find_reasoning_rule",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:64",
+      "weight": 1
+    },
+    {
+      "source": "design_system::designsystemgenerator",
+      "target": "design_system::designsystemgenerator::_apply_reasoning",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:88",
+      "weight": 1
+    },
+    {
+      "source": "design_system::designsystemgenerator",
+      "target": "design_system::designsystemgenerator::_select_best_match",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:122",
+      "weight": 1
+    },
+    {
+      "source": "design_system::designsystemgenerator",
+      "target": "design_system::designsystemgenerator::_extract_results",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:159",
+      "weight": 1
+    },
+    {
+      "source": "design_system::designsystemgenerator",
+      "target": "design_system::designsystemgenerator::generate",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:163",
+      "weight": 1
+    },
+    {
+      "source": "file::design_system",
+      "target": "design_system::format_ascii_box",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:242",
+      "weight": 1
+    },
+    {
+      "source": "file::design_system",
+      "target": "design_system::format_markdown",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:367",
+      "weight": 1
+    },
+    {
+      "source": "file::design_system",
+      "target": "design_system::generate_design_system",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:462",
+      "weight": 1
+    },
+    {
+      "source": "file::design_system",
+      "target": "design_system::persist_design_system",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:491",
+      "weight": 1
+    },
+    {
+      "source": "file::design_system",
+      "target": "design_system::format_master_md",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:542",
+      "weight": 1
+    },
+    {
+      "source": "file::design_system",
+      "target": "design_system::format_page_override_md",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:805",
+      "weight": 1
+    },
+    {
+      "source": "file::design_system",
+      "target": "design_system::_generate_intelligent_overrides",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:914",
+      "weight": 1
+    },
+    {
+      "source": "file::design_system",
+      "target": "design_system::_detect_page_type",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\design_system.py:1020",
+      "weight": 1
+    },
+    {
+      "source": "file::search",
+      "target": "search::format_output",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\search.py",
+      "sourceLocation": "d:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\.agent\\skills\\ui-ux-pro-max\\scripts\\search.py:30",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::generatepreview",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:97",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::addcustomelement",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:127",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::deletecustomelement",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:139",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::updatecustomelement",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:144",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::startdrag",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:151",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::startresize",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:158",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::handlemousedown",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:170",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::handlemousemove",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:197",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::handlemouseup",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:230",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::updatepositionfromslider",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:236",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::handlekeydown",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:277",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::handlesavepositions",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:310",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::fetchtemplates",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:350",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::handlefileselect",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:364",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::handleupload",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:379",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::handledelete",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:418",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::formatfilesize",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\templates\\page.tsx:445",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::handlefirebaseerror",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx:50",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::handlesignin",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx:69",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::handleregister",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\admin\\login\\page.tsx:149",
+      "weight": 1
+    },
+    {
+      "source": "file::route",
+      "target": "route::hextorgb",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\certificates\\render\\route.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\certificates\\render\\route.ts:9",
+      "weight": 1
+    },
+    {
+      "source": "file::route",
+      "target": "route::getpositions",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\certificates\\render\\route.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\certificates\\render\\route.ts:21",
+      "weight": 1
+    },
+    {
       "source": "file::route",
       "target": "route::gettemplatepositions",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\templates\\preview\\route.ts",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\templates\\preview\\route.ts:22",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\api\\templates\\preview\\route.ts:23",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::verifypage",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx:14",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::scrolltosearch",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx:56",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::handleverify",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx:60",
+      "weight": 1
+    },
+    {
+      "source": "file::page",
+      "target": "page::handledatabaseselect",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\app\\verify\\page.tsx:107",
       "weight": 1
     },
     {
@@ -4141,7 +4031,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx:120",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx:134",
       "weight": 1
     },
     {
@@ -4150,7 +4040,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx:130",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx:144",
       "weight": 1
     },
     {
@@ -4159,7 +4049,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx:131",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx:145",
       "weight": 1
     },
     {
@@ -4168,14 +4058,131 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx",
-      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx:134",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\Tutorial.tsx:148",
+      "weight": 1
+    },
+    {
+      "source": "file::verifysearch",
+      "target": "verifysearch::avatargradient",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:59",
+      "weight": 1
+    },
+    {
+      "source": "file::verifysearch",
+      "target": "verifysearch::initials",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:63",
+      "weight": 1
+    },
+    {
+      "source": "file::verifysearch",
+      "target": "verifysearch::fmtdate",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:70",
+      "weight": 1
+    },
+    {
+      "source": "file::verifysearch",
+      "target": "verifysearch::skeletoncard",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:87",
+      "weight": 1
+    },
+    {
+      "source": "file::verifysearch",
+      "target": "VerifySearch::handler",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:285",
+      "weight": 1
+    },
+    {
+      "source": "file::verifysearch",
+      "target": "VerifySearch::handledbchange",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:376",
+      "weight": 1
+    },
+    {
+      "source": "file::verifysearch",
+      "target": "VerifySearch::handlesubcattoggle",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:382",
+      "weight": 1
+    },
+    {
+      "source": "file::verifysearch",
+      "target": "VerifySearch::handlemodeswitch",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:390",
+      "weight": 1
+    },
+    {
+      "source": "file::verifysearch",
+      "target": "VerifySearch::handleidsubmit",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:427",
+      "weight": 1
+    },
+    {
+      "source": "file::verifysearch",
+      "target": "VerifySearch::handleresultselect",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:436",
+      "weight": 1
+    },
+    {
+      "source": "file::verifysearch",
+      "target": "VerifySearch::visstyle",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\components\\VerifySearch.tsx:445",
+      "weight": 1
+    },
+    {
+      "source": "file::auth_context",
+      "target": "auth_context::authprovider",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx:33",
+      "weight": 1
+    },
+    {
+      "source": "file::auth_context",
+      "target": "auth_context::useadminuser",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Certificate Verification System\\pharmacozyme-certs\\lib\\auth-context.tsx:99",
       "weight": 1
     }
   ],
   "metadata": {
-    "files": 76,
-    "nodes": 287,
+    "files": 78,
+    "nodes": 288,
     "edges": 240,
-    "builtAt": "2026-05-05T18:46:18.606Z"
+    "builtAt": "2026-05-07T14:07:48.758Z"
   }
 }

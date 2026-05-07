@@ -7,6 +7,7 @@ import AdminMobileNav from "@/components/AdminMobileNav";
 import { ToastProvider } from "@/components/Toast";
 import { ConfirmProvider } from "@/components/ConfirmModal";
 import { AuthProvider, useAdminUser } from "@/lib/auth-context";
+import Tutorial from "@/components/Tutorial";
 
 function RevokedScreen({ reason }: { reason: "rejected" | "deleted" | null }) {
   const router = useRouter();
@@ -96,7 +97,8 @@ function RevokedScreen({ reason }: { reason: "rejected" | "deleted" | null }) {
 }
 
 function AdminLayoutInner({ children }: { children: ReactNode }) {
-  const { revoked, revokedReason } = useAdminUser();
+  const { revoked, revokedReason, adminUser, markTutorialSeen } = useAdminUser();
+  const showFirstLoginTutorial = adminUser?.tutorialSeen === false;
 
   if (revoked) {
     return <RevokedScreen reason={revokedReason} />;
@@ -109,6 +111,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
       <main className="lg:ml-64 pt-16 lg:pt-0 pb-24 lg:pb-0">
         {children}
       </main>
+      {showFirstLoginTutorial && <Tutorial onClose={markTutorialSeen} />}
     </div>
   );
 }

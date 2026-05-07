@@ -9,6 +9,7 @@ export interface AdminUser {
   email: string;
   displayName: string;
   role: "super_admin" | "admin";
+  tutorialSeen?: boolean;
 }
 
 interface AuthContextType {
@@ -17,6 +18,7 @@ interface AuthContextType {
   revoked: boolean;
   revokedReason: "rejected" | "deleted" | null;
   refresh: () => Promise<void>;
+  markTutorialSeen: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -25,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
   revoked: false,
   revokedReason: null,
   refresh: async () => {},
+  markTutorialSeen: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -77,8 +80,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsub;
   }, [adminUser?.uid]);
 
+  const markTutorialSeen = useCallback(async () => {
+    setAdminUser(prev => (prev ? { ...prev, tutorialSeen: true } : prev));
+    try {
+      await fetch("/api/admin/tutorial-seen", { method: "POST" });
+    } catch {
+      // optimistic update remains; server will be retried on next mount
+    }
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ adminUser, loading, revoked, revokedReason, refresh }}>
+    <AuthContext.Provider value={{ adminUser, loading, revoked, revokedReason, refresh, markTutorialSeen }}>
       {children}
     </AuthContext.Provider>
   );
