@@ -14,6 +14,10 @@ const GMAIL_ACCOUNTS: Record<string, { name: string; password: string | undefine
 function createGmailTransport(email: string, password: string) {
   return nodemailer.createTransport({
     service: "gmail",
+    pool: true,
+    maxConnections: 1,
+    rateDelta: 1000,
+    rateLimit: 3,
     auth: { user: email, pass: password },
   });
 }

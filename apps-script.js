@@ -109,6 +109,7 @@ function createNewSheet(payload) {
   
   // Create new spreadsheet
   const spreadsheet = SpreadsheetApp.create(databaseName + " - Certificates");
+  DriveApp.getFileById(spreadsheet.getId()).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT);
   const ssId = spreadsheet.getId();
   
   // Create tabs for each sub-database
