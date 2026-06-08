@@ -10,8 +10,8 @@ import { sfx } from "@/lib/sfx";
 
 const SENDER_IDENTITIES = [
   { name: "PharmacoZyme Certificates", email: "" },
-  { name: "PharmacoZyme Official", email: "pharmacozymeofficial@gmail.com" },
-  { name: "PZ Academy", email: "pz.academy9@gmail.com" },
+  { name: "PharmacoZyme Official", email: "info@pharmacozyme.com" },
+  { name: "PZ Academy", email: "info@pzacademy.pharmacozyme.com" },
   { name: "Team PharmacoZyme", email: "teampharmacozyme@gmail.com" },
 ];
 
@@ -3303,7 +3303,7 @@ Ahmed Khan, ahmed@email.com"
                 </select>
                 <p className="text-xs text-on-surface-variant mt-1">
                   {SENDER_IDENTITIES[selectedSenderIndex].email
-                    ? <>Sends directly from <span className="font-mono">{SENDER_IDENTITIES[selectedSenderIndex].email}</span> via Gmail.</>
+                    ? <>Sends from <span className="font-mono">{SENDER_IDENTITIES[selectedSenderIndex].email}</span> via Brevo.</>
                     : <>Sends via Resend from <span className="font-mono">noreply@certs.pharmacozyme.com</span>.</>
                   }
                 </p>

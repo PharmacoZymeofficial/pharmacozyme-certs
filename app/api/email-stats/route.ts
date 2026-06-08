@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 
-const GMAIL_ACCOUNTS = [
-  { email: "pharmacozymeofficial@gmail.com", label: "PharmacoZyme Official", key: "gmail_pharmacozymeofficial" },
-  { email: "pz.academy9@gmail.com", label: "PZ Academy", key: "gmail_pz_academy9" },
-  { email: "teampharmacozyme@gmail.com", label: "Team PharmacoZyme", key: "gmail_teampharmacozyme" },
+const SMTP_ACCOUNTS = [
+  { email: "info@pharmacozyme.com",            label: "PharmacoZyme Official", key: "brevo_pharmacozyme" },
+  { email: "info@pzacademy.pharmacozyme.com",  label: "PZ Academy",            key: "brevo_pzacademy" },
+  { email: "teampharmacozyme@gmail.com",        label: "Team PharmacoZyme",     key: "gmail_teampharmacozyme" },
 ];
 
 const GMAIL_DAILY_LIMIT = 500;
@@ -47,7 +47,7 @@ export async function GET() {
 
   // Per-Gmail-account stats (from Firestore counters set by send-email route)
   const gmailAccounts: Record<string, { sent: number; limit: number; remaining: number; label: string; email: string }> = {};
-  for (const acct of GMAIL_ACCOUNTS) {
+  for (const acct of SMTP_ACCOUNTS) {
     const sent = firestoreData[acct.key] || 0;
     gmailAccounts[acct.email] = {
       sent,

@@ -5,16 +5,18 @@ import { getAdminFromCookieHeader, logActivity } from "@/lib/activity";
 import nodemailer from "nodemailer";
 
 // Brevo SMTP — separate credentials per Brevo account
-const BREVO_SENDERS: Record<string, { name: string; smtpUser: string | undefined; smtpKey: string | undefined }> = {
-  "pharmacozymeofficial@gmail.com": {
+const BREVO_SENDERS: Record<string, { name: string; smtpUser: string | undefined; smtpKey: string | undefined; statsKey: string }> = {
+  "info@pharmacozyme.com": {
     name: "PharmacoZyme Official",
     smtpUser: process.env.BREVO_SMTP_USER_PHARMACOZYME,
     smtpKey:  process.env.BREVO_SMTP_KEY_PHARMACOZYME,
+    statsKey: "brevo_pharmacozyme",
   },
-  "pz.academy9@gmail.com": {
+  "info@pzacademy.pharmacozyme.com": {
     name: "PZ Academy",
     smtpUser: process.env.BREVO_SMTP_USER_ACADEMY,
     smtpKey:  process.env.BREVO_SMTP_KEY_ACADEMY,
+    statsKey: "brevo_pzacademy",
   },
 };
 
@@ -234,8 +236,7 @@ export async function POST(request: NextRequest) {
       if (results.length > 0) {
         try {
           const today = new Date().toISOString().split("T")[0];
-          const senderKey = `brevo_${gmailEmail.split("@")[0].replace(/\./g, "_")}`;
-          await setDoc(doc(db, "email_stats", today), { sent: increment(results.length), [senderKey]: increment(results.length) }, { merge: true });
+          await setDoc(doc(db, "email_stats", today), { sent: increment(results.length), [sender.statsKey]: increment(results.length) }, { merge: true });
         } catch { /* non-fatal */ }
 
         const { adminName, adminEmail: adminEmailVal } = getAdminFromCookieHeader(request.headers.get("cookie") || "");
