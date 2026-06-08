@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
           .replace(/\[Name\]/g, name || "")
           .replace(/\[CertificateID\]/g, certificateId || "")
           .replace(/\[VerificationLink\]/g, VERIFY_URL + "?id=" + certificateId);
-        const verificationLink = CLAIM_URL + "?id=" + certificateId;
+        const verificationLink = `${CLAIM_URL}/${encodeURIComponent(certificateId)}`;
 
         try {
           await sendViaBrevoApi({
@@ -309,7 +309,7 @@ export async function POST(request: NextRequest) {
           .replace(/\[CertificateID\]/g, certificateId || "")
           .replace(/\[VerificationLink\]/g, VERIFY_URL + "?id=" + certificateId);
 
-        const verificationLink = CLAIM_URL + "?id=" + certificateId;
+        const verificationLink = `${CLAIM_URL}/${encodeURIComponent(certificateId)}`;
 
         // Build attachments if PDF provided
         const attachments = pdfBase64 ? [{
@@ -349,7 +349,7 @@ export async function POST(request: NextRequest) {
             to: recipient.email,
             subject: subject || "Your Certificate from PharmacoZyme",
             attachments: recipient.pdfBase64 ? [{ filename: `Certificate_${recipient.certificateId}.pdf`, content: recipient.pdfBase64 }] : [],
-            html: `<p>Dear <strong>${recipient.name || "Participant"}</strong>,</p><p>Your PharmacoZyme certificate is ready.</p><p><a href="${CLAIM_URL}?id=${recipient.certificateId}" style="background:#1b4332;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block;margin:10px 0">🎓 Claim Certificate</a></p><p>Certificate ID: <strong>${recipient.certificateId}</strong></p>${recipient.driveLink ? `<p><a href="${recipient.driveLink}">Download PDF</a></p>` : ""}`,
+            html: `<p>Dear <strong>${recipient.name || "Participant"}</strong>,</p><p>Your PharmacoZyme certificate is ready.</p><p><a href="${CLAIM_URL}/${encodeURIComponent(recipient.certificateId)}" style="background:#1b4332;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block;margin:10px 0">🎓 Claim Certificate</a></p><p>Certificate ID: <strong>${recipient.certificateId}</strong></p>${recipient.driveLink ? `<p><a href="${recipient.driveLink}">Download PDF</a></p>` : ""}`,
           });
           if (retry.error) throw new Error(retry.error.message);
           results.push({ email: recipient.email, success: true, id: retry.data?.id, retried: true });
