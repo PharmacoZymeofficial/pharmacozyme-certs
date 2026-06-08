@@ -4,10 +4,18 @@ import { doc, setDoc, increment, collection, addDoc } from "firebase/firestore";
 import { getAdminFromCookieHeader, logActivity } from "@/lib/activity";
 import nodemailer from "nodemailer";
 
-// Brevo SMTP — one account, multiple verified sender addresses
-const BREVO_SENDERS: Record<string, { name: string }> = {
-  "pharmacozymeofficial@gmail.com": { name: "PharmacoZyme Official" },
-  "pz.academy9@gmail.com":          { name: "PZ Academy" },
+// Brevo SMTP — separate credentials per Brevo account
+const BREVO_SENDERS: Record<string, { name: string; smtpUser: string | undefined; smtpKey: string | undefined }> = {
+  "pharmacozymeofficial@gmail.com": {
+    name: "PharmacoZyme Official",
+    smtpUser: process.env.BREVO_SMTP_USER_PHARMACOZYME,
+    smtpKey:  process.env.BREVO_SMTP_KEY_PHARMACOZYME,
+  },
+  "pz.academy9@gmail.com": {
+    name: "PZ Academy",
+    smtpUser: process.env.BREVO_SMTP_USER_ACADEMY,
+    smtpKey:  process.env.BREVO_SMTP_KEY_ACADEMY,
+  },
 };
 
 // Gmail accounts — only used for senders not on Brevo
@@ -15,7 +23,7 @@ const GMAIL_ACCOUNTS: Record<string, { name: string; password: string | undefine
   "teampharmacozyme@gmail.com": { name: "Team PharmacoZyme", password: process.env.GMAIL_PASSWORD_TEAM },
 };
 
-function createBrevoTransport() {
+function createBrevoTransport(smtpUser: string, smtpKey: string) {
   return nodemailer.createTransport({
     host: "smtp-relay.brevo.com",
     port: 587,
@@ -24,10 +32,7 @@ function createBrevoTransport() {
     maxConnections: 3,
     rateDelta: 1000,
     rateLimit: 10,
-    auth: {
-      user: process.env.BREVO_SMTP_USER,
-      pass: process.env.BREVO_SMTP_KEY,
-    },
+    auth: { user: smtpUser, pass: smtpKey },
   });
 }
 
@@ -185,14 +190,14 @@ export async function POST(request: NextRequest) {
     // ── Brevo SMTP path ──────────────────────────────────────────────────────
     if (gmailEmail && BREVO_SENDERS[gmailEmail]) {
       const sender = BREVO_SENDERS[gmailEmail];
-      if (!process.env.BREVO_SMTP_USER || !process.env.BREVO_SMTP_KEY) {
+      if (!sender.smtpUser || !sender.smtpKey) {
         return NextResponse.json({
           error: "Brevo not configured",
-          details: "BREVO_SMTP_USER or BREVO_SMTP_KEY not set in environment variables",
+          details: `BREVO_SMTP_USER/KEY for ${gmailEmail} not set in environment variables`,
         }, { status: 500 });
       }
 
-      const transport = createBrevoTransport();
+      const transport = createBrevoTransport(sender.smtpUser, sender.smtpKey);
       const results = [];
       const errors = [];
 
