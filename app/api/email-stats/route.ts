@@ -3,9 +3,8 @@ import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 
 const SMTP_ACCOUNTS = [
-  { email: "info@pharmacozyme.com",            label: "PharmacoZyme Official", key: "brevo_pharmacozyme" },
-  { email: "info@pzacademy.pharmacozyme.com",  label: "PZ Academy",            key: "brevo_pzacademy" },
-  { email: "teampharmacozyme@gmail.com",        label: "Team PharmacoZyme",     key: "gmail_teampharmacozyme" },
+  { email: "info@pharmacozyme.com",           label: "PharmacoZyme Official", key: "brevo_pharmacozyme" },
+  { email: "info@pzacademy.pharmacozyme.com", label: "PZ Academy",            key: "brevo_pzacademy" },
 ];
 
 const GMAIL_DAILY_LIMIT = 500;

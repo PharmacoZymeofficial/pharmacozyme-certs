@@ -8,7 +8,6 @@ const SENDER_IDENTITIES = [
   { name: "PharmacoZyme Certificates", email: "" },
   { name: "PharmacoZyme Official", email: "info@pharmacozyme.com" },
   { name: "PZ Academy", email: "info@pzacademy.pharmacozyme.com" },
-  { name: "Team PharmacoZyme", email: "teampharmacozyme@gmail.com" },
 ];
 
 interface BulkEmailFormProps {

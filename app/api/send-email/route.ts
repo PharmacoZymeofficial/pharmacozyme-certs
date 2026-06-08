@@ -20,11 +20,6 @@ const BREVO_SENDERS: Record<string, { name: string; smtpUser: string | undefined
   },
 };
 
-// Gmail accounts — only used for senders not on Brevo
-const GMAIL_ACCOUNTS: Record<string, { name: string; password: string | undefined }> = {
-  "teampharmacozyme@gmail.com": { name: "Team PharmacoZyme", password: process.env.GMAIL_PASSWORD_TEAM },
-};
-
 function createBrevoTransport(smtpUser: string, smtpKey: string) {
   return nodemailer.createTransport({
     host: "smtp-relay.brevo.com",
@@ -35,17 +30,6 @@ function createBrevoTransport(smtpUser: string, smtpKey: string) {
     rateDelta: 1000,
     rateLimit: 10,
     auth: { user: smtpUser, pass: smtpKey },
-  });
-}
-
-function createGmailTransport(email: string, password: string) {
-  return nodemailer.createTransport({
-    service: "gmail",
-    pool: true,
-    maxConnections: 1,
-    rateDelta: 1000,
-    rateLimit: 3,
-    auth: { user: email, pass: password },
   });
 }
 
@@ -241,71 +225,6 @@ export async function POST(request: NextRequest) {
 
         const { adminName, adminEmail: adminEmailVal } = getAdminFromCookieHeader(request.headers.get("cookie") || "");
         await logActivity({ type: "email_sent", adminName, adminEmail: adminEmailVal, count: results.length, details: `Sent ${results.length} email(s) via Brevo (${gmailEmail})` });
-      }
-
-      return NextResponse.json({
-        success: results.length > 0,
-        sent: results.length,
-        failed: errors.length,
-        results,
-        errors: errors.length > 0 ? errors : undefined,
-      });
-    }
-
-    // ── Gmail SMTP path (teampharmacozyme only) ──────────────────────────────
-    if (gmailEmail && GMAIL_ACCOUNTS[gmailEmail]) {
-      const account = GMAIL_ACCOUNTS[gmailEmail];
-      if (!account.password) {
-        return NextResponse.json({
-          error: "Gmail not configured",
-          details: `App Password for ${gmailEmail} not set in environment variables`,
-        }, { status: 500 });
-      }
-
-      const transport = createGmailTransport(gmailEmail, account.password);
-      const results = [];
-      const errors = [];
-
-      for (const recipient of validRecipients) {
-        const { email, name, certificateId, pdfBase64, driveLink } = recipient;
-        let emailMessage = (message || "")
-          .replace(/\[Name\]/g, name || "")
-          .replace(/\[CertificateID\]/g, certificateId || "")
-          .replace(/\[VerificationLink\]/g, VERIFY_URL + "?id=" + certificateId);
-        const verificationLink = CLAIM_URL + "?id=" + certificateId;
-        const attachments = pdfBase64 ? [{ filename: `Certificate_${certificateId}.pdf`, content: Buffer.from(pdfBase64, "base64") }] : [];
-
-        try {
-          await transport.sendMail({
-            from: `${account.name} <${gmailEmail}>`,
-            to: email,
-            subject: subject || "Your Certificate from PharmacoZyme",
-            attachments,
-            html: buildEmailHtml({ name, certificateId, verificationLink, emailMessage, driveLink, pdfBase64, email }),
-            headers: {
-              "List-Unsubscribe": "<mailto:pharmacozymeofficial@gmail.com?subject=Unsubscribe>",
-              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-              "Precedence": "bulk",
-              "X-Auto-Response-Suppress": "OOF, DR, RN, NRN, AutoReply",
-            },
-          });
-          results.push({ email, success: true });
-          await new Promise(r => setTimeout(r, 100));
-        } catch (err: any) {
-          console.error(`Gmail failed for ${email}:`, err);
-          errors.push({ email, error: err.message });
-        }
-      }
-
-      if (results.length > 0) {
-        try {
-          const today = new Date().toISOString().split("T")[0];
-          const gmailKey = `gmail_${gmailEmail.split("@")[0].replace(/\./g, "_")}`;
-          await setDoc(doc(db, "email_stats", today), { sent: increment(results.length), [gmailKey]: increment(results.length) }, { merge: true });
-        } catch { /* non-fatal */ }
-
-        const { adminName, adminEmail: adminEmailVal } = getAdminFromCookieHeader(request.headers.get("cookie") || "");
-        await logActivity({ type: "email_sent", adminName, adminEmail: adminEmailVal, count: results.length, details: `Sent ${results.length} email(s) via Gmail (${gmailEmail})` });
       }
 
       return NextResponse.json({
