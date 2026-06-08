@@ -2,35 +2,54 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
 import { doc, setDoc, increment, collection, addDoc } from "firebase/firestore";
 import { getAdminFromCookieHeader, logActivity } from "@/lib/activity";
-import nodemailer from "nodemailer";
-
-// Brevo SMTP — separate credentials per Brevo account
-const BREVO_SENDERS: Record<string, { name: string; smtpUser: string | undefined; smtpKey: string | undefined; statsKey: string }> = {
+// Brevo REST API — separate API keys per Brevo account
+const BREVO_SENDERS: Record<string, { name: string; apiKey: string | undefined; statsKey: string }> = {
   "info@pharmacozyme.com": {
     name: "PharmacoZyme Official",
-    smtpUser: process.env.BREVO_SMTP_USER_PHARMACOZYME,
-    smtpKey:  process.env.BREVO_SMTP_KEY_PHARMACOZYME,
+    apiKey: process.env.BREVO_API_KEY_PHARMACOZYME,
     statsKey: "brevo_pharmacozyme",
   },
   "info@pzacademy.pharmacozyme.com": {
     name: "PZ Academy",
-    smtpUser: process.env.BREVO_SMTP_USER_ACADEMY,
-    smtpKey:  process.env.BREVO_SMTP_KEY_ACADEMY,
+    apiKey: process.env.BREVO_API_KEY_ACADEMY,
     statsKey: "brevo_pzacademy",
   },
 };
 
-function createBrevoTransport(smtpUser: string, smtpKey: string) {
-  return nodemailer.createTransport({
-    host: "smtp-relay.brevo.com",
-    port: 587,
-    secure: false,
-    pool: true,
-    maxConnections: 3,
-    rateDelta: 1000,
-    rateLimit: 10,
-    auth: { user: smtpUser, pass: smtpKey },
+async function sendViaBrevoApi({
+  apiKey, senderName, senderEmail, toEmail, toName, subject, html, attachmentBase64, attachmentName,
+}: {
+  apiKey: string; senderName: string; senderEmail: string;
+  toEmail: string; toName?: string; subject: string; html: string;
+  attachmentBase64?: string; attachmentName?: string;
+}) {
+  const body: Record<string, unknown> = {
+    sender: { name: senderName, email: senderEmail },
+    to: [{ email: toEmail, ...(toName ? { name: toName } : {}) }],
+    subject,
+    htmlContent: html,
+    trackClicks: false,
+    trackOpens: false,
+    headers: {
+      "List-Unsubscribe": "<mailto:pharmacozymeofficial@gmail.com?subject=Unsubscribe>",
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      "Precedence": "bulk",
+      "X-Auto-Response-Suppress": "OOF, DR, RN, NRN, AutoReply",
+    },
+  };
+  if (attachmentBase64 && attachmentName) {
+    body.attachment = [{ content: attachmentBase64, name: attachmentName }];
+  }
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: { "api-key": apiKey, "Content-Type": "application/json", "accept": "application/json" },
+    body: JSON.stringify(body),
   });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: res.statusText }));
+    throw new Error(`Brevo API ${res.status}: ${(err as any).message || JSON.stringify(err)}`);
+  }
+  return res.json();
 }
 
 function isQuotaError(err: any): boolean {
@@ -173,17 +192,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No valid recipient emails found" }, { status: 400 });
     }
 
-    // ── Brevo SMTP path ──────────────────────────────────────────────────────
+    // ── Brevo API path ───────────────────────────────────────────────────────
     if (gmailEmail && BREVO_SENDERS[gmailEmail]) {
       const sender = BREVO_SENDERS[gmailEmail];
-      if (!sender.smtpUser || !sender.smtpKey) {
+      if (!sender.apiKey) {
         return NextResponse.json({
           error: "Brevo not configured",
-          details: `BREVO_SMTP_USER/KEY for ${gmailEmail} not set in environment variables`,
+          details: `BREVO_API_KEY for ${gmailEmail} not set in environment variables`,
         }, { status: 500 });
       }
 
-      const transport = createBrevoTransport(sender.smtpUser, sender.smtpKey);
       const results = [];
       const errors = [];
 
@@ -194,28 +212,21 @@ export async function POST(request: NextRequest) {
           .replace(/\[CertificateID\]/g, certificateId || "")
           .replace(/\[VerificationLink\]/g, VERIFY_URL + "?id=" + certificateId);
         const verificationLink = CLAIM_URL + "?id=" + certificateId;
-        const attachments = pdfBase64 ? [{ filename: `Certificate_${certificateId}.pdf`, content: Buffer.from(pdfBase64, "base64") }] : [];
 
         try {
-          await transport.sendMail({
-            from: `${sender.name} <${gmailEmail}>`,
-            to: email,
+          await sendViaBrevoApi({
+            apiKey: sender.apiKey,
+            senderName: sender.name,
+            senderEmail: gmailEmail,
+            toEmail: email,
+            toName: name,
             subject: subject || "Your Certificate from PharmacoZyme",
-            attachments,
             html: buildEmailHtml({ name, certificateId, verificationLink, emailMessage, driveLink, pdfBase64, email }),
-            headers: {
-              "List-Unsubscribe": "<mailto:pharmacozymeofficial@gmail.com?subject=Unsubscribe>",
-              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-              "Precedence": "bulk",
-              "X-Auto-Response-Suppress": "OOF, DR, RN, NRN, AutoReply",
-              "X-Mailin-Track-Click": "no",
-              "X-Mailin-Track-Open": "no",
-              "X-Mailin-tracking": JSON.stringify({ click: false, open: false }),
-            },
+            ...(pdfBase64 ? { attachmentBase64: pdfBase64, attachmentName: `Certificate_${certificateId}.pdf` } : {}),
           });
           results.push({ email, success: true });
         } catch (err: any) {
-          console.error(`Brevo failed for ${email}:`, err);
+          console.error(`Brevo API failed for ${email}:`, err);
           errors.push({ email, error: err.message });
         }
       }
