@@ -208,8 +208,9 @@ export async function POST(request: NextRequest) {
               "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
               "Precedence": "bulk",
               "X-Auto-Response-Suppress": "OOF, DR, RN, NRN, AutoReply",
-              "X-Mailin-Track-Click": "false",
-              "X-Mailin-Track-Open": "false",
+              "X-Mailin-Track-Click": "no",
+              "X-Mailin-Track-Open": "no",
+              "X-Mailin-tracking": JSON.stringify({ click: false, open: false }),
             },
           });
           results.push({ email, success: true });
