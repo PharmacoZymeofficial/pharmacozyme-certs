@@ -4,12 +4,32 @@ import { doc, setDoc, increment, collection, addDoc } from "firebase/firestore";
 import { getAdminFromCookieHeader, logActivity } from "@/lib/activity";
 import nodemailer from "nodemailer";
 
-// Gmail accounts — passwords stored in env vars
+// Brevo SMTP — one account, multiple verified sender addresses
+const BREVO_SENDERS: Record<string, { name: string }> = {
+  "pharmacozymeofficial@gmail.com": { name: "PharmacoZyme Official" },
+  "pz.academy9@gmail.com":          { name: "PZ Academy" },
+};
+
+// Gmail accounts — only used for senders not on Brevo
 const GMAIL_ACCOUNTS: Record<string, { name: string; password: string | undefined }> = {
-  "pharmacozymeofficial@gmail.com": { name: "PharmacoZyme Official", password: process.env.GMAIL_PASSWORD_PHARMACOZYME },
-  "pz.academy9@gmail.com": { name: "PZ Academy", password: process.env.GMAIL_PASSWORD_ACADEMY },
   "teampharmacozyme@gmail.com": { name: "Team PharmacoZyme", password: process.env.GMAIL_PASSWORD_TEAM },
 };
+
+function createBrevoTransport() {
+  return nodemailer.createTransport({
+    host: "smtp-relay.brevo.com",
+    port: 587,
+    secure: false,
+    pool: true,
+    maxConnections: 3,
+    rateDelta: 1000,
+    rateLimit: 10,
+    auth: {
+      user: process.env.BREVO_SMTP_USER,
+      pass: process.env.BREVO_SMTP_KEY,
+    },
+  });
+}
 
 function createGmailTransport(email: string, password: string) {
   return nodemailer.createTransport({
@@ -162,7 +182,71 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No valid recipient emails found" }, { status: 400 });
     }
 
-    // ── Gmail SMTP path ──────────────────────────────────────────────────────
+    // ── Brevo SMTP path ──────────────────────────────────────────────────────
+    if (gmailEmail && BREVO_SENDERS[gmailEmail]) {
+      const sender = BREVO_SENDERS[gmailEmail];
+      if (!process.env.BREVO_SMTP_USER || !process.env.BREVO_SMTP_KEY) {
+        return NextResponse.json({
+          error: "Brevo not configured",
+          details: "BREVO_SMTP_USER or BREVO_SMTP_KEY not set in environment variables",
+        }, { status: 500 });
+      }
+
+      const transport = createBrevoTransport();
+      const results = [];
+      const errors = [];
+
+      for (const recipient of validRecipients) {
+        const { email, name, certificateId, pdfBase64, driveLink } = recipient;
+        let emailMessage = (message || "")
+          .replace(/\[Name\]/g, name || "")
+          .replace(/\[CertificateID\]/g, certificateId || "")
+          .replace(/\[VerificationLink\]/g, VERIFY_URL + "?id=" + certificateId);
+        const verificationLink = CLAIM_URL + "?id=" + certificateId;
+        const attachments = pdfBase64 ? [{ filename: `Certificate_${certificateId}.pdf`, content: Buffer.from(pdfBase64, "base64") }] : [];
+
+        try {
+          await transport.sendMail({
+            from: `${sender.name} <${gmailEmail}>`,
+            to: email,
+            subject: subject || "Your Certificate from PharmacoZyme",
+            attachments,
+            html: buildEmailHtml({ name, certificateId, verificationLink, emailMessage, driveLink, pdfBase64, email }),
+            headers: {
+              "List-Unsubscribe": "<mailto:pharmacozymeofficial@gmail.com?subject=Unsubscribe>",
+              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+              "Precedence": "bulk",
+              "X-Auto-Response-Suppress": "OOF, DR, RN, NRN, AutoReply",
+            },
+          });
+          results.push({ email, success: true });
+        } catch (err: any) {
+          console.error(`Brevo failed for ${email}:`, err);
+          errors.push({ email, error: err.message });
+        }
+      }
+
+      if (results.length > 0) {
+        try {
+          const today = new Date().toISOString().split("T")[0];
+          const senderKey = `brevo_${gmailEmail.split("@")[0].replace(/\./g, "_")}`;
+          await setDoc(doc(db, "email_stats", today), { sent: increment(results.length), [senderKey]: increment(results.length) }, { merge: true });
+        } catch { /* non-fatal */ }
+
+        const { adminName, adminEmail: adminEmailVal } = getAdminFromCookieHeader(request.headers.get("cookie") || "");
+        await logActivity({ type: "email_sent", adminName, adminEmail: adminEmailVal, count: results.length, details: `Sent ${results.length} email(s) via Brevo (${gmailEmail})` });
+      }
+
+      return NextResponse.json({
+        success: results.length > 0,
+        sent: results.length,
+        failed: errors.length,
+        results,
+        errors: errors.length > 0 ? errors : undefined,
+      });
+    }
+
+    // ── Gmail SMTP path (teampharmacozyme only) ──────────────────────────────
     if (gmailEmail && GMAIL_ACCOUNTS[gmailEmail]) {
       const account = GMAIL_ACCOUNTS[gmailEmail];
       if (!account.password) {
@@ -214,9 +298,8 @@ export async function POST(request: NextRequest) {
           await setDoc(doc(db, "email_stats", today), { sent: increment(results.length), [gmailKey]: increment(results.length) }, { merge: true });
         } catch { /* non-fatal */ }
 
-        // Log activity
         const { adminName, adminEmail: adminEmailVal } = getAdminFromCookieHeader(request.headers.get("cookie") || "");
-        await logActivity({ type: "email_sent", adminName, adminEmail: adminEmailVal, count: results.length, details: `Sent ${results.length} email(s) via ${gmailEmail}` });
+        await logActivity({ type: "email_sent", adminName, adminEmail: adminEmailVal, count: results.length, details: `Sent ${results.length} email(s) via Gmail (${gmailEmail})` });
       }
 
       return NextResponse.json({
