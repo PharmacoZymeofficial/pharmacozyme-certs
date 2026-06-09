@@ -69,103 +69,67 @@ function buildEmailHtml({ name, certificateId, verificationLink, emailMessage, d
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body { margin: 0 !important; padding: 0 !important; }
-    @media (prefers-color-scheme: dark) {
-      .email-container { background-color: #1a1a1a !important; }
-      .email-card { background-color: #2d2d2d !important; }
-      .email-text { color: #e5e5e5 !important; }
-      .email-text-muted { color: #a0a0a0 !important; }
-      .email-box { background-color: #363636 !important; border-color: #4a4a4a !important; }
-      .email-footer { background-color: #1b4332 !important; }
-    }
-    @media only screen and (max-width: 620px) {
-      .email-content { padding: 20px !important; }
-      .email-header { padding: 30px 20px !important; }
-      .email-footer { padding: 20px !important; }
-    }
-  </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f8faf9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-  <table class="email-container" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8faf9; padding: 20px;">
+<body style="margin: 0; padding: 0; background-color: #f4f7f5; font-family: Arial, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f7f5; padding: 30px 10px;">
     <tr>
       <td align="center">
-        <table class="email-card" width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 480px; background-color: #ffffff; border-radius: 8px; border: 1px solid #d1e7d8;">
+          <!-- Header -->
           <tr>
-            <td class="email-header" style="background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 100%); padding: 35px 40px 25px; border-radius: 16px 16px 0 0;">
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center">
-                    <img src="${LOGO_URL}" alt="PharmacoZyme" width="120" style="width: 120px; height: auto; margin-bottom: 10px; display: block;">
-                    <p style="margin: 0; color: #95d5b2; font-size: 12px; letter-spacing: 2px; text-transform: uppercase;">Certificate of Achievement</p>
-                  </td>
-                </tr>
-              </table>
+            <td style="background-color: #1b4332; padding: 24px 32px; border-radius: 8px 8px 0 0; text-align: center;">
+              <p style="margin: 0; color: #ffffff; font-size: 18px; font-weight: bold; letter-spacing: 0.5px;">PharmacoZyme</p>
+              <p style="margin: 6px 0 0; color: #95d5b2; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;">Certificate of Achievement</p>
             </td>
           </tr>
+          <!-- Body -->
           <tr>
-            <td class="email-content" style="padding: 35px;">
-              <p style="margin: 0 0 20px; color: #1b4332; font-size: 16px; line-height: 1.5;" class="email-text">
-                Dear <strong style="color: #2d6a4f;">${name || "Participant"},</strong>
+            <td style="padding: 32px;">
+              <p style="margin: 0 0 16px; color: #1b4332; font-size: 15px;">Dear <strong>${name || "Participant"}</strong>,</p>
+              <p style="margin: 0 0 24px; color: #555555; font-size: 14px; line-height: 1.6;">
+                Congratulations! Your certificate has been generated. Click the button below to claim and download your official certificate.
               </p>
-              <p style="margin: 0 0 25px; color: #4a5568; font-size: 14px; line-height: 1.6;" class="email-text-muted">
-                Congratulations! Your certificate has been generated. Claim it now to access your official certificate.
-              </p>
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f0fdf4; border: 2px solid #95d5b2; border-radius: 12px; margin: 25px 0;" class="email-box">
+              <!-- Cert ID box -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f0fdf4; border: 1px solid #95d5b2; border-radius: 6px; margin-bottom: 24px;">
                 <tr>
-                  <td style="padding: 25px;">
-                    <p style="margin: 0; color: #6b7280; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;" class="email-text-muted">Certificate ID</p>
-                    <p style="margin: 8px 0 15px; color: #1b4332; font-size: 20px; font-weight: 700; font-family: monospace;" class="email-text">${certificateId || "N/A"}</p>
-                    <a href="${verificationLink}" style="display: inline-block; width: 100%; box-sizing: border-box; background: linear-gradient(135deg, #1b4332 0%, #52b788 100%); color: #ffffff; text-decoration: none; padding: 16px 24px; border-radius: 10px; font-size: 15px; font-weight: 700; text-align: center; letter-spacing: 0.5px;">
-                      🎓 Claim Your Certificate
+                  <td style="padding: 16px 20px;">
+                    <p style="margin: 0; color: #6b7280; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Certificate ID</p>
+                    <p style="margin: 6px 0 0; color: #1b4332; font-size: 18px; font-weight: bold; font-family: monospace;">${certificateId || "N/A"}</p>
+                  </td>
+                </tr>
+              </table>
+              <!-- CTA button -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 16px;">
+                <tr>
+                  <td align="center">
+                    <a href="${verificationLink}" style="display: inline-block; background-color: #1b4332; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-size: 15px; font-weight: bold;">
+                      Claim Your Certificate
                     </a>
-                    <p style="margin: 10px 0 0; color: #6b7280; font-size: 11px; text-align: center;">
-                      Or verify at: ${VERIFY_URL}?certId=${certificateId}
-                    </p>
                   </td>
                 </tr>
               </table>
-              ${emailMessage ? `
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9fafb; border-radius: 8px; margin: 20px 0;">
-                <tr>
-                  <td style="padding: 18px;">
-                    <p style="margin: 0; color: #4a5568; font-size: 13px; line-height: 1.5;" class="email-text-muted">
-                      ${emailMessage.replace(/\n/g, "<br>")}
-                    </p>
-                  </td>
-                </tr>
-              </table>
-              ` : ""}
+              <!-- Verify link -->
+              <p style="margin: 0 0 8px; color: #6b7280; font-size: 12px; text-align: center;">
+                Or verify your certificate at:<br>
+                <a href="${VERIFY_URL}?certId=${certificateId}" style="color: #2d6a4f; font-size: 12px;">${VERIFY_URL}?certId=${certificateId}</a>
+              </p>
               ${driveLink && !pdfBase64 ? `
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0;">
-                <tr>
-                  <td align="center">
-                    <a href="${driveLink}" style="display: inline-block; background: #f0fdf4; color: #1b4332; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; border: 1px solid #95d5b2;">
-                      📥 Download Certificate PDF
-                    </a>
-                  </td>
-                </tr>
-              </table>
+              <!-- Download link -->
+              <p style="margin: 16px 0 0; text-align: center;">
+                <a href="${driveLink}" style="color: #2d6a4f; font-size: 13px; text-decoration: underline;">Download Certificate PDF</a>
+              </p>
+              ` : ""}
+              ${emailMessage ? `
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+              <p style="margin: 0; color: #555555; font-size: 13px; line-height: 1.6;">${emailMessage.replace(/\n/g, "<br>")}</p>
               ` : ""}
             </td>
           </tr>
+          <!-- Footer -->
           <tr>
-            <td class="email-footer" style="background-color: #1b4332; padding: 25px 35px; border-radius: 0 0 16px 16px;">
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center">
-                    <p style="margin: 0; color: #95d5b2; font-size: 12px;">PharmacoZyme Certificate System</p>
-                    <p style="margin: 8px 0 0; color: #6b7280; font-size: 10px;">Sent to: ${email}</p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; margin-top: 15px;">
-          <tr>
-            <td align="center">
-              <p style="margin: 0; color: #9ca3af; font-size: 11px;">If you didn't expect this email, please ignore it.</p>
+            <td style="background-color: #f0fdf4; padding: 16px 32px; border-radius: 0 0 8px 8px; text-align: center; border-top: 1px solid #d1e7d8;">
+              <p style="margin: 0; color: #6b7280; font-size: 11px;">PharmacoZyme Certificate System &bull; Sent to: ${email}</p>
+              <p style="margin: 6px 0 0; color: #9ca3af; font-size: 10px;">If you did not expect this email, please ignore it.</p>
             </td>
           </tr>
         </table>
