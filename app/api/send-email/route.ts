@@ -88,11 +88,11 @@ function buildEmailHtml({ name, certificateId, verificationLink, emailMessage, d
           <tr>
             <td style="padding: 32px;">
               <p style="margin: 0 0 16px; color: #1b4332; font-size: 15px;">Dear <strong>${name || "Participant"}</strong>,</p>
-              <p style="margin: 0 0 24px; color: #555555; font-size: 14px; line-height: 1.6;">
-                Congratulations! Your certificate has been generated. Click the button below to claim and download your official certificate.
+              <p style="margin: 0 0 20px; color: #555555; font-size: 14px; line-height: 1.6;">
+                Congratulations! Your certificate has been generated. Follow the steps below to claim it.
               </p>
               <!-- Cert ID box -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f0fdf4; border: 1px solid #95d5b2; border-radius: 6px; margin-bottom: 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f0fdf4; border: 1px solid #95d5b2; border-radius: 6px; margin-bottom: 20px;">
                 <tr>
                   <td style="padding: 16px 20px;">
                     <p style="margin: 0; color: #6b7280; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Certificate ID</p>
@@ -100,29 +100,28 @@ function buildEmailHtml({ name, certificateId, verificationLink, emailMessage, d
                   </td>
                 </tr>
               </table>
-              <!-- CTA button -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 16px;">
+              <!-- Claim instructions -->
+              <p style="margin: 0 0 6px; color: #1b4332; font-size: 14px; font-weight: bold;">To claim your certificate:</p>
+              <p style="margin: 0 0 10px; color: #555555; font-size: 13px; line-height: 1.6;">Copy the link below and open it in your browser (or tap it if your email client makes it clickable):</p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9fafb; border: 1px solid #d1d5db; border-radius: 6px; margin-bottom: 20px;">
                 <tr>
-                  <td align="center">
-                    <a href="${verificationLink}" style="display: inline-block; background-color: #1b4332; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-size: 15px; font-weight: bold;">
-                      Claim Your Certificate
-                    </a>
+                  <td style="padding: 14px 16px;">
+                    <p style="margin: 0; color: #1b4332; font-size: 13px; font-family: monospace; word-break: break-all;">${verificationLink}</p>
                   </td>
                 </tr>
               </table>
               <!-- Verify link -->
-              <p style="margin: 0 0 8px; color: #6b7280; font-size: 12px; text-align: center;">
-                Or verify your certificate at:<br>
-                <a href="${VERIFY_URL}?certId=${certificateId}" style="color: #2d6a4f; font-size: 12px;">${VERIFY_URL}?certId=${certificateId}</a>
+              <p style="margin: 0 0 4px; color: #6b7280; font-size: 12px;">Verify your certificate:</p>
+              <p style="margin: 0 0 0; font-size: 12px;">
+                <a href="${VERIFY_URL}?certId=${certificateId}" style="color: #2d6a4f;">${VERIFY_URL}?certId=${certificateId}</a>
               </p>
               ${driveLink && !pdfBase64 ? `
-              <!-- Download link -->
-              <p style="margin: 16px 0 0; text-align: center;">
-                <a href="${driveLink}" style="color: #2d6a4f; font-size: 13px; text-decoration: underline;">Download Certificate PDF</a>
+              <p style="margin: 12px 0 0; font-size: 12px;">
+                <a href="${driveLink}" style="color: #2d6a4f;">Download Certificate PDF</a>
               </p>
               ` : ""}
               ${emailMessage ? `
-              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
               <p style="margin: 0; color: #555555; font-size: 13px; line-height: 1.6;">${emailMessage.replace(/\n/g, "<br>")}</p>
               ` : ""}
             </td>
