@@ -27,9 +27,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const appsScriptUrl = process.env.APPS_SCRIPT_URL;
+    const appsScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL;
     if (!appsScriptUrl) {
-      return NextResponse.json({ error: "APPS_SCRIPT_URL environment variable not set" }, { status: 500 });
+      return NextResponse.json({ error: "GOOGLE_APPS_SCRIPT_URL environment variable not set" }, { status: 500 });
     }
 
     const formData = await request.formData();
@@ -133,7 +133,7 @@ export async function DELETE(request: NextRequest) {
     const templateRef = doc(db, "certificateTemplates", id);
 
     // Delete the Drive file if one exists
-    const appsScriptUrl = process.env.APPS_SCRIPT_URL;
+    const appsScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL;
     const snap = await import("firebase/firestore").then(m => m.getDoc(templateRef));
     const driveFileId = snap.exists() ? snap.data()?.driveFileId : null;
     if (driveFileId && appsScriptUrl) {
