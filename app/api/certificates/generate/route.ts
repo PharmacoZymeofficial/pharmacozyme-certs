@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         try {
           const certId = `PZ-${new Date().getFullYear()}-${uuidv4().split('-')[0].toUpperCase()}`;
           const blockchainHash = `0x${uuidv4().replace(/-/g, "")}`;
-          const verificationUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://verify.pharmacozyme.com"}/verify/${certId}`;
+          const verificationUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://cert.pharmacozyme.com"}/verify/${certId}`;
           const certRef = doc(certificatesRef);
           const certificate = {
             databaseId, participantId: participant.id,
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
         try {
           const certId = `PZ-${new Date().getFullYear()}-${uuidv4().split('-')[0].toUpperCase()}`;
           const blockchainHash = `0x${uuidv4().replace(/-/g, "")}`;
-          const verificationUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://verify.pharmacozyme.com"}/verify/${certId}`;
+          const verificationUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://cert.pharmacozyme.com"}/verify/${certId}`;
 
           let driveLink = "";
           let driveFileId = "";

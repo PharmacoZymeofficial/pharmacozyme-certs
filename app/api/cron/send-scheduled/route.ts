@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://verify.pharmacozyme.com";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://cert.pharmacozyme.com";
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");

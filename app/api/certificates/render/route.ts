@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Draw QR code
-    const qrUrl = verificationUrl || `https://verify.pharmacozyme.com/claim?id=${certId}`;
+    const qrUrl = verificationUrl || `https://cert.pharmacozyme.com/claim?id=${certId}`;
     const qrSize = pos.qrPos.width;
     const qrX = pos.qrPos.x - qrSize / 2;
     const qrY = pos.qrPos.y - qrSize / 2;

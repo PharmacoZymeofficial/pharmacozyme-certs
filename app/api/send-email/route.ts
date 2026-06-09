@@ -55,7 +55,7 @@ function isQuotaError(err: any): boolean {
   return msg.includes("quota") || msg.includes("daily") || msg.includes("rate_limit") || msg.includes("too_many") || msg.includes("429");
 }
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://verify.pharmacozyme.com";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://cert.pharmacozyme.com";
 const VERIFY_URL = process.env.NEXT_PUBLIC_VERIFY_URL || `${BASE_URL}/verify`;
 const CLAIM_URL = `${BASE_URL}/claim`;
 const LOGO_URL = `${BASE_URL}/pharmacozyme-logo.png`;

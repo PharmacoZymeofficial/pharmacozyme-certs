@@ -88,7 +88,7 @@ const STEPS: {
     icon: "verified",
     title: "Step 6 — Public Verification",
     subtitle: "Anyone can verify a certificate instantly",
-    description: "Every QR code links to verify.pharmacozyme.com. Recipients and employers can scan it or enter the certificate ID to confirm authenticity, view recipient details, and download the PDF.",
+    description: "Every QR code links to cert.pharmacozyme.com. Recipients and employers can scan it or enter the certificate ID to confirm authenticity, view recipient details, and download the PDF.",
     color: "from-teal-700 to-teal-500",
     accent: "#14b8a6",
     Scene: SceneVerify,
