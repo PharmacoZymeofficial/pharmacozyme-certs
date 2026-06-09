@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
           .replace(/\[Name\]/g, name || "")
           .replace(/\[CertificateID\]/g, certificateId || "")
           .replace(/\[VerificationLink\]/g, VERIFY_URL + "?id=" + certificateId);
-        const verificationLink = `${CLAIM_URL}/${encodeURIComponent(certificateId)}`;
+        const verificationLink = `${CLAIM_URL}?id=${encodeURIComponent(certificateId)}`;
 
         try {
           await sendViaBrevoApi({
@@ -271,7 +271,7 @@ export async function POST(request: NextRequest) {
           .replace(/\[CertificateID\]/g, certificateId || "")
           .replace(/\[VerificationLink\]/g, VERIFY_URL + "?id=" + certificateId);
 
-        const verificationLink = `${CLAIM_URL}/${encodeURIComponent(certificateId)}`;
+        const verificationLink = `${CLAIM_URL}?id=${encodeURIComponent(certificateId)}`;
 
         // Build attachments if PDF provided
         const attachments = pdfBase64 ? [{
