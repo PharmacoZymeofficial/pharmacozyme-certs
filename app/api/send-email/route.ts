@@ -59,7 +59,7 @@ function isQuotaError(err: any): boolean {
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://cert.pharmacozyme.com";
 const VERIFY_URL = process.env.NEXT_PUBLIC_VERIFY_URL || `${BASE_URL}/verify`;
-const CLAIM_URL = `${BASE_URL}/claim`;
+const CLAIM_URL = `${BASE_URL}/certificate`;
 const LOGO_URL = `${BASE_URL}/pharmacozyme-logo.png`;
 
 function buildEmailHtml({ name, certificateId, verificationLink, emailMessage, driveLink, pdfBase64, email }: {
