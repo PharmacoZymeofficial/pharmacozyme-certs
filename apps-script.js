@@ -5,6 +5,7 @@
 const SHEET_ID = "YOUR_SHEET_ID"; // Will be set dynamically
 const DRIVE_FOLDER_NAME = "PZ Certificates";
 const DRIVE_FOLDER_ID = "1Bqi4XvZ3d3S0bcrSQhDazUGGGwjArqQW"; // Specific folder
+const TEMPLATES_FOLDER_ID = "1jgT-ANk6lrp1gE_OkYx2WY8tBB-arTWl"; // Certificate templates folder
 
 // ===== WEB APP HANDLERS =====
 
@@ -51,6 +52,12 @@ function doPost(e) {
         break;
       case "deleteRowsByCertIds":
         result = deleteRowsByCertIds(payload);
+        break;
+      case "uploadTemplate":
+        result = uploadTemplate(payload);
+        break;
+      case "deleteTemplate":
+        result = deleteTemplate(payload);
         break;
       case "getFolder":
         result = getFolder(payload);
@@ -299,6 +306,36 @@ function deleteRowsByCertIds(payload) {
   }
 
   return { success: true, deletedRows: rowsToDelete.length };
+}
+
+// ===== TEMPLATE OPERATIONS =====
+
+function uploadTemplate(payload) {
+  const { fileName, base64Data } = payload;
+  if (!fileName || !base64Data) throw new Error("fileName and base64Data are required");
+
+  const blob   = Utilities.newBlob(Utilities.base64Decode(base64Data), "application/pdf", fileName);
+  const folder = DriveApp.getFolderById(TEMPLATES_FOLDER_ID);
+  const file   = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+  return {
+    success    : true,
+    fileId     : file.getId(),
+    viewUrl    : "https://drive.google.com/file/d/" + file.getId() + "/view",
+    previewUrl : "https://drive.google.com/file/d/" + file.getId() + "/preview",
+  };
+}
+
+function deleteTemplate(payload) {
+  const { fileId } = payload;
+  if (!fileId) throw new Error("fileId is required");
+  try {
+    DriveApp.getFileById(fileId).setTrashed(true);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 }
 
 // ===== DRIVE OPERATIONS =====

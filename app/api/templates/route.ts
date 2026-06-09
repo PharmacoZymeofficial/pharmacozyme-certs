@@ -27,6 +27,11 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const appsScriptUrl = process.env.APPS_SCRIPT_URL;
+    if (!appsScriptUrl) {
+      return NextResponse.json({ error: "APPS_SCRIPT_URL environment variable not set" }, { status: 500 });
+    }
+
     const formData = await request.formData();
     const file = formData.get("file") as File;
     const name = formData.get("name") as string;
@@ -36,17 +41,26 @@ export async function POST(request: NextRequest) {
     if (!file || !name) {
       return NextResponse.json({ error: "File and name are required" }, { status: 400 });
     }
-
     if (!file.type.includes("pdf")) {
       return NextResponse.json({ error: "Only PDF files are allowed" }, { status: 400 });
     }
-
-    if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: "File size must be less than 5MB" }, { status: 400 });
+    if (file.size > 20 * 1024 * 1024) {
+      return NextResponse.json({ error: "File size must be less than 20MB" }, { status: 400 });
     }
 
+    // Upload to Google Drive via Apps Script
     const arrayBuffer = await file.arrayBuffer();
-    const pdfBase64 = Buffer.from(arrayBuffer).toString("base64");
+    const base64Data = Buffer.from(arrayBuffer).toString("base64");
+
+    const driveRes = await fetch(appsScriptUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "uploadTemplate", fileName: file.name, base64Data }),
+    });
+    const driveData = await driveRes.json();
+    if (!driveData.success) {
+      throw new Error(driveData.error || "Drive upload failed");
+    }
 
     const templatesRef = collection(db, "certificateTemplates");
     const newTemplate = {
@@ -56,7 +70,9 @@ export async function POST(request: NextRequest) {
       originalName: file.name,
       fileType: file.type || "application/pdf",
       fileSize: file.size,
-      pdfBase64,
+      driveFileId: driveData.fileId,
+      fileUrl: driveData.previewUrl,
+      viewUrl: driveData.viewUrl,
       isActive: true,
       usageCount: 0,
       positions: {
@@ -69,15 +85,10 @@ export async function POST(request: NextRequest) {
 
     const docRef = await addDoc(templatesRef, newTemplate);
 
-    // Store the serving URL so the template card knows where to load it from
-    const fileUrl = `/api/templates/${docRef.id}/pdf`;
-    await updateDoc(doc(templatesRef, docRef.id), { fileUrl });
-
-    const { pdfBase64: _, ...templateMeta } = newTemplate;
     return NextResponse.json({
       success: true,
       id: docRef.id,
-      template: { id: docRef.id, ...templateMeta, fileUrl },
+      template: { id: docRef.id, ...newTemplate },
     });
   } catch (error: any) {
     console.error("Error creating template:", error);
@@ -120,6 +131,19 @@ export async function DELETE(request: NextRequest) {
     }
 
     const templateRef = doc(db, "certificateTemplates", id);
+
+    // Delete the Drive file if one exists
+    const appsScriptUrl = process.env.APPS_SCRIPT_URL;
+    const snap = await import("firebase/firestore").then(m => m.getDoc(templateRef));
+    const driveFileId = snap.exists() ? snap.data()?.driveFileId : null;
+    if (driveFileId && appsScriptUrl) {
+      await fetch(appsScriptUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "deleteTemplate", fileId: driveFileId }),
+      }).catch(() => {}); // non-fatal
+    }
+
     await deleteDoc(templateRef);
 
     return NextResponse.json({ success: true });
