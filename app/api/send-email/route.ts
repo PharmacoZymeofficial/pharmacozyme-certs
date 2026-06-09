@@ -60,9 +60,9 @@ function isQuotaError(err: any): boolean {
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://cert.pharmacozyme.com";
 const VERIFY_URL = process.env.NEXT_PUBLIC_VERIFY_URL || `${BASE_URL}/verify`;
 
-function buildEmailHtml({ name, certificateId, emailMessage, driveLink, pdfBase64, email }: {
+function buildEmailHtml({ name, certificateId, emailMessage, driveLink, pdfBase64, email, orgName }: {
   name: string; certificateId: string; emailMessage: string;
-  driveLink?: string; pdfBase64?: string; email: string;
+  driveLink?: string; pdfBase64?: string; email: string; orgName: string;
 }) {
   return `<!DOCTYPE html>
 <html>
@@ -78,7 +78,7 @@ function buildEmailHtml({ name, certificateId, emailMessage, driveLink, pdfBase6
           <!-- Header -->
           <tr>
             <td style="background-color: #1b4332; padding: 24px 32px; border-radius: 8px 8px 0 0; text-align: center;">
-              <p style="margin: 0; color: #ffffff; font-size: 18px; font-weight: bold; letter-spacing: 0.5px;">PharmacoZyme</p>
+              <p style="margin: 0; color: #ffffff; font-size: 18px; font-weight: bold; letter-spacing: 0.5px;">${orgName}</p>
               <p style="margin: 6px 0 0; color: #95d5b2; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;">Certificate of Achievement</p>
             </td>
           </tr>
@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
             toEmail: email,
             toName: name,
             subject: subject || "Your Certificate from PharmacoZyme",
-            html: buildEmailHtml({ name, certificateId, emailMessage, driveLink, pdfBase64, email }),
+            html: buildEmailHtml({ name, certificateId, emailMessage, driveLink, pdfBase64, email, orgName: sender.name }),
             ...(pdfBase64 ? { attachmentBase64: pdfBase64, attachmentName: `Certificate_${certificateId}.pdf` } : {}),
           });
           results.push({ email, success: true });
@@ -275,7 +275,7 @@ export async function POST(request: NextRequest) {
           to: email,
           subject: subject || "Your Certificate from PharmacoZyme",
           attachments,
-          html: buildEmailHtml({ name, certificateId, emailMessage, driveLink, pdfBase64, email }),
+          html: buildEmailHtml({ name, certificateId, emailMessage, driveLink, pdfBase64, email, orgName: senderName || "PharmacoZyme" }),
           headers: {
             "List-Unsubscribe": "<mailto:pharmacozymeofficial@gmail.com?subject=Unsubscribe>",
             "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
