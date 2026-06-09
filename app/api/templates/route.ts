@@ -56,10 +56,24 @@ export async function POST(request: NextRequest) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "uploadTemplate", fileName: file.name, base64Data }),
+      redirect: "follow",
     });
-    const driveData = await driveRes.json();
+
+    if (!driveRes.ok) {
+      const errText = await driveRes.text();
+      throw new Error(`Apps Script HTTP ${driveRes.status}: ${errText.substring(0, 300)}`);
+    }
+
+    const driveText = await driveRes.text();
+    let driveData: any;
+    try {
+      driveData = JSON.parse(driveText);
+    } catch {
+      throw new Error(`Apps Script non-JSON response: ${driveText.substring(0, 300)}`);
+    }
+
     if (!driveData.success) {
-      throw new Error(driveData.error || "Drive upload failed");
+      throw new Error(`Drive upload failed: ${driveData.error || JSON.stringify(driveData)}`);
     }
 
     const templatesRef = collection(db, "certificateTemplates");

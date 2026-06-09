@@ -13,6 +13,25 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const data = snap.data();
+
+    // Drive-stored template: proxy raw bytes so pdf-lib and iframe both work
+    if (data.driveFileId) {
+      const downloadUrl = `https://drive.google.com/uc?export=download&id=${data.driveFileId}`;
+      const driveRes = await fetch(downloadUrl, { redirect: "follow" });
+      if (!driveRes.ok) {
+        return NextResponse.json({ error: "Failed to fetch template from Drive" }, { status: 502 });
+      }
+      const pdfBytes = await driveRes.arrayBuffer();
+      return new NextResponse(pdfBytes, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${data.originalName || "template.pdf"}"`,
+          "Cache-Control": "public, max-age=3600",
+        },
+      });
+    }
+
+    // Legacy: base64 stored in Firestore
     if (!data.pdfBase64) {
       return NextResponse.json({ error: "No PDF data" }, { status: 404 });
     }

@@ -73,12 +73,25 @@ export async function POST(request: NextRequest) {
 
     // Load template from Firestore
     const snap = await getDoc(doc(db, "certificateTemplates", templateId));
-    if (!snap.exists() || !snap.data().pdfBase64) {
+    if (!snap.exists()) {
       return NextResponse.json({ error: "Template not found" }, { status: 404 });
     }
     const templateData = snap.data();
-    const buf = Buffer.from(templateData.pdfBase64, "base64");
-    const templateBytes = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+
+    let templateBytes: ArrayBuffer;
+    if (templateData.driveFileId) {
+      const downloadUrl = `https://drive.google.com/uc?export=download&id=${templateData.driveFileId}`;
+      const driveRes = await fetch(downloadUrl, { redirect: "follow" });
+      if (!driveRes.ok) {
+        return NextResponse.json({ error: "Failed to fetch template from Drive" }, { status: 502 });
+      }
+      templateBytes = await driveRes.arrayBuffer();
+    } else if (templateData.pdfBase64) {
+      const buf = Buffer.from(templateData.pdfBase64, "base64");
+      templateBytes = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+    } else {
+      return NextResponse.json({ error: "Template has no PDF data" }, { status: 404 });
+    }
 
     const pdfDoc = await PDFDocument.load(templateBytes);
     pdfDoc.registerFontkit(fontkit);

@@ -61,13 +61,24 @@ export async function POST(request: NextRequest) {
     let templateBytes: ArrayBuffer;
 
     if (templateId) {
-      // Fetch PDF from Firestore directly
       const snap = await getDoc(doc(db, "certificateTemplates", templateId));
-      if (!snap.exists() || !snap.data().pdfBase64) {
+      if (!snap.exists()) {
         return NextResponse.json({ error: "Template not found" }, { status: 404 });
       }
-      const buf = Buffer.from(snap.data().pdfBase64, "base64");
-      templateBytes = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+      const tData = snap.data();
+      if (tData.driveFileId) {
+        const downloadUrl = `https://drive.google.com/uc?export=download&id=${tData.driveFileId}`;
+        const driveRes = await fetch(downloadUrl, { redirect: "follow" });
+        if (!driveRes.ok) {
+          return NextResponse.json({ error: "Failed to fetch template from Drive" }, { status: 502 });
+        }
+        templateBytes = await driveRes.arrayBuffer();
+      } else if (tData.pdfBase64) {
+        const buf = Buffer.from(tData.pdfBase64, "base64");
+        templateBytes = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+      } else {
+        return NextResponse.json({ error: "Template has no PDF data" }, { status: 404 });
+      }
     } else if (templateUrl) {
       // Legacy: fetch from URL
       let fetchUrl = templateUrl;
