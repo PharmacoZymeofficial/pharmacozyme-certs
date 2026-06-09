@@ -102,11 +102,11 @@ function buildEmailHtml({ name, certificateId, verificationLink, emailMessage, d
               </table>
               <!-- Claim instructions -->
               <p style="margin: 0 0 6px; color: #1b4332; font-size: 14px; font-weight: bold;">To claim your certificate:</p>
-              <p style="margin: 0 0 10px; color: #555555; font-size: 13px; line-height: 1.6;">Copy the link below and open it in your browser (or tap it if your email client makes it clickable):</p>
+              <p style="margin: 0 0 10px; color: #555555; font-size: 13px; line-height: 1.6;">Click the link below or copy and paste it into your browser:</p>
               <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9fafb; border: 1px solid #d1d5db; border-radius: 6px; margin-bottom: 20px;">
                 <tr>
                   <td style="padding: 14px 16px;">
-                    <p style="margin: 0; color: #1b4332; font-size: 13px; font-family: monospace; word-break: break-all;">${verificationLink}</p>
+                    <a href="${verificationLink}" style="color: #1b4332; font-size: 13px; font-family: monospace; word-break: break-all; text-decoration: underline;">${verificationLink}</a>
                   </td>
                 </tr>
               </table>
