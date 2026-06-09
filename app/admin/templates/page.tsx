@@ -405,7 +405,7 @@ export default function TemplatesPage() {
         fetchTemplates();
         alert("Template uploaded successfully!");
       } else {
-        alert(data.error || "Failed to upload template");
+        alert((data.error || "Failed to upload template") + (data.details ? `\n\nDetails: ${data.details}` : ""));
       }
     } catch (err) {
       console.error("Upload error:", err);
