@@ -59,11 +59,9 @@ function isQuotaError(err: any): boolean {
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://cert.pharmacozyme.com";
 const VERIFY_URL = process.env.NEXT_PUBLIC_VERIFY_URL || `${BASE_URL}/verify`;
-const CLAIM_URL = `${BASE_URL}/certificate`;
-const LOGO_URL = `${BASE_URL}/pharmacozyme-logo.png`;
 
-function buildEmailHtml({ name, certificateId, verificationLink, emailMessage, driveLink, pdfBase64, email }: {
-  name: string; certificateId: string; verificationLink: string; emailMessage: string;
+function buildEmailHtml({ name, certificateId, emailMessage, driveLink, pdfBase64, email }: {
+  name: string; certificateId: string; emailMessage: string;
   driveLink?: string; pdfBase64?: string; email: string;
 }) {
   return `<!DOCTYPE html>
@@ -89,7 +87,7 @@ function buildEmailHtml({ name, certificateId, verificationLink, emailMessage, d
             <td style="padding: 32px;">
               <p style="margin: 0 0 16px; color: #1b4332; font-size: 15px;">Dear <strong>${name || "Participant"}</strong>,</p>
               <p style="margin: 0 0 20px; color: #555555; font-size: 14px; line-height: 1.6;">
-                Congratulations! Your certificate has been generated. Follow the steps below to claim it.
+                Congratulations! Your certificate has been issued. Please find the details below.
               </p>
               <!-- Cert ID box -->
               <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f0fdf4; border: 1px solid #95d5b2; border-radius: 6px; margin-bottom: 20px;">
@@ -100,26 +98,20 @@ function buildEmailHtml({ name, certificateId, verificationLink, emailMessage, d
                   </td>
                 </tr>
               </table>
-              <!-- Claim instructions -->
-              <p style="margin: 0 0 6px; color: #1b4332; font-size: 14px; font-weight: bold;">To claim your certificate:</p>
-              <p style="margin: 0 0 10px; color: #555555; font-size: 13px; line-height: 1.6;">Click the link below or copy and paste it into your browser:</p>
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9fafb; border: 1px solid #d1d5db; border-radius: 6px; margin-bottom: 20px;">
-                <tr>
-                  <td style="padding: 14px 16px;">
-                    <a href="${verificationLink}" style="color: #1b4332; font-size: 13px; font-family: monospace; word-break: break-all; text-decoration: underline;">${verificationLink}</a>
-                  </td>
-                </tr>
-              </table>
+              ${driveLink && !pdfBase64 ? `
+              <!-- Primary: Download PDF -->
+              <p style="margin: 0 0 8px; color: #1b4332; font-size: 14px; font-weight: bold;">Download your certificate:</p>
+              <p style="margin: 0 0 20px; font-size: 14px;">
+                <a href="${driveLink}" style="color: #1b4332; font-weight: bold; text-decoration: underline;">Download Certificate PDF</a>
+              </p>
+              ` : pdfBase64 ? `
+              <p style="margin: 0 0 20px; color: #555555; font-size: 14px;">Your certificate PDF is attached to this email.</p>
+              ` : ""}
               <!-- Verify link -->
-              <p style="margin: 0 0 4px; color: #6b7280; font-size: 12px;">Verify your certificate:</p>
-              <p style="margin: 0 0 0; font-size: 12px;">
+              <p style="margin: 0 0 4px; color: #6b7280; font-size: 12px;">Verify your certificate online:</p>
+              <p style="margin: 0; font-size: 12px;">
                 <a href="${VERIFY_URL}?certId=${certificateId}" style="color: #2d6a4f;">${VERIFY_URL}?certId=${certificateId}</a>
               </p>
-              ${driveLink && !pdfBase64 ? `
-              <p style="margin: 12px 0 0; font-size: 12px;">
-                <a href="${driveLink}" style="color: #2d6a4f;">Download Certificate PDF</a>
-              </p>
-              ` : ""}
               ${emailMessage ? `
               <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
               <p style="margin: 0; color: #555555; font-size: 13px; line-height: 1.6;">${emailMessage.replace(/\n/g, "<br>")}</p>
@@ -173,8 +165,7 @@ export async function POST(request: NextRequest) {
         let emailMessage = (message || "")
           .replace(/\[Name\]/g, name || "")
           .replace(/\[CertificateID\]/g, certificateId || "")
-          .replace(/\[VerificationLink\]/g, VERIFY_URL + "?id=" + certificateId);
-        const verificationLink = `${CLAIM_URL}?certId=${encodeURIComponent(certificateId)}`;
+          .replace(/\[VerificationLink\]/g, VERIFY_URL + "?certId=" + certificateId);
 
         try {
           await sendViaBrevoApi({
@@ -184,7 +175,7 @@ export async function POST(request: NextRequest) {
             toEmail: email,
             toName: name,
             subject: subject || "Your Certificate from PharmacoZyme",
-            html: buildEmailHtml({ name, certificateId, verificationLink, emailMessage, driveLink, pdfBase64, email }),
+            html: buildEmailHtml({ name, certificateId, emailMessage, driveLink, pdfBase64, email }),
             ...(pdfBase64 ? { attachmentBase64: pdfBase64, attachmentName: `Certificate_${certificateId}.pdf` } : {}),
           });
           results.push({ email, success: true });
@@ -270,9 +261,7 @@ export async function POST(request: NextRequest) {
         let emailMessage = message
           .replace(/\[Name\]/g, name || "")
           .replace(/\[CertificateID\]/g, certificateId || "")
-          .replace(/\[VerificationLink\]/g, VERIFY_URL + "?id=" + certificateId);
-
-        const verificationLink = `${CLAIM_URL}?certId=${encodeURIComponent(certificateId)}`;
+          .replace(/\[VerificationLink\]/g, VERIFY_URL + "?certId=" + certificateId);
 
         // Build attachments if PDF provided
         const attachments = pdfBase64 ? [{
@@ -286,7 +275,7 @@ export async function POST(request: NextRequest) {
           to: email,
           subject: subject || "Your Certificate from PharmacoZyme",
           attachments,
-          html: buildEmailHtml({ name, certificateId, verificationLink, emailMessage, driveLink, pdfBase64, email }),
+          html: buildEmailHtml({ name, certificateId, emailMessage, driveLink, pdfBase64, email }),
           headers: {
             "List-Unsubscribe": "<mailto:pharmacozymeofficial@gmail.com?subject=Unsubscribe>",
             "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
