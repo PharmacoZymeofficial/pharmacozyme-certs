@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
+import { ClaimContent } from "../ClaimContent";
 
 export default async function ClaimByIdPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  redirect(`/claim?id=${encodeURIComponent(id)}`);
+  return <ClaimContent certId={decodeURIComponent(id)} />;
 }

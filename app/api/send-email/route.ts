@@ -28,8 +28,6 @@ async function sendViaBrevoApi({
     to: [{ email: toEmail, ...(toName ? { name: toName } : {}) }],
     subject,
     htmlContent: html,
-    trackClicks: false,
-    trackOpens: false,
     headers: {
       "List-Unsubscribe": "<mailto:pharmacozymeofficial@gmail.com?subject=Unsubscribe>",
       "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
