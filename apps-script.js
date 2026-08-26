@@ -7,6 +7,30 @@ const DRIVE_FOLDER_NAME = "PZ Certificates";
 const DRIVE_FOLDER_ID = "1Bqi4XvZ3d3S0bcrSQhDazUGGGwjArqQW"; // Specific folder
 const TEMPLATES_FOLDER_ID = "1jgT-ANk6lrp1gE_OkYx2WY8tBB-arTWl"; // Certificate templates folder
 
+// ===== AUTHORIZATION =====
+// Run this ONE function manually from the Apps Script editor (select "grantPermissions"
+// in the function dropdown, click ▶ Run) any time you see "Access denied: DriveApp" or
+// similar from the deployed web app. Deploying a web app does NOT grant it permissions —
+// only running a function yourself, once, and approving the OAuth consent screen does.
+// This touches every service the script uses (Drive, Sheets) so one approval covers all
+// of them; it's read-only / self-cleaning and safe to run repeatedly.
+function grantPermissions() {
+  // Drive: read access + the specific folders this script writes into.
+  DriveApp.getRootFolder();
+  DriveApp.getFolderById(DRIVE_FOLDER_ID);
+  DriveApp.getFolderById(TEMPLATES_FOLDER_ID);
+
+  // Drive write: create + immediately trash a throwaway file (no lasting trace).
+  const probe = DriveApp.createFile("permission-check.tmp", "ok");
+  probe.setTrashed(true);
+
+  // Sheets: create + immediately trash a throwaway spreadsheet.
+  const sheetProbe = SpreadsheetApp.create("permission-check.tmp");
+  DriveApp.getFileById(sheetProbe.getId()).setTrashed(true);
+
+  Logger.log("All permissions granted successfully.");
+}
+
 // ===== WEB APP HANDLERS =====
 
 function doPost(e) {
@@ -116,7 +140,13 @@ function createNewSheet(payload) {
   
   // Create new spreadsheet
   const spreadsheet = SpreadsheetApp.create(databaseName + " - Certificates");
-  DriveApp.getFileById(spreadsheet.getId()).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT);
+  // Best-effort: a domain sharing policy can reject "anyone with the link" even
+  // though the spreadsheet itself was created fine — don't let that undo the create.
+  try {
+    DriveApp.getFileById(spreadsheet.getId()).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT);
+  } catch (sharingErr) {
+    console.error("Sheet created but sharing failed:", sharingErr.message);
+  }
   const ssId = spreadsheet.getId();
   
   // Create tabs for each sub-database
@@ -336,7 +366,13 @@ function uploadTemplate(payload) {
   const blob   = Utilities.newBlob(Utilities.base64Decode(base64Data), "application/pdf", fileName);
   const folder = DriveApp.getFolderById(TEMPLATES_FOLDER_ID);
   const file   = folder.createFile(blob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  // Best-effort: the file is already uploaded at this point — a sharing-policy
+  // rejection must not turn a successful upload into a reported failure.
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (sharingErr) {
+    console.error("Template uploaded but sharing failed:", sharingErr.message);
+  }
 
   return {
     success    : true,
@@ -374,10 +410,16 @@ function uploadPDF(payload) {
   
   // Upload to Drive
   const file = folder.createFile(pdfBlob);
-  
-  // Make it publicly accessible
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  
+
+  // Best-effort: the certificate PDF is already uploaded at this point — a
+  // sharing-policy rejection must not turn a successful upload into a reported
+  // failure (this was silently losing Drive links during bulk generation too).
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (sharingErr) {
+    console.error("Certificate PDF uploaded but sharing failed:", sharingErr.message);
+  }
+
   return {
     success: true,
     fileId: file.getId(),
