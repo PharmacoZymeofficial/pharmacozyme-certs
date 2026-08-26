@@ -125,6 +125,10 @@ export async function POST(request: NextRequest) {
       }
 
       let synced = 0;
+      // Fixed columns the app already understands — anything else in a sheet row
+      // (e.g. "Designation", "Start Date") is captured as a per-participant custom
+      // field so templates can bind a placeholder to it at generation time.
+      const KNOWN_KEYS = new Set(["name", "email", "certificateId", "certificateUrl", "status", "issueDate", "emailSent", "driveLink", "createdAt"]);
 
       for (const p of result.data) {
         if (!p.name) continue;
@@ -133,6 +137,13 @@ export async function POST(request: NextRequest) {
         const emailKey = (p.email || "").toLowerCase().trim();
         const key = `${nameKey}_${emailKey}`;
         const existing = existingByKey.get(key);
+
+        const customFields: Record<string, string> = {};
+        for (const [k, v] of Object.entries(p)) {
+          if (!KNOWN_KEYS.has(k) && v !== undefined && v !== null && String(v).trim() !== "") {
+            customFields[k] = String(v);
+          }
+        }
 
         const fields = {
           name: p.name,
@@ -143,6 +154,7 @@ export async function POST(request: NextRequest) {
           issueDate: p.issueDate || "",
           emailSent: p.emailSent || false,
           driveLink: p.driveLink || "",
+          customFields,
         };
 
         if (existing) {

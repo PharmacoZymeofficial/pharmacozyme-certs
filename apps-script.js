@@ -257,22 +257,41 @@ function syncData(payload) {
     if (lastRow <= 1) {
       return { success: true, data: [] };
     }
-    
-    const range = sheet.getRange(2, 1, lastRow - 1, 9);
+
+    // Columns beyond the fixed 9 (J, K, ...) are admin-added custom fields
+    // (e.g. "Designation", "Start Date") — read by their header text so
+    // certificate templates can bind a placeholder to that column name.
+    const lastCol = sheet.getLastColumn();
+    const customHeaders = lastCol > 9 ? sheet.getRange(1, 10, 1, lastCol - 9).getValues()[0] : [];
+
+    const range = sheet.getRange(2, 1, lastRow - 1, lastCol);
     const values = range.getValues();
-    
-    const data = values.map(row => ({
-      certificateId: row[0],
-      name: row[1],
-      email: row[2],
-      certificateUrl: row[3],
-      status: row[4],
-      issueDate: row[5],
-      emailSent: row[6] === "Yes",
-      driveLink: row[7],
-      createdAt: row[8]
-    }));
-    
+
+    const data = values.map(row => {
+      const rec = {
+        certificateId: row[0],
+        name: row[1],
+        email: row[2],
+        certificateUrl: row[3],
+        status: row[4],
+        issueDate: row[5],
+        emailSent: row[6] === "Yes",
+        driveLink: row[7],
+        createdAt: row[8]
+      };
+      customHeaders.forEach(function (header, i) {
+        const key = String(header || "").trim();
+        if (!key) return;
+        const cell = row[9 + i];
+        // Google Sheets returns date-formatted cells as JS Date objects — format
+        // them plainly instead of letting JSON.stringify dump a raw ISO timestamp.
+        rec[key] = Object.prototype.toString.call(cell) === "[object Date]"
+          ? Utilities.formatDate(cell, Session.getScriptTimeZone(), "MMM d, yyyy")
+          : cell;
+      });
+      return rec;
+    });
+
     return { success: true, data };
   }
   

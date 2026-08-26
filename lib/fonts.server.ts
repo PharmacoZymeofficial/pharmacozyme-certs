@@ -9,7 +9,10 @@ function isWOFF(bytes: Uint8Array): boolean {
 
 export async function loadFontBytes(fontName: string): Promise<Uint8Array | null> {
   if (!fontName) return null;
-  if (fontBytesCache.has(fontName)) return fontBytesCache.get(fontName)!;
+  // Only ever cache successful loads — a transient network blip on one request
+  // must not permanently poison this font for the rest of the warm lambda's life.
+  const cached = fontBytesCache.get(fontName);
+  if (cached) return cached;
 
   const fileName = fontName.replace(/ /g, "_") + ".ttf";
 
@@ -70,6 +73,6 @@ export async function loadFontBytes(fontName: string): Promise<Uint8Array | null
     } catch { continue; }
   }
 
-  fontBytesCache.set(fontName, null);
+  console.error(`[fonts] Failed to load "${fontName}" from local file, own origin, or Google Fonts — falling back to Helvetica for this request.`);
   return null;
 }

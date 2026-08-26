@@ -160,13 +160,17 @@ export async function POST(request: NextRequest) {
           
           // If participant with same name + email exists, keep their data as is
           if (existingParticipant) {
-            // Update only if name changed (preserve all certificate data)
-            if (existingParticipant.name !== importName || existingParticipant.email !== importEmail) {
+            // Re-import always refreshes custom fields (e.g. Designation, Start Date)
+            // since those are expected to be re-synced from the source sheet/file.
+            const nameChanged = existingParticipant.name !== importName || existingParticipant.email !== importEmail;
+            const hasNewCustomFields = participant.customFields && Object.keys(participant.customFields).length > 0;
+            if (nameChanged || hasNewCustomFields) {
               const existingDoc = existingSnap.docs.find(d => d.id === existingParticipant.id);
               if (existingDoc) {
                 await updateDoc(existingDoc.ref, {
                   name: importName,
                   email: importEmail,
+                  ...(hasNewCustomFields ? { customFields: participant.customFields } : {}),
                 });
               }
             }
@@ -185,6 +189,7 @@ export async function POST(request: NextRequest) {
               issueDate: participant.issueDate || "",
               status: importedCertId ? "generated" : "pending",
               createdAt: new Date().toISOString(),
+              customFields: participant.customFields || {},
             };
             const docRef = await addDoc(participantsRef, newParticipant);
             addedParticipants.push({ id: docRef.id, ...newParticipant });

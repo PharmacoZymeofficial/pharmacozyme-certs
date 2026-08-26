@@ -52,24 +52,38 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const base64Data = Buffer.from(arrayBuffer).toString("base64");
 
-    const driveRes = await fetch(appsScriptUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "uploadTemplate", fileName: file.name, base64Data }),
-      redirect: "follow",
-    });
+    const uploadOnce = async () => {
+      const res = await fetch(appsScriptUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "uploadTemplate", fileName: file.name, base64Data }),
+        redirect: "follow",
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        throw new Error(`Apps Script HTTP ${res.status}: ${text.substring(0, 300)}`);
+      }
+      try {
+        return JSON.parse(text);
+      } catch {
+        if (text.includes("<!DOCTYPE") || text.includes("<html")) {
+          throw new Error(
+            "The certificate-storage service (Google Apps Script) returned an error page instead of a result. " +
+            "This is usually transient — please try uploading again. If it keeps happening, the Apps Script " +
+            "deployment may need to be redeployed (Deploy → New deployment) or its access set to 'Anyone'."
+          );
+        }
+        throw new Error(`Apps Script returned an unexpected response: ${text.substring(0, 150)}`);
+      }
+    };
 
-    if (!driveRes.ok) {
-      const errText = await driveRes.text();
-      throw new Error(`Apps Script HTTP ${driveRes.status}: ${errText.substring(0, 300)}`);
-    }
-
-    const driveText = await driveRes.text();
     let driveData: any;
     try {
-      driveData = JSON.parse(driveText);
-    } catch {
-      throw new Error(`Apps Script non-JSON response: ${driveText.substring(0, 300)}`);
+      driveData = await uploadOnce();
+    } catch (firstErr) {
+      // One retry — Apps Script cold starts / transient hiccups are common and self-resolve.
+      await new Promise(r => setTimeout(r, 1500));
+      driveData = await uploadOnce();
     }
 
     if (!driveData.success) {

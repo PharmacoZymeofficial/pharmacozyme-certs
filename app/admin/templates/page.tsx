@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { AVAILABLE_FONTS, getGoogleFontsUrl } from "@/lib/fonts";
 
 interface PositionConfig {
@@ -9,17 +9,26 @@ interface PositionConfig {
   size?: number;
   color?: string;
   font?: string;
+  bg?: string;           // background box color behind the text, if set
+  bgPadding?: number;    // pt of padding around the text inside the background box
+  letterSpacing?: number; // extra pt added between characters
 }
 
 interface CustomElement {
   id: string;
   label: string; // display name in editor
-  text: string;  // static text drawn on the certificate
+  text: string;  // static text drawn on the certificate (ignored when sourceField is set)
   x: number;
   y: number;
   size?: number;
   color?: string;
   font?: string;
+  bg?: string;
+  bgPadding?: number;
+  letterSpacing?: number;
+  // When set, the printed value comes from this participant column (e.g. "Designation")
+  // instead of the literal `text` — populated via Google Sheets sync or CSV/Excel import.
+  sourceField?: string;
 }
 
 interface Positions {
@@ -66,6 +75,9 @@ export default function TemplatesPage() {
     name: "Dr John Doe Wright",
     certId: "2026-PZ-CRS-0001",
   });
+  // Sample values for bound custom-text elements (keyed by column name), used only
+  // to preview what a real Sheet/CSV value would look like on the certificate.
+  const [testFieldValues, setTestFieldValues] = useState<Record<string, string>>({});
   const isFixedElement = (id: string | null): id is 'name' | 'certId' | 'qr' => id === 'name' || id === 'certId' || id === 'qr';
   const [activeDrag, setActiveDrag] = useState<'name' | 'certId' | 'qr' | string | null>(null);
   const [activeResize, setActiveResize] = useState<'name' | 'certId' | 'qr' | string | null>(null);
@@ -82,6 +94,69 @@ export default function TemplatesPage() {
   // Tracks rendered pixel size of the preview container for accurate marker scaling
   const containerSizeRef = useRef<{ width: number; height: number }>({ width: 500, height: 707 });
 
+  // ── Undo/redo ────────────────────────────────────────────────────────────
+  // A drag or slider fires many rapid updates — each burst collapses into ONE
+  // undo step (committed after a short quiet period) rather than one per pixel.
+  const positionsRef = useRef(positions);
+  useEffect(() => { positionsRef.current = positions; }, [positions]);
+  const undoStackRef = useRef<Positions[]>([]);
+  const redoStackRef = useRef<Positions[]>([]);
+  const pendingSnapshotRef = useRef<Positions | null>(null);
+  const commitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  // Suppresses the auto-preview round-trip until the admin actually changes something
+  // (avoids re-rendering a preview PDF the instant a template is opened for editing).
+  const hasEditedRef = useRef(false);
+
+  const resetHistory = () => {
+    if (commitTimerRef.current) clearTimeout(commitTimerRef.current);
+    undoStackRef.current = [];
+    redoStackRef.current = [];
+    pendingSnapshotRef.current = null;
+    hasEditedRef.current = false;
+    setCanUndo(false);
+    setCanRedo(false);
+  };
+
+  const updatePositions = useCallback((updater: Positions | ((prev: Positions) => Positions)) => {
+    hasEditedRef.current = true;
+    if (pendingSnapshotRef.current === null) pendingSnapshotRef.current = positionsRef.current;
+    if (commitTimerRef.current) clearTimeout(commitTimerRef.current);
+    commitTimerRef.current = setTimeout(() => {
+      if (pendingSnapshotRef.current) {
+        undoStackRef.current.push(pendingSnapshotRef.current);
+        if (undoStackRef.current.length > 50) undoStackRef.current.shift();
+        redoStackRef.current = [];
+        setCanUndo(true);
+        setCanRedo(false);
+      }
+      pendingSnapshotRef.current = null;
+    }, 500);
+    setPositions(updater);
+  }, []);
+
+  const undo = useCallback(() => {
+    if (commitTimerRef.current) { clearTimeout(commitTimerRef.current); commitTimerRef.current = null; }
+    const snapshot = pendingSnapshotRef.current ?? undoStackRef.current.pop();
+    if (!snapshot) return;
+    pendingSnapshotRef.current = null;
+    redoStackRef.current.push(positionsRef.current);
+    setPositions(snapshot);
+    setCanRedo(true);
+    setCanUndo(undoStackRef.current.length > 0);
+  }, []);
+
+  const redo = useCallback(() => {
+    const snapshot = redoStackRef.current.pop();
+    if (!snapshot) return;
+    undoStackRef.current.push(positionsRef.current);
+    setPositions(snapshot);
+    setCanUndo(true);
+    setCanRedo(redoStackRef.current.length > 0);
+  }, []);
+
   // Lock body scroll when modal is open
   useEffect(() => {
     if (previewPdfUrl || editingTemplate) {
@@ -94,10 +169,10 @@ export default function TemplatesPage() {
     };
   }, [previewPdfUrl, editingTemplate]);
 
-  const generatePreview = async () => {
+  const generatePreview = async (silent = false) => {
     if (!editingTemplate) return;
     setGeneratingPreview(true);
-    
+
     try {
       const response = await fetch("/api/templates/preview", {
         method: "POST",
@@ -106,27 +181,39 @@ export default function TemplatesPage() {
           templateId: editingTemplate.id,
           templatePositions: positions,
           testData: { name: testData.name, certId: testData.certId },
+          testFieldValues,
         }),
       });
-      
+
       if (response.ok) {
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
-        setPreviewPdfUrl(url);
-      } else {
+        setPreviewPdfUrl(prev => { if (prev) URL.revokeObjectURL(prev); return url; });
+      } else if (!silent) {
         alert("Failed to generate preview");
       }
     } catch (err) {
       console.error("Error generating preview:", err);
-      alert("Error generating preview");
+      if (!silent) alert("Error generating preview");
     } finally {
       setGeneratingPreview(false);
     }
   };
 
+  // Auto-refresh the preview a moment after the admin stops editing, so the "Preview
+  // PDF" button becomes an on-demand refresh rather than the only way to see changes.
+  const autoPreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!editingTemplate || !previewPdfUrl || !hasEditedRef.current) return;
+    if (autoPreviewTimerRef.current) clearTimeout(autoPreviewTimerRef.current);
+    autoPreviewTimerRef.current = setTimeout(() => { generatePreview(true); }, 1200);
+    return () => { if (autoPreviewTimerRef.current) clearTimeout(autoPreviewTimerRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positions, testData, testFieldValues, editingTemplate?.id]);
+
   const addCustomElement = () => {
     const id = `custom-${Date.now()}`;
-    setPositions(prev => ({
+    updatePositions(prev => ({
       ...prev,
       customElements: [...(prev.customElements || []), {
         id, label: `Text ${(prev.customElements?.length ?? 0) + 1}`,
@@ -137,12 +224,12 @@ export default function TemplatesPage() {
   };
 
   const deleteCustomElement = (id: string) => {
-    setPositions(prev => ({ ...prev, customElements: (prev.customElements || []).filter(el => el.id !== id) }));
+    updatePositions(prev => ({ ...prev, customElements: (prev.customElements || []).filter(el => el.id !== id) }));
     if (selectedElement === id) setSelectedElement(null);
   };
 
   const updateCustomElement = (id: string, patch: Partial<CustomElement>) => {
-    setPositions(prev => ({
+    updatePositions(prev => ({
       ...prev,
       customElements: (prev.customElements || []).map(el => el.id === id ? { ...el, ...patch } : el),
     }));
@@ -194,18 +281,43 @@ export default function TemplatesPage() {
     else setSelectedElement(null);
   };
 
+  // Snap-to-center and snap-to-other-elements while dragging (within 1.5% of canvas size).
+  const SNAP_THRESHOLD = 1.5;
+  const snapDragCoord = (value: number, otherValues: number[]): number => {
+    if (Math.abs(value - 50) < SNAP_THRESHOLD) return 50;
+    for (const v of otherValues) {
+      if (Math.abs(value - v) < SNAP_THRESHOLD) return v;
+    }
+    return value;
+  };
+  const otherElementCoords = (excludeId: string) => {
+    const xs: number[] = [];
+    const ys: number[] = [];
+    if (excludeId !== 'name') { xs.push(positions.name.x); ys.push(positions.name.y); }
+    if (excludeId !== 'certId') { xs.push(positions.certId.x); ys.push(positions.certId.y); }
+    if (excludeId !== 'qr') { xs.push(positions.qr.x); ys.push(positions.qr.y); }
+    for (const cel of positions.customElements || []) {
+      if (cel.id === excludeId) continue;
+      xs.push(cel.x); ys.push(cel.y);
+    }
+    return { xs, ys };
+  };
+
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!previewRef.current) return;
 
     const rect = previewRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    const rawX = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const rawY = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
 
     if (activeDrag) {
-      if (activeDrag === 'name') setPositions(prev => ({ ...prev, name: { ...prev.name, x, y } }));
-      else if (activeDrag === 'certId') setPositions(prev => ({ ...prev, certId: { ...prev.certId, x, y } }));
-      else if (activeDrag === 'qr') setPositions(prev => ({ ...prev, qr: { ...prev.qr, x, y } }));
-      else setPositions(prev => ({ ...prev, customElements: (prev.customElements || []).map(el => el.id === activeDrag ? { ...el, x, y } : el) }));
+      const { xs, ys } = otherElementCoords(activeDrag);
+      const x = snapDragCoord(rawX, xs);
+      const y = snapDragCoord(rawY, ys);
+      if (activeDrag === 'name') updatePositions(prev => ({ ...prev, name: { ...prev.name, x, y } }));
+      else if (activeDrag === 'certId') updatePositions(prev => ({ ...prev, certId: { ...prev.certId, x, y } }));
+      else if (activeDrag === 'qr') updatePositions(prev => ({ ...prev, qr: { ...prev.qr, x, y } }));
+      else updatePositions(prev => ({ ...prev, customElements: (prev.customElements || []).map(el => el.id === activeDrag ? { ...el, x, y } : el) }));
     }
 
     if (activeResize && resizeStartRef.current) {
@@ -213,16 +325,16 @@ export default function TemplatesPage() {
       const delta = ((e.clientX - startX) + (e.clientY - startY)) / 2;
       if (activeResize === 'qr') {
         const s = Math.max(1, Math.min(25, Math.round(startSize + delta * 0.08)));
-        setPositions(prev => ({ ...prev, qr: { ...prev.qr, size: s } }));
+        updatePositions(prev => ({ ...prev, qr: { ...prev.qr, size: s } }));
       } else if (activeResize === 'name') {
         const s = Math.max(8, Math.min(80, Math.round(startSize + delta * 0.25)));
-        setPositions(prev => ({ ...prev, name: { ...prev.name, size: s } }));
+        updatePositions(prev => ({ ...prev, name: { ...prev.name, size: s } }));
       } else if (activeResize === 'certId') {
         const s = Math.max(6, Math.min(24, Math.round(startSize + delta * 0.08)));
-        setPositions(prev => ({ ...prev, certId: { ...prev.certId, size: s } }));
+        updatePositions(prev => ({ ...prev, certId: { ...prev.certId, size: s } }));
       } else {
         const s = Math.max(6, Math.min(72, Math.round(startSize + delta * 0.15)));
-        setPositions(prev => ({ ...prev, customElements: (prev.customElements || []).map(el => el.id === activeResize ? { ...el, size: s } : el) }));
+        updatePositions(prev => ({ ...prev, customElements: (prev.customElements || []).map(el => el.id === activeResize ? { ...el, size: s } : el) }));
       }
     }
   };
@@ -234,7 +346,7 @@ export default function TemplatesPage() {
 
   // Sync sliders with drag (optional - when slider changes, update position)
   const updatePositionFromSlider = (type: 'name' | 'certId' | 'qr', axis: 'x' | 'y', value: number) => {
-    setPositions(prev => ({
+    updatePositions(prev => ({
       ...prev,
       [type]: { ...prev[type], [axis]: value }
     }));
@@ -275,13 +387,23 @@ export default function TemplatesPage() {
   useEffect(() => {
     if (!editingTemplate) return;
     const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) redo(); else undo();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        redo();
+        return;
+      }
       if (!selectedElement) return;
       if (e.key === 'Escape') { setSelectedElement(null); return; }
       if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
       e.preventDefault();
       const step = e.shiftKey ? 5 : 0.5;
       const isFixed = selectedElement === 'name' || selectedElement === 'certId' || selectedElement === 'qr';
-      setPositions(prev => {
+      updatePositions(prev => {
         if (isFixed) {
           const el = prev[selectedElement as 'name' | 'certId' | 'qr'];
           if (e.key === 'ArrowLeft')  return { ...prev, [selectedElement]: { ...el, x: Math.max(0, el.x - step) } };
@@ -566,6 +688,7 @@ export default function TemplatesPage() {
                   onClick={() => {
                     setLoadingTemplate(true);
                     setEditingTemplate(template);
+                    resetHistory();
                     setPositions(template.positions ? {
                       name: { ...{ x: 50, y: 45, size: 48 }, ...template.positions.name },
                       certId: { ...{ x: 50, y: 30, size: 12, color: "#333333" }, ...template.positions.certId },
@@ -733,12 +856,12 @@ export default function TemplatesPage() {
                   <span className="text-gray-400">X:</span>
                   <input type="number" min={0} max={100} step={0.5}
                     value={Math.round(positions[fk].x * 10) / 10}
-                    onChange={e => { const v = Number(e.target.value); if (!isNaN(v)) setPositions(prev => ({ ...prev, [fk]: { ...prev[fk], x: Math.max(0, Math.min(100, v)) } })); }}
+                    onChange={e => { const v = Number(e.target.value); if (!isNaN(v)) updatePositions(prev => ({ ...prev, [fk]: { ...prev[fk], x: Math.max(0, Math.min(100, v)) } })); }}
                     className="w-14 text-center border border-gray-200 rounded px-1 py-0.5 font-mono bg-white outline-none focus:border-brand-vivid-green" />
                   <span className="text-gray-400">Y:</span>
                   <input type="number" min={0} max={100} step={0.5}
                     value={Math.round(positions[fk].y * 10) / 10}
-                    onChange={e => { const v = Number(e.target.value); if (!isNaN(v)) setPositions(prev => ({ ...prev, [fk]: { ...prev[fk], y: Math.max(0, Math.min(100, v)) } })); }}
+                    onChange={e => { const v = Number(e.target.value); if (!isNaN(v)) updatePositions(prev => ({ ...prev, [fk]: { ...prev[fk], y: Math.max(0, Math.min(100, v)) } })); }}
                     className="w-14 text-center border border-gray-200 rounded px-1 py-0.5 font-mono bg-white outline-none focus:border-brand-vivid-green" />
                   {fk !== 'qr' && (
                     <>
@@ -746,13 +869,13 @@ export default function TemplatesPage() {
                       <span className="text-gray-400">Size:</span>
                       <input type="number" min={fk === 'name' ? 8 : 6} max={fk === 'name' ? 80 : 24} step={0.5}
                         value={positions[fk].size ?? (fk === 'name' ? 48 : 12)}
-                        onChange={e => { const v = Number(e.target.value); if (!isNaN(v)) setPositions(prev => ({ ...prev, [fk]: { ...prev[fk], size: v } })); }}
+                        onChange={e => { const v = Number(e.target.value); if (!isNaN(v)) updatePositions(prev => ({ ...prev, [fk]: { ...prev[fk], size: v } })); }}
                         className="w-14 text-center border border-gray-200 rounded px-1 py-0.5 font-mono bg-white outline-none focus:border-brand-vivid-green" />
                       <span className="text-gray-400 text-[10px]">pt</span>
                       <div className="w-px h-4 bg-gray-300" />
                       <input type="color"
                         value={(positions[fk] as PositionConfig).color || (fk === 'name' ? '#1b4332' : '#333333')}
-                        onChange={e => setPositions(prev => ({ ...prev, [fk]: { ...prev[fk], color: e.target.value } }))}
+                        onChange={e => updatePositions(prev => ({ ...prev, [fk]: { ...prev[fk], color: e.target.value } }))}
                         className="w-6 h-6 rounded cursor-pointer border border-gray-200" title="Text color" />
                     </>
                   )}
@@ -762,7 +885,16 @@ export default function TemplatesPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <button onClick={generatePreview} disabled={generatingPreview}
+              <button onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)"
+                className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg border border-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                <span className="material-symbols-outlined text-lg">undo</span>
+              </button>
+              <button onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)"
+                className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg border border-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                <span className="material-symbols-outlined text-lg">redo</span>
+              </button>
+              <div className="w-px h-5 bg-gray-200 mx-1" />
+              <button onClick={() => generatePreview()} disabled={generatingPreview}
                 className="px-3 py-1.5 text-xs font-bold bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-1.5 text-gray-700 border border-gray-200 transition-colors disabled:opacity-50">
                 {generatingPreview
                   ? <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
@@ -799,6 +931,15 @@ export default function TemplatesPage() {
                       onChange={(e) => setTestData({ ...testData, certId: e.target.value })}
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-brand-vivid-green" />
                   </div>
+                  {[...new Set((positions.customElements || []).map(el => el.sourceField).filter((f): f is string => !!f))].map(field => (
+                    <div key={field}>
+                      <label className="block text-[10px] text-gray-400 mb-0.5">{field} (bound column)</label>
+                      <input type="text" value={testFieldValues[field] || ""}
+                        placeholder={`Sample ${field} value`}
+                        onChange={(e) => setTestFieldValues(prev => ({ ...prev, [field]: e.target.value }))}
+                        className="w-full bg-purple-50 border border-purple-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-purple-400" />
+                    </div>
+                  ))}
                 </div>
               </div>
               <div className="p-3 flex-1">
@@ -977,12 +1118,29 @@ export default function TemplatesPage() {
                           className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-purple-400" />
                       </div>
                       <div className="space-y-2">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Text on Certificate</p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Bind to Column (optional)</p>
+                        <input type="text" value={customEl.sourceField || ""}
+                          onChange={e => updateCustomElement(customEl.id, { sourceField: e.target.value || undefined })}
+                          placeholder="e.g. Designation"
+                          className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-purple-400 font-mono" />
+                        <p className="text-[10px] text-gray-400">
+                          Must exactly match a column header in the linked Sheet or import file. When set, this
+                          prints that participant's value instead of the text below.
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                          {customEl.sourceField ? "Preview Text (this field is bound)" : "Text on Certificate"}
+                        </p>
                         <input type="text" value={customEl.text}
                           onChange={e => updateCustomElement(customEl.id, { text: e.target.value })}
                           placeholder="e.g. Issued: 2026-05-01"
                           className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-purple-400" />
-                        <p className="text-[10px] text-gray-400">This exact text will be printed on the certificate</p>
+                        <p className="text-[10px] text-gray-400">
+                          {customEl.sourceField
+                            ? "Only used for the canvas preview here — real certificates print the column value."
+                            : "This exact text will be printed on the certificate"}
+                        </p>
                       </div>
                       <div className="space-y-3">
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Position</p>
@@ -1001,6 +1159,8 @@ export default function TemplatesPage() {
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Size</p>
                         <SliderField label="Font Size (pt)" min={6} max={72} step={1} value={customEl.size ?? 18}
                           onChange={v => updateCustomElement(customEl.id, { size: v })} />
+                        <SliderField label="Letter Spacing (pt)" min={0} max={20} step={0.5} value={customEl.letterSpacing ?? 0}
+                          onChange={v => updateCustomElement(customEl.id, { letterSpacing: v })} />
                       </div>
                       <div className="space-y-3">
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Appearance</p>
@@ -1015,6 +1175,26 @@ export default function TemplatesPage() {
                         </div>
                         <FontSelect value={customEl.font || ""}
                           onChange={v => updateCustomElement(customEl.id, { font: v })} />
+                        <div>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <input type="checkbox" id={`bg-toggle-${customEl.id}`} checked={!!customEl.bg}
+                              onChange={e => updateCustomElement(customEl.id, { bg: e.target.checked ? (customEl.bg || "#ffffff") : undefined })}
+                              className="w-4 h-4 accent-purple-500" />
+                            <label htmlFor={`bg-toggle-${customEl.id}`} className="text-xs text-gray-500 cursor-pointer">Background box</label>
+                          </div>
+                          {customEl.bg && (
+                            <>
+                              <div className="flex items-center gap-2 mb-2">
+                                <input type="color" value={customEl.bg}
+                                  onChange={e => updateCustomElement(customEl.id, { bg: e.target.value })}
+                                  className="w-8 h-8 rounded cursor-pointer border border-gray-200" />
+                                <span className="text-xs font-mono text-gray-500">{customEl.bg}</span>
+                              </div>
+                              <SliderField label="Box Padding (pt)" min={0} max={30} step={1} value={customEl.bgPadding ?? 6}
+                                onChange={v => updateCustomElement(customEl.id, { bgPadding: v })} />
+                            </>
+                          )}
+                        </div>
                       </div>
                       <button onClick={() => deleteCustomElement(customEl.id)}
                         className="w-full py-2 text-xs font-medium text-red-500 hover:bg-red-50 rounded-lg border border-red-200 transition-colors flex items-center justify-center gap-1.5">
@@ -1059,14 +1239,14 @@ export default function TemplatesPage() {
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Position</p>
                     <SliderField label="Horizontal (%)" min={0} max={100} step={0.5}
                       value={positions[fixedKey].x}
-                      onChange={v => setPositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], x: v } }))} />
+                      onChange={v => updatePositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], x: v } }))} />
                     <SliderField label="Vertical (%)" min={0} max={100} step={0.5}
                       value={positions[fixedKey].y}
-                      onChange={v => setPositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], y: v } }))} />
+                      onChange={v => updatePositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], y: v } }))} />
                     <div className="flex gap-2">
-                      <button onClick={() => setPositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], x: 50 } }))}
+                      <button onClick={() => updatePositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], x: 50 } }))}
                         className="flex-1 py-1.5 text-[11px] bg-green-50 border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors font-medium">Center H</button>
-                      <button onClick={() => setPositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], y: 50 } }))}
+                      <button onClick={() => updatePositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], y: 50 } }))}
                         className="flex-1 py-1.5 text-[11px] bg-green-50 border border-green-200 rounded-lg text-brand-grass-green hover:bg-green-100 transition-colors font-medium">Center V</button>
                     </div>
                   </div>
@@ -1077,15 +1257,25 @@ export default function TemplatesPage() {
                     {selectedElement === 'qr' ? (
                       <SliderField label="Size (%)" min={1} max={25} step={0.5}
                         value={positions.qr.size ?? 12}
-                        onChange={v => setPositions(prev => ({ ...prev, qr: { ...prev.qr, size: v } }))} />
+                        onChange={v => updatePositions(prev => ({ ...prev, qr: { ...prev.qr, size: v } }))} />
                     ) : selectedElement === 'name' ? (
-                      <SliderField label="Font Size (pt)" min={8} max={80} step={1}
-                        value={positions.name.size ?? 48}
-                        onChange={v => setPositions(prev => ({ ...prev, name: { ...prev.name, size: v } }))} />
+                      <>
+                        <SliderField label="Font Size (pt)" min={8} max={80} step={1}
+                          value={positions.name.size ?? 48}
+                          onChange={v => updatePositions(prev => ({ ...prev, name: { ...prev.name, size: v } }))} />
+                        <SliderField label="Letter Spacing (pt)" min={0} max={20} step={0.5}
+                          value={positions.name.letterSpacing ?? 0}
+                          onChange={v => updatePositions(prev => ({ ...prev, name: { ...prev.name, letterSpacing: v } }))} />
+                      </>
                     ) : (
-                      <SliderField label="Font Size (pt)" min={6} max={24} step={0.5}
-                        value={positions.certId.size ?? 12}
-                        onChange={v => setPositions(prev => ({ ...prev, certId: { ...prev.certId, size: v } }))} />
+                      <>
+                        <SliderField label="Font Size (pt)" min={6} max={24} step={0.5}
+                          value={positions.certId.size ?? 12}
+                          onChange={v => updatePositions(prev => ({ ...prev, certId: { ...prev.certId, size: v } }))} />
+                        <SliderField label="Letter Spacing (pt)" min={0} max={20} step={0.5}
+                          value={positions.certId.letterSpacing ?? 0}
+                          onChange={v => updatePositions(prev => ({ ...prev, certId: { ...prev.certId, letterSpacing: v } }))} />
+                      </>
                     )}
                   </div>
 
@@ -1098,7 +1288,7 @@ export default function TemplatesPage() {
                           <label className="text-xs text-gray-500 block mb-1.5">Dot Color</label>
                           <div className="flex items-center gap-2">
                             <input type="color" value={positions.qr.darkColor || "#000000"}
-                              onChange={e => setPositions(prev => ({ ...prev, qr: { ...prev.qr, darkColor: e.target.value } }))}
+                              onChange={e => updatePositions(prev => ({ ...prev, qr: { ...prev.qr, darkColor: e.target.value } }))}
                               className="w-8 h-8 rounded cursor-pointer border border-gray-200" />
                             <span className="text-xs font-mono text-gray-500">{positions.qr.darkColor || "#000000"}</span>
                           </div>
@@ -1106,14 +1296,14 @@ export default function TemplatesPage() {
                         <div>
                           <div className="flex items-center gap-2 mb-1.5">
                             <input type="checkbox" id="qr-transparent-rp" checked={positions.qr.transparentBg ?? false}
-                              onChange={e => setPositions(prev => ({ ...prev, qr: { ...prev.qr, transparentBg: e.target.checked } }))}
+                              onChange={e => updatePositions(prev => ({ ...prev, qr: { ...prev.qr, transparentBg: e.target.checked } }))}
                               className="w-4 h-4 accent-brand-vivid-green" />
                             <label htmlFor="qr-transparent-rp" className="text-xs text-gray-500 cursor-pointer">Transparent background</label>
                           </div>
                           {!positions.qr.transparentBg && (
                             <div className="flex items-center gap-2">
                               <input type="color" value={positions.qr.lightColor || "#ffffff"}
-                                onChange={e => setPositions(prev => ({ ...prev, qr: { ...prev.qr, lightColor: e.target.value } }))}
+                                onChange={e => updatePositions(prev => ({ ...prev, qr: { ...prev.qr, lightColor: e.target.value } }))}
                                 className="w-8 h-8 rounded cursor-pointer border border-gray-200" />
                               <span className="text-xs font-mono text-gray-500">{positions.qr.lightColor || "#ffffff"}</span>
                             </div>
@@ -1127,7 +1317,7 @@ export default function TemplatesPage() {
                           <div className="flex items-center gap-2">
                             <input type="color"
                               value={selectedElement === 'name' ? (positions.name.color || "#1b4332") : (positions.certId.color || "#333333")}
-                              onChange={e => setPositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], color: e.target.value } }))}
+                              onChange={e => updatePositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], color: e.target.value } }))}
                               className="w-8 h-8 rounded cursor-pointer border border-gray-200" />
                             <span className="text-xs font-mono text-gray-500">
                               {fixedKey === 'name' ? (positions.name.color || "#1b4332") : (positions.certId.color || "#333333")}
@@ -1136,7 +1326,27 @@ export default function TemplatesPage() {
                         </div>
                         <FontSelect
                           value={fixedKey === 'name' ? (positions.name.font || "") : (positions.certId.font || "")}
-                          onChange={v => setPositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], font: v } }))} />
+                          onChange={v => updatePositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], font: v } }))} />
+                        <div>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <input type="checkbox" id={`bg-toggle-${fixedKey}`} checked={!!positions[fixedKey].bg}
+                              onChange={e => updatePositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], bg: e.target.checked ? (prev[fixedKey].bg || "#ffffff") : undefined } }))}
+                              className="w-4 h-4 accent-brand-vivid-green" />
+                            <label htmlFor={`bg-toggle-${fixedKey}`} className="text-xs text-gray-500 cursor-pointer">Background box</label>
+                          </div>
+                          {positions[fixedKey].bg && (
+                            <>
+                              <div className="flex items-center gap-2 mb-2">
+                                <input type="color" value={positions[fixedKey].bg}
+                                  onChange={e => updatePositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], bg: e.target.value } }))}
+                                  className="w-8 h-8 rounded cursor-pointer border border-gray-200" />
+                                <span className="text-xs font-mono text-gray-500">{positions[fixedKey].bg}</span>
+                              </div>
+                              <SliderField label="Box Padding (pt)" min={0} max={30} step={1} value={positions[fixedKey].bgPadding ?? 6}
+                                onChange={v => updatePositions(prev => ({ ...prev, [fixedKey]: { ...prev[fixedKey], bgPadding: v } }))} />
+                            </>
+                          )}
+                        </div>
                       </>
                     )}
                   </div>

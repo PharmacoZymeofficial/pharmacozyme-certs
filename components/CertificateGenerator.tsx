@@ -448,6 +448,7 @@ interface CertificateTemplate {
     name: { x: number; y: number; size?: number; color?: string; font?: string };
     certId: { x: number; y: number; size?: number; color?: string; font?: string };
     qr: { x: number; y: number; size: number; darkColor?: string; lightColor?: string; transparentBg?: boolean };
+    customElements?: Array<{ id: string; label: string; text: string; sourceField?: string }>;
   };
 }
 
@@ -566,6 +567,24 @@ export default function CertificateGenerator({ database, participants, onGenerat
         ? "#00000000"
         : (templateData?.positions?.qr?.lightColor || "#ffffff");
 
+      // Warn (non-blocking) if the template has fields bound to sheet/CSV columns
+      // that some participants are missing values for — they'll print blank.
+      const boundFields = (templateData?.positions?.customElements || [])
+        .map(el => el.sourceField)
+        .filter((f): f is string => !!f);
+      if (boundFields.length > 0) {
+        const missingByField = new Map<string, number>();
+        for (const p of participantsToGenerate) {
+          for (const field of boundFields) {
+            if (!p.customFields?.[field]) missingByField.set(field, (missingByField.get(field) || 0) + 1);
+          }
+        }
+        if (missingByField.size > 0) {
+          const summary = [...missingByField.entries()].map(([f, n]) => `${f} (${n})`).join(", ");
+          toast.warning(`Some participants are missing values for bound field(s): ${summary}. Those will print blank.`);
+        }
+      }
+
       // Pre-assign cert IDs sequentially (serial numbers must be deterministic before parallelizing)
       const participantsWithCertIds = participantsToGenerate.map((participant, i) => ({
         participant,
@@ -609,6 +628,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
                       verificationUrl,
                       qrDarkColor: qrDark,
                       qrLightColor: qrLight,
+                      fieldValues: participant.customFields || {},
                     }),
                   });
                   if (renderRes.ok) return new Uint8Array(await renderRes.arrayBuffer());
@@ -699,7 +719,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
       // ── Phase 3: Drive uploads (5 concurrent) ──────────────────────────────
       if (database.linkedSheet) {
         const DRIVE_CONCURRENCY = 5;
-        type DriveResult = { participantId: string; certId: string; driveLink: string; driveFileId: string };
+        type DriveResult = { participantId: string; certId: string; driveLink: string; driveFileId: string; failed?: boolean; name?: string };
         const driveResults: DriveResult[] = [];
         let driveFolderUpdated = false;
 
@@ -710,62 +730,72 @@ export default function CertificateGenerator({ database, participants, onGenerat
 
           const batchDriveResults = await Promise.all(batchSlice.map(async ({ participant, certId, pdfBytes }) => {
             if (!pdfBytes) return null;
-            try {
-              const base64Data = Buffer.from(pdfBytes).toString("base64");
-              const driveFileName = `${participant.name.replace(/[^a-zA-Z0-9]/g, "_")}_${certId}.pdf`;
-              const res = await fetch("/api/drive-upload", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ pdfBytes: base64Data, fileName: driveFileName, databaseName: database.name }),
-              });
-              if (res.ok) {
-                const data = await res.json();
-                if (!driveFolderUpdated && data.folderId) {
-                  driveFolderUpdated = true;
-                  fetch("/api/databases", {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      id: database.id,
-                      driveFolderId: data.folderId,
-                      driveFolderUrl: data.folderUrl || `https://drive.google.com/drive/folders/${data.folderId}`,
-                    }),
-                  }).catch(() => {});
+            const base64Data = Buffer.from(pdfBytes).toString("base64");
+            const driveFileName = `${participant.name.replace(/[^a-zA-Z0-9]/g, "_")}_${certId}.pdf`;
+
+            // Up to 3 attempts with backoff — Apps Script hiccups under concurrent load,
+            // and a single dropped request must not silently lose the Drive link.
+            for (let attempt = 1; attempt <= 3; attempt++) {
+              try {
+                const res = await fetch("/api/drive-upload", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ pdfBytes: base64Data, fileName: driveFileName, databaseName: database.name }),
+                });
+                if (res.ok) {
+                  const data = await res.json();
+                  if (!driveFolderUpdated && data.folderId) {
+                    driveFolderUpdated = true;
+                    fetch("/api/databases", {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        id: database.id,
+                        driveFolderId: data.folderId,
+                        driveFolderUrl: data.folderUrl || `https://drive.google.com/drive/folders/${data.folderId}`,
+                      }),
+                    }).catch(() => {});
+                  }
+                  return {
+                    participantId: participant.id,
+                    certId,
+                    driveLink: data.webContentLink || "",
+                    driveFileId: data.fileId || "",
+                  };
                 }
-                return {
-                  participantId: participant.id,
-                  certId,
-                  driveLink: data.webContentLink || "",
-                  driveFileId: data.fileId || "",
-                };
+                console.error(`Drive upload failed for ${participant.name} (attempt ${attempt}/3): HTTP ${res.status}`);
+              } catch (driveErr) {
+                console.error(`Drive upload error for ${participant.name} (attempt ${attempt}/3):`, driveErr);
               }
-            } catch (driveErr) {
-              console.error("Failed to upload to Drive:", driveErr);
+              if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
             }
-            return null;
+            return { participantId: participant.id, certId, driveLink: "", driveFileId: "", failed: true, name: participant.name };
           }));
 
           driveResults.push(...(batchDriveResults.filter(r => r !== null) as DriveResult[]));
           setGenerationProgress(65 + Math.round(((i + DRIVE_CONCURRENCY) / allResults.length) * 25));
         }
 
-        if (driveResults.length > 0) {
+        const driveSucceeded = driveResults.filter(r => !r.failed);
+        const driveFailed = driveResults.filter(r => r.failed);
+
+        if (driveSucceeded.length > 0) {
           // Batch update participant Drive links (no sheet sync yet)
           await fetch("/api/participants/batch-update", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               databaseId: database.id,
-              updates: driveResults.map(r => ({ id: r.participantId, driveLink: r.driveLink, driveFileId: r.driveFileId })),
+              updates: driveSucceeded.map(r => ({ id: r.participantId, driveLink: r.driveLink, driveFileId: r.driveFileId })),
               skipSheetSync: true,
             }),
           });
 
           // Patch cert docs with Drive links (20 concurrent)
           const PATCH_CONCURRENCY = 20;
-          for (let i = 0; i < driveResults.length; i += PATCH_CONCURRENCY) {
+          for (let i = 0; i < driveSucceeded.length; i += PATCH_CONCURRENCY) {
             await Promise.all(
-              driveResults.slice(i, i + PATCH_CONCURRENCY).map(r =>
+              driveSucceeded.slice(i, i + PATCH_CONCURRENCY).map(r =>
                 fetch("/api/certificates", {
                   method: "PATCH",
                   headers: { "Content-Type": "application/json" },
@@ -774,6 +804,15 @@ export default function CertificateGenerator({ database, participants, onGenerat
               )
             );
           }
+        }
+
+        if (driveFailed.length > 0) {
+          const names = driveFailed.slice(0, 3).map(r => r.name).join(", ");
+          const more = driveFailed.length > 3 ? ` +${driveFailed.length - 3} more` : "";
+          toast.error(
+            `${driveFailed.length} certificate(s) uploaded but the Drive link didn't save (${names}${more}). ` +
+            `Filter participants by "Missing Drive Link" and use Bulk Actions → Generate Certs → Regenerate All to retry — their existing certificate ID is kept.`
+          );
         }
       }
 

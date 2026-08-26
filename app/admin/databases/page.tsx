@@ -100,7 +100,7 @@ export default function DatabaseManagementPage() {
   const [showIdFormatModal, setShowIdFormatModal] = useState(false);
   const [renamingDbId, setRenamingDbId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "id-only" | "generated">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "id-only" | "generated" | "missing-drive">("all");
   const [filterEmailed, setFilterEmailed] = useState<"all" | "yes" | "no">("all");
   const [focusedRowIndex, setFocusedRowIndex] = useState(-1);
   const [anchorRowIndex, setAnchorRowIndex] = useState(-1);
@@ -658,17 +658,30 @@ export default function DatabaseManagementPage() {
           const certId = getValue(row, ["Certificate ID", "CertificateId", "Cert ID"]);
           const issueDate = getValue(row, ["Issue Date", "IssueDate", "Date"]);
           const status = getValue(row, ["Status", "status"]);
-          
+
           // Import status logic: always set to "pending" on import
           // Certificate will show as generated only after PDF is created
           const importStatus = "pending";
-          
-          return { 
-            name, 
+
+          // Any other columns (e.g. "Designation", "Start Date") become custom
+          // fields a template can bind a placeholder to at generation time.
+          const KNOWN_COLUMNS = new Set(["name", "full name", "active email address", "email", "e-mail", "mail", "certificate id", "certificateid", "cert id", "issue date", "issuedate", "date", "status"]);
+          const customFields: Record<string, string> = {};
+          for (const key of Object.keys(row)) {
+            if (KNOWN_COLUMNS.has(key.trim().toLowerCase())) continue;
+            const val = row[key];
+            if (val !== undefined && val !== null && String(val).trim() !== "") {
+              customFields[key.trim()] = String(val).trim();
+            }
+          }
+
+          return {
+            name,
             email,
             certificateId: certId, // Store the imported cert ID but status is pending
             issueDate,
-            status: importStatus
+            status: importStatus,
+            customFields,
           };
         }).filter(p => p.name && p.email);
         
@@ -2167,13 +2180,13 @@ export default function DatabaseManagementPage() {
                 {/* Filter chips */}
                 <div className="flex flex-wrap items-center gap-2 mb-4">
                   <span className="text-xs font-semibold text-on-surface-variant">Filter:</span>
-                  {(["all", "pending", "id-only", "generated"] as const).map(s => (
+                  {(["all", "pending", "id-only", "generated", "missing-drive"] as const).map(s => (
                     <button
                       key={s}
                       onClick={() => setFilterStatus(s)}
                       className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${filterStatus === s ? "bg-brand-vivid-green text-white border-brand-vivid-green" : "bg-white border-green-200 text-on-surface-variant hover:bg-green-50"}`}
                     >
-                      {s === "all" ? "All" : s === "pending" ? "No ID" : s === "id-only" ? "ID Only" : "Generated"}
+                      {s === "all" ? "All" : s === "pending" ? "No ID" : s === "id-only" ? "ID Only" : s === "generated" ? "Generated" : "Missing Drive Link"}
                     </button>
                   ))}
                   <div className="w-px h-4 bg-green-200 mx-1" />
@@ -2279,6 +2292,7 @@ export default function DatabaseManagementPage() {
                             if (filterStatus === "pending") return !p.certificateId;
                             if (filterStatus === "id-only") return p.certificateId && !p.driveLink && !p.certificateUrl;
                             if (filterStatus === "generated") return !!(p.driveLink || p.certificateUrl);
+                            if (filterStatus === "missing-drive") return !!p.certificateId && !p.driveLink;
                             return true;
                           });
                         }

@@ -30,6 +30,11 @@ export interface Participant {
   emailSent?: boolean;
   emailSentAt?: string;
   createdAt?: string;
+  // Arbitrary extra Sheet/CSV columns (e.g. Designation, Start Date, Department),
+  // keyed by the original column header. Bound to template custom-text elements
+  // via CustomElement.sourceField so certificates can print per-participant values
+  // beyond name/certId.
+  customFields?: Record<string, string>;
 }
 
 export interface Certificate {
