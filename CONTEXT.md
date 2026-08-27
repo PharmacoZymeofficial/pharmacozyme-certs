@@ -270,7 +270,35 @@ Deploying the above session's work to production surfaced a real incident, now f
   redeploy** (to pick up the `isAuthorized()` check) and a `firestore.rules` deploy.
   Given the prior session's Vercel env-var lesson: a fresh deployment is required after
   setting these, hot-reloading into a running function does not happen.
-- Not committed/pushed — working tree has all of the above as uncommitted changes.
+- **Update**: all of the above, plus the deploy-incident fixes, are committed, pushed,
+  and confirmed working in production as of commit `915e30e`. See the "Deploy
+  incident" section above for the full trail (stale deployment, then the Turbopack
+  red herring, then the real `firebase-admin/auth` fix).
+
+## Requested for next session — split "General" vs "Official" into separate pages
+
+`Database.category` (`lib/types.ts`) is already a hard `"General" | "Official"` field,
+seeded in `app/admin/categories/page.tsx` with distinct subcategories per category
+(General: Courses/Workshops/Webinars/MED-Q; Official: Central Team/Sub Team/
+Ambassadors/Affiliates/Mentors) — but today both categories' databases and
+subcategory filter chips are mixed together in one flat list, both on the public
+`/verify` page (`components/VerifySearch.tsx`'s subcategory chip row) and in the admin
+`admin/databases` page (one flat database list, category is just a creation-time
+dropdown field, no split view).
+
+**Requested**: give each category its own public page —
+`cert.pharmacozyme.com/verify` for General, `cert.pharmacozyme.com/official` for
+Official — instead of one page mixing both. Also split the admin panel's database
+management by category (not just as a filter dropdown but as a real separation, e.g.
+tabs or distinct sections) so General and Official databases aren't managed in one
+undifferentiated list.
+
+Not scoped or designed yet — this needs its own brainstorming/planning pass (routing
+approach: new route vs one route with a category param; how much of
+`VerifySearch.tsx`/`PublicDatabaseCards.tsx`/`admin/databases/page.tsx` to share vs
+fork; whether "Official" gets its own distinct visual identity). Good candidate to
+fold into the Phase 4 admin-UX session below, since it touches the exact same files
+that session is already going to be restructuring.
 
 ## Loose ends / debug cruft
 
