@@ -401,8 +401,9 @@ function uploadTemplate(payload) {
   const folder = DriveApp.getFolderById(TEMPLATES_FOLDER_ID);
   const file   = folder.createFile(blob);
 
+  // Only the file is shared per-upload. TEMPLATES_FOLDER_ID is operator-supplied,
+  // not app-created — it must never be auto-flipped to anyone-with-link (§10.2).
   const fileShared = shareBestEffort(file);
-  shareBestEffort(folder);
 
   return {
     success    : true,
@@ -442,8 +443,10 @@ function uploadPDF(payload) {
   // Upload to Drive
   const file = folder.createFile(pdfBlob);
 
+  // Only the file is shared per-upload; the per-DB subfolder is shared once at
+  // creation in getOrCreateFolder (§10.2). Re-sharing the folder on every upload
+  // is redundant and burns setSharing quota on the concurrent-upload path.
   const fileShared = shareBestEffort(file);
-  shareBestEffort(folder);
 
   return {
     success: true,
@@ -514,8 +517,7 @@ function deletePDF(payload) {
   }
 
   try {
-    const file = DriveApp.getFileById(fileId);
-    DriveApp.removeFile(file);
+    DriveApp.getFileById(fileId).setTrashed(true);
     return { success: true, message: "File deleted" };
   } catch (error) {
     return { success: false, error: error.message };
