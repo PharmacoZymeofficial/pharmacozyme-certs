@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase.admin";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { callAppsScript, appsScriptConfigured } from "@/lib/appsScript";
+import { deleteDriveFile, fileIdFromLink } from "@/lib/driveCleanup";
+import { deleteCertificateCascade } from "@/lib/certCascade";
 
 async function getSheetInfo(databaseId: string) {
   const dbSnap = await getAdminDb().collection("databases").doc(databaseId).get();
@@ -78,7 +80,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const databaseId = searchParams.get("databaseId");
-    const deletePdf = searchParams.get("deletePdf") === "true";
+    const keepPdf = searchParams.get("keepPdf") === "true";
 
     if (!id) return NextResponse.json({ error: "Participant ID is required" }, { status: 400 });
     if (!databaseId) return NextResponse.json({ error: "Database ID is required" }, { status: 400 });
@@ -91,19 +93,19 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const participantSnap = await participantRef.get();
     const participantData = participantSnap.exists ? participantSnap.data() : null;
 
-    if (deletePdf && appsScriptConfigured()) {
-      let fileId = participantData?.driveFileId;
-      if (!fileId && participantData?.driveLink) {
-        const match = participantData.driveLink.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-        if (match) fileId = match[1];
-      }
-      if (fileId) {
-        try {
-          await callAppsScript("deletePDF", { fileId });
-        } catch (driveErr) {
-          console.error("Failed to delete PDF from Drive:", driveErr);
-        }
-      }
+    // Cascade the linked certificate doc + its Drive file first (best-effort).
+    if (participantData?.certificateId) {
+      await deleteCertificateCascade({
+        uniqueCertId: participantData.certificateId,
+        clearParticipant: false, // the participant is about to be deleted outright
+      }).catch((e) => console.error("Cert cascade during participant delete failed:", e));
+    }
+
+    // Delete the participant's own Drive file if the cert cascade did not already.
+    if (!keepPdf) {
+      const fileId =
+        participantData?.driveFileId || fileIdFromLink(participantData?.driveLink);
+      if (fileId) await deleteDriveFile(fileId);
     }
 
     await participantRef.delete();
