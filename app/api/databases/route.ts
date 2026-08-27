@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase.admin";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { callAppsScript, appsScriptConfigured } from "@/lib/appsScript";
+import { deleteDriveFolder } from "@/lib/driveCleanup";
 
 export async function PUT(request: NextRequest) {
   const guard = await requireAdmin(request);
@@ -71,11 +72,16 @@ export async function DELETE(request: NextRequest) {
       await tDoc.ref.delete();
     }
 
+    // Trash the database's Drive folder (best-effort — a leftover folder beats a failed delete).
+    if (dbData?.driveFolderId) {
+      await deleteDriveFolder(dbData.driveFolderId);
+    }
+
     await databaseRef.delete();
 
     return NextResponse.json({
       success: true,
-      message: "Database, participants, Drive files and Sheet data deleted",
+      message: "Database, participants, Drive files, Drive folder and Sheet data deleted",
       participantsDeleted: participantsSnap.size,
     });
   } catch (error: any) {
