@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminAuth, getAdminDb } from "@/lib/firebase.admin";
+import { getAdminDb, getFirebaseProjectId } from "@/lib/firebase.admin";
+import { verifyFirebaseIdToken } from "@/lib/verifyFirebaseIdToken";
 import { signSession, ADMIN_COOKIE, SESSION_MAX_AGE_SECONDS, AdminRole } from "@/lib/session";
 
 const SUPER_ADMIN_EMAIL = "pharmacozymeofficial@gmail.com";
@@ -39,6 +40,9 @@ function checkRateLimit(ip: string): { allowed: boolean; retryAfter?: number } {
  *
  * The legacy shared-password flow has been removed: it granted `super_admin` outright
  * and defaulted to a password committed to the repo.
+ *
+ * Token verification is `lib/verifyFirebaseIdToken.ts`, not `firebase-admin/auth` — see
+ * that file's header comment for why (firebase-admin/auth crashes in production).
  */
 export async function POST(request: NextRequest) {
   const ip = getIp(request);
@@ -61,57 +65,67 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "idToken is required" }, { status: 400 });
   }
 
-  let uid: string;
-  let email: string;
-  let tokenName: string | undefined;
   try {
-    const decoded = await getAdminAuth().verifyIdToken(idToken);
-    uid = decoded.uid;
-    email = (decoded.email || "").toLowerCase();
-    tokenName = decoded.name as string | undefined;
-  } catch {
-    return NextResponse.json({ error: "Invalid or expired sign-in token" }, { status: 401 });
-  }
+    const projectId = getFirebaseProjectId();
 
-  if (!email) {
-    return NextResponse.json({ error: "Account has no email address" }, { status: 401 });
-  }
+    let uid: string;
+    let email: string;
+    let tokenName: string | undefined;
+    try {
+      const decoded = await verifyFirebaseIdToken(idToken, projectId);
+      uid = decoded.uid;
+      email = (decoded.email || "").toLowerCase();
+      tokenName = decoded.name;
+    } catch {
+      return NextResponse.json({ error: "Invalid or expired sign-in token" }, { status: 401 });
+    }
 
-  // Approval gate — previously enforced only in client-side code, i.e. not at all.
-  const adminSnap = await getAdminDb().collection("admins").doc(uid).get();
-  if (!adminSnap.exists) {
+    if (!email) {
+      return NextResponse.json({ error: "Account has no email address" }, { status: 401 });
+    }
+
+    // Approval gate — previously enforced only in client-side code, i.e. not at all.
+    const adminSnap = await getAdminDb().collection("admins").doc(uid).get();
+    if (!adminSnap.exists) {
+      return NextResponse.json(
+        { error: "No admin record found for this account. Ask a super admin to approve access." },
+        { status: 403 }
+      );
+    }
+    const adminData = adminSnap.data() || {};
+    if (adminData.status !== "approved") {
+      return NextResponse.json(
+        { error: `Your account is ${adminData.status || "not approved"}. Ask a super admin to approve access.` },
+        { status: 403 }
+      );
+    }
+
+    // Role is derived server-side. It is never read from the request.
+    const role: AdminRole = email === SUPER_ADMIN_EMAIL ? "super_admin" : "admin";
+    const displayName = adminData.displayName || tokenName || email.split("@")[0];
+
+    rateLimitMap.delete(ip);
+
+    const token = await signSession({ uid, email, displayName, role });
+    const response = NextResponse.json({
+      success: true,
+      user: { uid, email, displayName, role },
+    });
+    response.cookies.set(ADMIN_COOKIE, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: SESSION_MAX_AGE_SECONDS,
+      path: "/",
+    });
+    return response;
+  } catch (err) {
+    console.error("[admin/auth] Unexpected error:", err);
     return NextResponse.json(
-      { error: "No admin record found for this account. Ask a super admin to approve access." },
-      { status: 403 }
+      { error: "Sign-in failed", details: err instanceof Error ? err.message : "Unknown error" },
+      { status: 500 }
     );
   }
-  const adminData = adminSnap.data() || {};
-  if (adminData.status !== "approved") {
-    return NextResponse.json(
-      { error: `Your account is ${adminData.status || "not approved"}. Ask a super admin to approve access.` },
-      { status: 403 }
-    );
-  }
-
-  // Role is derived server-side. It is never read from the request.
-  const role: AdminRole = email === SUPER_ADMIN_EMAIL ? "super_admin" : "admin";
-  const displayName = adminData.displayName || tokenName || email.split("@")[0];
-
-  rateLimitMap.delete(ip);
-
-  const token = await signSession({ uid, email, displayName, role });
-  const response = NextResponse.json({
-    success: true,
-    user: { uid, email, displayName, role },
-  });
-  response.cookies.set(ADMIN_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: SESSION_MAX_AGE_SECONDS,
-    path: "/",
-  });
-  return response;
 }
 
 export async function DELETE() {

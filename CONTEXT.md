@@ -207,21 +207,56 @@ Deploying the above session's work to production surfaced a real incident, now f
    .../jwks-rsa/src/utils.js not supported`, stack trace through Turbopack's own
    `externalImport` runtime helper. Root cause: `firebase-admin@14.3.0` →
    `jwks-rsa@4.1.0` → hard dependency on `jose@^6.1.3`, which ships pure ESM
-   (`"type": "module"`). `firebase-admin` is in Next's built-in
-   `serverExternalPackages` auto-list, but **Turbopack's production build has a known,
-   currently-unresolved limitation externalizing packages whose own internal `require()`
-   chain bottoms out in an ESM-only dependency** (confirmed via
+   (`"type": "module"`). **First fix attempt** — changed `package.json`'s `build`
+   script from `next build` to `next build --webpack` (the documented Turbopack
+   opt-out flag), reasoning that Turbopack's externals handling was the culprit.
+   Verified locally (built, ran `next start`, confirmed clean) — **this only masked
+   the symptom for the one route tested; the deploy still crashed**, including on
+   routes that never touch Firebase Auth at all (e.g. `/api/databases/public`, pure
+   Firestore). Also spent one round-trip chasing a false lead: the currently-*live*
+   Vercel deployment turned out to still be the pre-fix build, because a manual
+   "Redeploy" of an older listing had re-promoted it over the newer commit — another
+   instance of the stale-deployment trap from step 1. Promoting the correct build
+   confirmed the webpack change alone did not fix it: same crash, this time with a
+   stack trace through Vercel's own runtime loader (`opt/rust/nodejs.js`), not
+   Turbopack — meaning it's not a bundler-choice problem at all.
+4. **Actual root cause**: `node_modules/firebase-admin/lib/utils/jwt.js` has an
+   **unconditional, module-load-time** `require("jwks-rsa")` at its top (line 24) —
+   not lazy, not inside a function. Any file that imports *anything* from
+   `"firebase-admin/auth"` triggers this at import time, which is exactly why the
+   Firestore-only route crashed too: `lib/firebase.admin.ts` imported
+   `firebase-admin/auth` just to expose a `getAdminAuth()` helper, so every consumer of
+   that file — including ones that only ever call `getAdminDb()` — pulled in the whole
+   broken chain. This is unrelated to Node.js version (Vercel was already on 24.x) and
+   unrelated to the bundler (reproduces under both Turbopack and webpack, and even
+   under Vercel's own runtime module loader). Upstream tracked at
    [auth0/node-jwks-rsa#493](https://github.com/auth0/node-jwks-rsa/issues/493), open
-   since March 2026 with no fix at time of writing). This is **not** a Node.js version
-   issue — Vercel's Node.js Version setting was already 24.x, matching local.
-   **Fix**: `package.json`'s `build` script changed from `next build` to
-   `next build --webpack` (the documented Turbopack opt-out flag). Verified locally:
-   built, ran `next start`, and confirmed `/api/admin/auth` returns the expected
-   `401 {"error":"Invalid or expired sign-in token"}` for a malformed token instead of
-   crashing — checked the server log directly for any trace of the ESM error (none).
-   `dev` was left on Turbopack (only the production build path was affected).
-   **If a future Next.js/Turbopack release fixes this upstream, revert `build` back to
-   plain `next build` and confirm the same runtime smoke test still passes.**
+   since March 2026, unresolved.
+   **Real fix**: removed the `firebase-admin/auth` import from `lib/firebase.admin.ts`
+   entirely (it now only exports `getAdminDb()` and `getFirebaseProjectId()`). Added
+   `lib/verifyFirebaseIdToken.ts`, which verifies Firebase ID tokens manually —
+   fetches Google's public certs (`securetoken@system.gserviceaccount.com`, cached
+   respecting the endpoint's own `Cache-Control` header, success-only caching per the
+   `lib/fonts.server.ts` convention), checks the RS256 signature via `jsonwebtoken`
+   (pure CJS, no ESM dependency), and validates `iss`/`aud`/`exp`/`sub`. This is a
+   standard, documented pattern for verifying Firebase ID tokens without the full
+   Admin SDK. `app/api/admin/auth/route.ts` now calls this instead of
+   `getAdminAuth().verifyIdToken()`, wrapped in a try/catch that was previously
+   missing (a crash after token verification would have been an unhandled 500 either
+   way). Verified locally: built with `next build --webpack` (kept, since it's
+   harmless and may still help), ran `next start`, and POSTed a **structurally valid**
+   RS256 JWT (correct header/payload shape, so it reaches the actual Google-certs
+   fetch code path, not just an early parse-failure) to `/api/admin/auth` — got a
+   clean JSON error (missing local `FIREBASE_SERVICE_ACCOUNT_JSON`, expected — no
+   `.env.local` in this dev sandbox), with zero trace of `jwks-rsa`/`jose`/`ERR_REQUIRE_ESM`
+   anywhere in the server log. Same clean result for `/api/databases/public`.
+   **Not yet confirmed on the actual Vercel deployment** — do that next, and if it
+   somehow still fails, get the Logs tab entry again rather than assume this write-up
+   is the end of it.
+5. **Lesson for next time**: after any `git push` intended to deploy, explicitly
+   verify (via the Deployments tab) that the git commit shown next to the **live**
+   (blue-dot) Production deployment matches the pushed SHA — a "Redeploy" action on an
+   older listing can silently re-promote stale code over a newer, already-built one.
 
 ### Not yet done from the original plan
 

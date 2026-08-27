@@ -1,8 +1,20 @@
 import { getApps, initializeApp, cert, App } from "firebase-admin/app";
 import { getFirestore, Firestore } from "firebase-admin/firestore";
-import { getAuth, Auth } from "firebase-admin/auth";
 
 const APP_NAME = "pz-admin";
+
+/**
+ * Deliberately does NOT import from "firebase-admin/auth".
+ *
+ * That module has an unconditional top-level `require("jwks-rsa")`
+ * (node_modules/firebase-admin/lib/utils/jwt.js), and jwks-rsa depends on `jose`,
+ * which ships as pure ESM. Vercel's serverless Function runtime cannot `require()`
+ * that (`ERR_REQUIRE_ESM`) regardless of bundler (Turbopack or webpack) or configured
+ * Node.js version — and because the import is unconditional, merely importing
+ * anything from "firebase-admin/auth" crashes every route that transitively imports
+ * this file, including ones that only touch Firestore. ID token verification is done
+ * instead by lib/verifyFirebaseIdToken.ts, which has no such dependency.
+ */
 
 /**
  * Service account JSON, base64-encoded, from:
@@ -49,6 +61,7 @@ function loadServiceAccount(): { projectId: string; clientEmail: string; private
 }
 
 let cachedApp: App | undefined;
+let cachedProjectId: string | undefined;
 
 function adminApp(): App {
   if (cachedApp) return cachedApp;
@@ -58,6 +71,7 @@ function adminApp(): App {
     return cachedApp;
   }
   const sa = loadServiceAccount();
+  cachedProjectId = sa.projectId;
   cachedApp = initializeApp({ credential: cert(sa), projectId: sa.projectId }, APP_NAME);
   return cachedApp;
 }
@@ -67,7 +81,8 @@ export function getAdminDb(): Firestore {
   return getFirestore(adminApp());
 }
 
-/** Firebase Auth admin — used to verify ID tokens at login. Server-only. */
-export function getAdminAuth(): Auth {
-  return getAuth(adminApp());
+/** The Firebase project ID from the service account — needed to verify ID token claims. */
+export function getFirebaseProjectId(): string {
+  adminApp();
+  return cachedProjectId!;
 }
