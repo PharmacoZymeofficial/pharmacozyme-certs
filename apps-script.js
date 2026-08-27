@@ -93,6 +93,12 @@ function doPost(e) {
       case "deletePDF":
         result = deletePDF(payload);
         break;
+      case "deleteFolder":
+        result = deleteFolder(payload);
+        break;
+      case "ensurePublic":
+        result = ensurePublic(payload);
+        break;
       case "getTabs":
         result = getSheetTabs(payload);
         break;
@@ -394,19 +400,16 @@ function uploadTemplate(payload) {
   const blob   = Utilities.newBlob(Utilities.base64Decode(base64Data), "application/pdf", fileName);
   const folder = DriveApp.getFolderById(TEMPLATES_FOLDER_ID);
   const file   = folder.createFile(blob);
-  // Best-effort: the file is already uploaded at this point — a sharing-policy
-  // rejection must not turn a successful upload into a reported failure.
-  try {
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  } catch (sharingErr) {
-    console.error("Template uploaded but sharing failed:", sharingErr.message);
-  }
+
+  const fileShared = shareBestEffort(file);
+  shareBestEffort(folder);
 
   return {
     success    : true,
     fileId     : file.getId(),
     viewUrl    : "https://drive.google.com/file/d/" + file.getId() + "/view",
     previewUrl : "https://drive.google.com/file/d/" + file.getId() + "/preview",
+    shared     : fileShared,
   };
 }
 
@@ -439,14 +442,8 @@ function uploadPDF(payload) {
   // Upload to Drive
   const file = folder.createFile(pdfBlob);
 
-  // Best-effort: the certificate PDF is already uploaded at this point — a
-  // sharing-policy rejection must not turn a successful upload into a reported
-  // failure (this was silently losing Drive links during bulk generation too).
-  try {
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  } catch (sharingErr) {
-    console.error("Certificate PDF uploaded but sharing failed:", sharingErr.message);
-  }
+  const fileShared = shareBestEffort(file);
+  shareBestEffort(folder);
 
   return {
     success: true,
@@ -456,6 +453,7 @@ function uploadPDF(payload) {
     webContentLink: file.getUrl(),
     folderId: folder.getId(),
     folderUrl: "https://drive.google.com/drive/folders/" + folder.getId(),
+    shared: fileShared,
   };
 }
 
@@ -479,6 +477,7 @@ function getOrCreateFolder(folderName) {
       parentFolder = parentFolders.next();
     } else {
       parentFolder = DriveApp.createFolder(DRIVE_FOLDER_NAME);
+      shareBestEffort(parentFolder);
     }
   }
   
@@ -490,6 +489,7 @@ function getOrCreateFolder(folderName) {
     subFolder = subFolders.next();
   } else {
     subFolder = parentFolder.createFolder(folderName);
+    shareBestEffort(subFolder);
   }
   
   return subFolder;
@@ -519,6 +519,42 @@ function deletePDF(payload) {
     return { success: true, message: "File deleted" };
   } catch (error) {
     return { success: false, error: error.message };
+  }
+}
+
+function deleteFolder(payload) {
+  const { folderId } = payload;
+  if (!folderId) throw new Error("folderId is required");
+  try {
+    DriveApp.getFolderById(folderId).setTrashed(true);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+function ensurePublic(payload) {
+  const { fileId, folderId } = payload;
+  if (!fileId && !folderId) throw new Error("fileId or folderId is required");
+  try {
+    const target = fileId
+      ? DriveApp.getFileById(fileId)
+      : DriveApp.getFolderById(folderId);
+    target.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return { success: true, shared: true };
+  } catch (err) {
+    return { success: false, shared: false, error: String(err) };
+  }
+}
+
+/** Best-effort ANYONE_WITH_LINK share; returns whether it stuck. */
+function shareBestEffort(fileOrFolder) {
+  try {
+    fileOrFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return true;
+  } catch (err) {
+    console.error("setSharing failed:", err && err.message);
+    return false;
   }
 }
 
