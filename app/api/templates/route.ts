@@ -88,7 +88,12 @@ export async function POST(request: NextRequest) {
 
     const docRef = await getAdminDb().collection("certificateTemplates").add(newTemplate);
 
-    return NextResponse.json({ success: true, id: docRef.id, template: { id: docRef.id, ...newTemplate } });
+    return NextResponse.json({
+      success: true,
+      id: docRef.id,
+      template: { id: docRef.id, ...newTemplate },
+      sharingFailed: driveData.shared === false,
+    });
   } catch (error: any) {
     console.error("Error creating template:", error);
     return NextResponse.json({ error: "Failed to create template", details: error?.message }, { status: 500 });

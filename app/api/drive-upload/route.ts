@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
       fileName: result.fileName,
       webViewLink: result.webViewLink,
       webContentLink: result.webContentLink,
+      sharingFailed: result.shared === false,
     });
   } catch (error: any) {
     console.error("ERROR in Drive upload:", error);
