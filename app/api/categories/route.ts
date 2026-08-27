@@ -1,40 +1,34 @@
-import { NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from "firebase/firestore";
+import { NextRequest, NextResponse } from "next/server";
+import { getAdminDb } from "@/lib/firebase.admin";
+import { requireAdmin } from "@/lib/requireAdmin";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
-    const categoriesRef = collection(db, "categories");
-    const q = query(categoriesRef, orderBy("order", "asc"));
-    const querySnapshot = await getDocs(q);
-
-    const categories = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-
+    const snap = await getAdminDb().collection("categories").orderBy("order", "asc").get();
+    const categories = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     return NextResponse.json({ categories });
   } catch (error) {
     console.error("Error fetching categories:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch categories" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to fetch categories" }, { status: 500 });
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
     const body = await request.json();
-    const categoriesRef = collection(db, "categories");
-
     const newCategory = {
       ...body,
       isActive: true,
       createdAt: new Date().toISOString(),
     };
 
-    const docRef = await addDoc(categoriesRef, newCategory);
+    const docRef = await getAdminDb().collection("categories").add(newCategory);
 
     return NextResponse.json({
       success: true,
@@ -43,9 +37,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Error creating category:", error);
-    return NextResponse.json(
-      { error: "Failed to create category" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to create category" }, { status: 500 });
   }
 }

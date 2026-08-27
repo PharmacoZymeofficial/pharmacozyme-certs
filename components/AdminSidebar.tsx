@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useConfirm } from "@/components/ConfirmModal";
 import { useAdminUser } from "@/lib/auth-context";
 import { getAuth, signOut } from "firebase/auth";
-import { app } from "@/lib/firebase";
+import { getFirebaseApp } from "@/lib/firebase";
 
 const navItems = [
   { href: "/admin", icon: "dashboard", label: "Dashboard" },
@@ -30,7 +30,7 @@ export default function AdminSidebar() {
     const ok = await confirm({ title: "Sign Out", message: "Sign out of the admin portal?", confirmText: "Sign Out", danger: true });
     if (!ok) return;
     try {
-      const auth = getAuth(app!);
+      const auth = getAuth(getFirebaseApp());
       await signOut(auth);
     } catch { /* ignore */ }
     await fetch("/api/admin/auth", { method: "DELETE" });

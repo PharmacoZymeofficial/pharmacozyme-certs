@@ -59,16 +59,153 @@ User hit a template-upload `404` in production after all the above. Verified (no
 - Windows Git Credential Manager had a stale cached GitHub account (`ditpharmacozyme`) without push access to this repo — cleared via `cmdkey /delete`, first push then prompted a fresh login as the correct account.
 - `node_modules` were installed this session (weren't present before) to run `tsc --noEmit` and `npm run build` for verification — both passed clean after every change.
 
-## Things I noticed that look like security gaps (flagging, not fixing)
+## Session log — 2026-08-27: security hardening, correctness fixes, cleanup
 
-- **`firestore.rules` is fully open**: every collection (`certificates`, `databases`, `participants`, `admins`, `settings`, etc.) is `allow read, write: if true`. Since the Firebase client config is public by nature, anyone with the project's public config can read/write Firestore directly, bypassing the Next.js app and any cookie check entirely.
-- **The admin cookie is unsigned**: `pz_admin_auth` is just `base64(JSON)`, no HMAC/signature. Anyone can hand-craft a cookie with `role: "super_admin"` and pass `proxy.ts`'s check, which only verifies the cookie *exists*, not that it's valid.
-- **No server-side auth check on most admin API routes**: grep across `app/api` shows only `send-email`, `certificates/generate`, `admin/tutorial-seen`, `admin/me`, `admin/auth`, and `activity-logs` even reference the admin cookie — and those only use it to *label* activity-log entries, not to gate access. Routes like certificate delete/update, participants batch-update, categories, templates, databases don't appear to check the cookie/role before mutating.
-- **Legacy password fallback** defaults to a hardcoded string (`pharmacozyme2026`) if `ADMIN_PASSWORD` isn't set in the environment.
+Full-scope pass covering security, correctness bugs, dead code/deps, and the start of
+the URL-consistency cleanup. Not yet pushed to git (working tree has uncommitted
+changes as of session end) — see "Not yet done" below before treating this as shipped.
 
-Net effect: today, access control is essentially client-side-only (UI hides the admin panel without a cookie) rather than enforced at the data or API layer.
+### Security (closes every gap listed in the previous "flagging, not fixing" section)
+
+1. **Adopted the Firebase Admin SDK** (`lib/firebase.admin.ts`, new). Every API route's
+   Firestore access now goes through `getAdminDb()`/`getAdminAuth()` instead of the
+   public client SDK — `lib/firebase.ts` is client/browser-only now (`getDb()`,
+   `getFirebaseApp()`, both lazy so `next build` doesn't need the env vars present).
+   Requires `FIREBASE_SERVICE_ACCOUNT_JSON` (base64-encoded service account JSON) — the
+   module throws loudly if it's missing rather than silently falling back.
+2. **`firestore.rules` rewritten to deny-by-default.** Only the four client components
+   that still talk to Firestore directly (`admin/login`, `admin/reports`,
+   `admin/settings`, `AdminSidebar`) get scoped rules; everything else is `if false`
+   because the API routes now bypass rules via the Admin SDK. `admins/{uid}` rules pin
+   role/status server-side on self-registration (can't self-grant `super_admin` or
+   `approved`) and let only an approved super admin read/write other admins' docs.
+   **Not verified against the emulator** — this sandbox has no Java/JVM. A full
+   emulator test suite is at `tests/rules/firestore.test.ts`, runnable via
+   `npm run test:rules` (needs Java on PATH) — run it before trusting these rules in
+   production, they were only traced by hand against every call site.
+3. **`POST /api/admin/auth` rewritten** to require a real Firebase ID token
+   (`{idToken}`), verify it server-side (`verifyIdToken`), and enforce
+   `admins/{uid}.status === "approved"` — previously it accepted `{uid, email}` from
+   the request body with zero verification (a complete auth bypass) and never checked
+   approval status. The legacy shared-password flow (`ADMIN_PASSWORD`, defaulting to
+   the literal `"pharmacozyme2026"`) is deleted.
+4. **Session cookie is now HMAC-signed** (`lib/session.ts`, Web Crypto so it works in
+   `proxy.ts`, route handlers, and tests unchanged). Needs `SESSION_SECRET` env var
+   (32+ chars) — rotating it invalidates all sessions. `proxy.ts` now verifies the
+   signature/expiry instead of just checking the cookie is non-empty.
+5. **Every admin API route now gated** via `requireAdmin()`/`requireSuperAdmin()`
+   (`lib/requireAdmin.ts`) — 34 routes total were audited; previously only 4 even
+   referenced the cookie, and none of them gated on it. `GET /api/certificates` (full
+   recipient PII, unauthenticated) was the worst of these.
+6. **Apps Script bridge (`apps-script.js`) now checks a shared secret**
+   (`APPS_SCRIPT_SECRET`, read from Script Properties via `isAuthorized()`) on every
+   `doPost`/`doGet` — it was previously reachable by anyone who learned the deployment
+   URL, which is unavoidably public since the web app must be deployed as "Anyone".
+   **Falls back to allow-all with a console.warn if the Script Property isn't set yet**
+   — set it in the Apps Script editor (Project Settings → Script Properties) and the
+   matching `APPS_SCRIPT_SECRET` env var in Vercel, or this is a no-op.
+7. Collapsed 4 duplicated `callAppsScript` implementations into one
+   (`lib/appsScript.ts`) so the secret only needed adding in one place.
+8. Deleted `/api/test` (public, wrote an unbounded `_connection_test` doc on every GET).
+
+### Correctness bugs fixed
+
+- **Scheduled emails silently marked "sent" when nothing was delivered** — the cron
+  dropped `gmailEmail`/`senderName`/`replyTo` when re-POSTing to `/api/send-email` (so
+  it always fell through to Resend, never the operator's chosen Brevo sender), and
+  never inspected the response before writing `status: "sent"`. Fixed in one shared
+  `lib/scheduledEmail.ts::runScheduledJob`, used by both the cron and the
+  `scheduled-emails/[id]` "send now"/"retry" action. The Resend no-key path no longer
+  reports `success: true` for a simulated send — it now 503s unless
+  `ALLOW_SIMULATED_EMAIL=true`.
+- **`/verify/{certId}` 404** — nothing served that path; the real page reads
+  `?certId=`. Added `app/verify/[certId]/page.tsx` as a redirect, and centralized every
+  URL-minting site behind `lib/urls.ts` (`buildVerificationUrl`, `buildCertificateUrl`).
+  `CertificateGenerator.tsx`'s live QR-minting path now uses `buildCertificateUrl`
+  (→ `/certificate?certId=`) instead of its own `NEXT_PUBLIC_VERIFY_URL`-derived
+  `/claim?id=` construction — consistent with the `/claim` → `/certificate` migration
+  from the 2026-08-26 session (commit `7ee930a`).
+- **Quota-overflow email queue silently dropped recipients** — `quotaFailed` recipients
+  (each carrying a full `pdfBase64`) were queued into one `scheduled_emails` doc,
+  exceeding Firestore's 1 MiB doc cap for anything past a couple of certificates; the
+  write threw into an empty `catch {}` while the response still reported them queued.
+  Fixed: `pdfBase64` stripped before queueing, chunked at 200 recipients/doc, and a
+  write failure now surfaces as `autoQueueError` in the response.
+- **Sheets sort was worse than a no-op** — `getSerial`'s `/(\d+)$/` matched the
+  trailing digit of *current* hex IDs too (e.g. `PZ-2026-A1B2C3D4` → `4`), so rows were
+  shuffled by whatever digit happened to land at the end of a random hex string, not
+  merely left unsorted. New `lib/participantSort.ts::sortParticipantsForSheet` only
+  treats an ID as a legacy serial if it doesn't match the current `PZ-{year}-{hex}`
+  shape; otherwise sorts by `createdAt` ascending. Used everywhere the old duplicated
+  `getSerial` logic lived (`participants`, `participants/batch-update`, `sheets/sync`).
+- **CSV/manual-import certificate IDs were only 4 hex chars** (`uuidv4().slice(0,4)`,
+  ~65k possible values) — the generate route was fixed for this in the prior session
+  but `certificates/import` still had the narrow version. New shared
+  `lib/certificateId.ts` (`newCertificateId`, `newBlockchainHash`, `normalizeCertId`)
+  used by both surviving mint sites. Import route also actually batches its Firestore
+  writes now (it built a `writeBatch` and then never used it) and gives imported
+  certs a real `verificationUrl`/`qrCode` (previously absent).
+- **`GET /api/verify`'s fallback scan was O(databases × 4) sequential reads** on every
+  miss (the common case for a typo). Replaced with one parallel
+  `collectionGroup("participants")` query across all 4 case variants; added
+  `firestore.indexes.json` with the required field override
+  (collection-group indexes aren't automatic).
+- Rate limiting (`lib/rateLimit.ts`, and the login attempt limiter) is still per-instance
+  in-memory — documented in code comments as not the real control on Vercel's
+  serverless model. **Not fixed** — needs a Vercel Firewall rate-limit rule (dashboard
+  config, not code) or Upstash Redis; flagging for next session.
+
+### Cleanup
+
+- Deleted: `/api/certificates/generate` (243 lines, zero callers — client-side
+  `CertificateGenerator.tsx` does its own generation), `/api/test`, root
+  `test-*.js`/`check-*.js` ad hoc scripts, `implementation_plan.md.resolved`.
+- Removed unused deps: `nodemailer`, `@types/nodemailer`, `googleapis`, `pdfjs-dist`,
+  `storage` (an unrelated package, almost certainly installed by mistake).
+- `npm audit`: was 2 critical/8 high/5 moderate. `npm audit fix` (non-breaking) cleared
+  the `websocket-driver` critical. Bumped `next`/`eslint-config-next` 16.2.2 → 16.3.3
+  (non-major fix, per `npm audit`) clearing the `postcss`/`sharp` high-severity
+  advisories. Swapped `xlsx` from the stalled npm registry copy (0.18.5, prototype
+  pollution + ReDoS, no npm fix) to SheetJS's own patched CDN build
+  (`https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz` — drop-in, same API, user
+  confirmed the source-swap explicitly). Remaining: 9 moderate, all inside
+  `firebase-admin`'s own transitive `@google-cloud/storage`/`teeny-request` chain — no
+  non-breaking fix exists; `npm audit fix --force` would *downgrade* firebase-admin to
+  10.3.0, which is npm's resolver being wrong, not a real fix. Left alone.
+- Added a test harness (was none): Vitest (`npm test`), 22 unit tests across
+  `tests/session.test.ts`, `tests/urls.test.ts`, `tests/certificateId.test.ts`,
+  `tests/participantSort.test.ts`, plus the emulator-only `tests/rules/*`. Fixed
+  `"lint": "eslint"` (no-op, lints nothing) → `"lint": "eslint ."`.
+
+### Verified this session
+
+`npx tsc --noEmit`, `npx vitest run` (22/22), and `npm run build` all pass clean after
+every phase. `npx eslint .` now actually runs (previously a no-op) and surfaces ~148
+pre-existing problems across the untouched UI codebase — mostly the `no-explicit-any`
+convention used throughout the original code (not fixed, matches pre-existing style),
+plus a few genuine ones worth a look: `components/VerificationResult.tsx` calls
+`Math.random()` during render (`react-hooks/purity`), `components/Navbar.tsx` uses a
+raw `<a>` for internal nav, a couple of unescaped `"` in JSX. Not touched this session
+— flagged for the Phase 4 (admin UX) pass.
+
+### Not yet done from the original plan
+
+- **Firestore rules emulator verification** — see above, needs Java in this sandbox.
+- **Phase 4 (admin UX/UI)**: the 3,470-line `admin/databases/page.tsx` monolith,
+  bulk-generation resume-on-reload, email delivery visibility in the UI, and general
+  polish — not started. Large enough to warrant its own session.
+- **Vercel Firewall rate limiting** — dashboard config, can't be done from code.
+- **New env vars required before this deploys**: `FIREBASE_SERVICE_ACCOUNT_JSON`,
+  `SESSION_SECRET`, `APPS_SCRIPT_SECRET`, and `CRON_SECRET` is now *required* (was
+  optional) — see the comments in `.env.example`. **Also requires an Apps Script
+  redeploy** (to pick up the `isAuthorized()` check) and a `firestore.rules` deploy.
+  Given the prior session's Vercel env-var lesson: a fresh deployment is required after
+  setting these, hot-reloading into a running function does not happen.
+- Not committed/pushed — working tree has all of the above as uncommitted changes.
 
 ## Loose ends / debug cruft
 
-- Root-level `test-api.js`, `test-drive.js`, `test-upload.js`, `test-apps-script.js`, `check-drives.js`, `check-folder.js` are ad hoc scripts, not part of the app or a test suite. `test-api.js` has a hardcoded LAN IP (`192.168.18.165`).
-- `graphify-out/graph.json` + the Graphify instructions in `AGENTS.md` imply a `graphify auto-update` CLI is expected to run after every edit — not verified whether that tool is actually installed/available here.
+- `graphify-out/graph.json` + the Graphify instructions in `AGENTS.md` imply a
+  `graphify auto-update` CLI is expected to run after every edit — confirmed this
+  session it is **not installed** (`graphify: command not found`); skipped rather than
+  worked around.

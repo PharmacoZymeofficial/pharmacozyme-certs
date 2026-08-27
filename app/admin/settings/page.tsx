@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { db } from "@/lib/firebase";
+import { getDb } from "@/lib/firebase";
 import { doc, getDoc, setDoc, collection, getDocs, updateDoc, deleteDoc } from "firebase/firestore";
 import { useToast } from "@/components/Toast";
 import { useAdminUser } from "@/lib/auth-context";
@@ -32,7 +32,7 @@ export default function SettingsPage() {
 
   const loadSettings = useCallback(async () => {
     try {
-      const snap = await getDoc(doc(db, "settings", "global"));
+      const snap = await getDoc(doc(getDb(), "settings", "global"));
       if (snap.exists()) {
         const data = snap.data();
         if (data.senderName) setSenderName(data.senderName);
@@ -48,7 +48,7 @@ export default function SettingsPage() {
     if (!isSuperAdmin) return;
     setLoadingAdmins(true);
     try {
-      const snap = await getDocs(collection(db, "admins"));
+      const snap = await getDocs(collection(getDb(), "admins"));
       const list = snap.docs.map(d => ({ uid: d.id, ...d.data() })) as AdminRecord[];
       list.sort((a, b) => {
         const order = { pending: 0, approved: 1, rejected: 2 };
@@ -66,7 +66,7 @@ export default function SettingsPage() {
   const saveSettings = async () => {
     setSaving(true);
     try {
-      await setDoc(doc(db, "settings", "global"), {
+      await setDoc(doc(getDb(), "settings", "global"), {
         senderName: senderName.trim(),
         senderEmail: senderEmail.trim(),
         orgName: orgName.trim(),
@@ -84,16 +84,16 @@ export default function SettingsPage() {
     setApprovingId(uid);
     try {
       if (action === "delete") {
-        await deleteDoc(doc(db, "admins", uid));
+        await deleteDoc(doc(getDb(), "admins", uid));
         setAdmins(prev => prev.filter(a => a.uid !== uid));
         toast.success("Admin deleted");
       } else if (action === "reactivate") {
-        await updateDoc(doc(db, "admins", uid), { status: "pending", updatedAt: new Date().toISOString() });
+        await updateDoc(doc(getDb(), "admins", uid), { status: "pending", updatedAt: new Date().toISOString() });
         setAdmins(prev => prev.map(a => a.uid === uid ? { ...a, status: "pending" } : a));
         toast.success("Admin reactivated — pending approval");
       } else {
         const newStatus = action === "approve" ? "approved" : "rejected";
-        await updateDoc(doc(db, "admins", uid), { status: newStatus, updatedAt: new Date().toISOString() });
+        await updateDoc(doc(getDb(), "admins", uid), { status: newStatus, updatedAt: new Date().toISOString() });
         setAdmins(prev => prev.map(a => a.uid === uid ? { ...a, status: newStatus } : a));
         toast.success(`Admin ${newStatus}`);
       }

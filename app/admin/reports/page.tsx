@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { db } from "@/lib/firebase";
+import { getDb } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { useToast } from "@/components/Toast";
 
@@ -22,7 +22,7 @@ export default function ReportsPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const snap = await getDocs(collection(db, "certificates"));
+      const snap = await getDocs(collection(getDb(), "certificates"));
       const certs = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Certificate[];
       setCertificates(certs);
     } catch {

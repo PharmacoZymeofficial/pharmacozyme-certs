@@ -1,102 +1,77 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, where, getCountFromServer } from "firebase/firestore";
+import { getAdminDb } from "@/lib/firebase.admin";
+import { requireAdmin } from "@/lib/requireAdmin";
+import { callAppsScript, appsScriptConfigured } from "@/lib/appsScript";
 
 export async function PUT(request: NextRequest) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
-    const body = await request.json();
-    const { id, ...updateData } = body;
+    const { id, ...updateData } = await request.json();
 
     if (!id) {
       return NextResponse.json({ error: "Database ID is required" }, { status: 400 });
     }
 
-    const databaseRef = doc(db, "databases", id);
-    await updateDoc(databaseRef, updateData);
+    await getAdminDb().collection("databases").doc(id).update(updateData);
 
     return NextResponse.json({ success: true, id, updated: updateData });
   } catch (error: any) {
     console.error("Error updating database:", error);
-    return NextResponse.json(
-      { error: "Failed to update database", details: error?.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to update database", details: error?.message }, { status: 500 });
   }
 }
 
-const APPS_SCRIPT_URL = process.env.GOOGLE_APPS_SCRIPT_URL || "";
-
-async function callAppsScript(action: string, payload: any) {
-  if (!APPS_SCRIPT_URL) return null;
-  const response = await fetch(APPS_SCRIPT_URL, {
-    method: "POST",
-    body: JSON.stringify({ action, ...payload }),
-    redirect: "follow",
-    headers: { "Content-Type": "application/json" },
-  });
-  const text = await response.text();
-  try { return JSON.parse(text); } catch { return null; }
-}
-
 export async function DELETE(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
 
+  try {
+    const id = new URL(request.url).searchParams.get("id");
     if (!id) {
       return NextResponse.json({ error: "Database ID is required" }, { status: 400 });
     }
 
-    // Get database metadata (sheetId etc.) before deleting
-    const databaseRef = doc(db, "databases", id);
-    const dbSnap = await getDocs(collection(db, "databases"));
-    const dbDoc = dbSnap.docs.find(d => d.id === id);
-    const dbData = dbDoc?.data();
+    const adminDb = getAdminDb();
+    const databaseRef = adminDb.collection("databases").doc(id);
+    const dbSnap = await databaseRef.get();
+    const dbData = dbSnap.exists ? dbSnap.data() : undefined;
 
-    // Delete all participants and their Drive files
-    const participantsRef = collection(db, "databases", id, "participants");
-    const participantsSnap = await getDocs(participantsRef);
-
+    // Delete all participants and their Drive files.
+    const participantsSnap = await databaseRef.collection("participants").get();
     for (const pDoc of participantsSnap.docs) {
       const pData = pDoc.data();
-      // Delete Drive PDF if file ID exists
-      if (pData.driveFileId && APPS_SCRIPT_URL) {
+      if (pData.driveFileId && appsScriptConfigured()) {
         try {
           await callAppsScript("deletePDF", { fileId: pData.driveFileId });
         } catch { /* non-fatal */ }
       }
-      await deleteDoc(pDoc.ref);
+      await pDoc.ref.delete();
     }
-    console.log(`Deleted ${participantsSnap.size} participants`);
 
-    // Clear only col A (cert IDs the app wrote) — never deletes original rows
-    if (dbData?.sheetId && APPS_SCRIPT_URL) {
+    // Clear only col A (cert IDs the app wrote) — never deletes original rows.
+    if (dbData?.sheetId && appsScriptConfigured()) {
       try {
-        const emails = participantsSnap.docs
-          .map(d => d.data().email)
-          .filter(Boolean);
+        const emails = participantsSnap.docs.map((d) => d.data().email).filter(Boolean);
         if (emails.length > 0) {
           await callAppsScript("clearCertIdsByEmail", {
             spreadsheetId: dbData.sheetId,
             tabName: dbData.sheetTabName || "Participants",
             emails,
           });
-          console.log(`Cleared cert IDs for ${emails.length} rows in sheet`);
         }
       } catch (sheetErr) {
         console.error("Failed to clear cert IDs from sheet:", sheetErr);
       }
     }
 
-    // Delete templates subcollection
-    const templatesRef = collection(db, "databases", id, "templates");
-    const templatesSnap = await getDocs(templatesRef);
+    const templatesSnap = await databaseRef.collection("templates").get();
     for (const tDoc of templatesSnap.docs) {
-      await deleteDoc(tDoc.ref);
+      await tDoc.ref.delete();
     }
 
-    // Delete database document
-    await deleteDoc(databaseRef);
+    await databaseRef.delete();
 
     return NextResponse.json({
       success: true,
@@ -105,53 +80,44 @@ export async function DELETE(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("Error deleting database:", error);
-    return NextResponse.json(
-      { error: "Failed to delete database", details: error?.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to delete database", details: error?.message }, { status: 500 });
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
-    console.log("GET /api/databases called");
-    console.log("Firebase db:", db);
-    
-    const databasesRef = collection(db, "databases");
-    // Use simple query without orderBy to avoid index issues
-    const querySnapshot = await getDocs(databasesRef);
-    console.log("Fetched", querySnapshot.size, "databases");
+    const adminDb = getAdminDb();
+    const querySnapshot = await adminDb.collection("databases").get();
 
-    // Sort manually by createdAt descending
-    const allDocs = querySnapshot.docs.map((docSnap) => {
-      const data = docSnap.data();
-      return {
-        id: docSnap.id,
-        ...data,
-        createdAt: data.createdAt || null,
-      } as { id: string; [key: string]: any };
-    }).sort((a, b) => {
-      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return dateB - dateA;
-    });
+    const allDocs = querySnapshot.docs
+      .map((docSnap) => {
+        const data = docSnap.data();
+        return { id: docSnap.id, ...data, createdAt: data.createdAt || null } as {
+          id: string;
+          [key: string]: any;
+        };
+      })
+      .sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
 
-    // Fetch participant counts for each database (non-blocking)
     const databases = await Promise.all(
       allDocs.map(async (dbDoc) => {
         try {
-          // Use nested subcollection path
-          const participantsRef = collection(db, "databases", dbDoc.id, "participants");
-          const countSnap = await getCountFromServer(participantsRef);
-          return {
-            ...dbDoc,
-            participantCount: countSnap.data().count || 0,
-          };
+          const countSnap = await adminDb
+            .collection("databases")
+            .doc(dbDoc.id)
+            .collection("participants")
+            .count()
+            .get();
+          return { ...dbDoc, participantCount: countSnap.data().count || 0 };
         } catch {
-          return {
-            ...dbDoc,
-            participantCount: 0,
-          };
+          return { ...dbDoc, participantCount: 0 };
         }
       })
     );
@@ -159,7 +125,6 @@ export async function GET() {
     return NextResponse.json({ databases });
   } catch (error: any) {
     console.error("Error fetching databases:", error);
-    console.error("Error code:", error?.code);
     return NextResponse.json(
       { error: "Failed to fetch databases", details: error?.message, code: error?.code },
       { status: 500 }
@@ -168,14 +133,11 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
     const body = await request.json();
-    
-    console.log("Request body:", JSON.stringify(body, null, 2));
-    console.log("Firebase db:", db);
-    
-    const databasesRef = collection(db, "databases");
-    console.log("Collection reference created");
 
     const newDatabase: any = {
       name: body.name || "",
@@ -188,35 +150,19 @@ export async function POST(request: NextRequest) {
       createdAt: new Date().toISOString(),
     };
 
-    // Handle Google Sheet linking
     if (body.sheetId) {
       newDatabase.sheetId = body.sheetId;
       newDatabase.sheetTabName = body.sheetTabName || "Participants";
       newDatabase.linkedSheet = true;
     }
 
-    console.log("Creating database with data:", newDatabase);
+    const docRef = await getAdminDb().collection("databases").add(newDatabase);
 
-    const docRef = await addDoc(databasesRef, newDatabase);
-
-    console.log("Database created successfully with ID:", docRef.id);
-
-    return NextResponse.json({
-      success: true,
-      id: docRef.id,
-      database: { id: docRef.id, ...newDatabase },
-    });
+    return NextResponse.json({ success: true, id: docRef.id, database: { id: docRef.id, ...newDatabase } });
   } catch (error: any) {
     console.error("Error creating database:", error);
-    console.error("Error code:", error?.code);
-    console.error("Error message:", error?.message);
-    
     return NextResponse.json(
-      { 
-        error: "Failed to create database", 
-        details: error?.message,
-        code: error?.code 
-      },
+      { error: "Failed to create database", details: error?.message, code: error?.code },
       { status: 500 }
     );
   }

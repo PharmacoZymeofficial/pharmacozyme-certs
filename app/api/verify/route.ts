@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
+import { getAdminDb } from "@/lib/firebase.admin";
 import { rateLimit } from "@/lib/rateLimit";
+import { normalizeCertId } from "@/lib/certificateId";
+import { buildVerificationUrl } from "@/lib/urls";
+
+// Public route by design — verification is the product. Kept unauthenticated, but it
+// reads through the Admin SDK because firestore.rules is now deny-by-default.
 
 function getClientIp(req: NextRequest): string {
   return (
@@ -14,10 +18,15 @@ function getClientIp(req: NextRequest): string {
 async function enrichDriveLink(certData: any) {
   if (certData.driveLink || !certData.databaseId || !certData.participantId) return certData;
   try {
-    const participantRef = doc(db, "databases", certData.databaseId, "participants", certData.participantId);
-    const participantSnap = await getDoc(participantRef);
-    if (participantSnap.exists()) {
-      const pData = participantSnap.data();
+    const participantSnap = await getAdminDb()
+      .collection("databases")
+      .doc(certData.databaseId)
+      .collection("participants")
+      .doc(certData.participantId)
+      .get();
+
+    if (participantSnap.exists) {
+      const pData = participantSnap.data() || {};
       certData.driveLink = pData.driveLink || "";
       certData.pdfUrl = certData.pdfUrl || pData.driveLink || "";
       certData.driveFileId = certData.driveFileId || pData.driveFileId || "";
@@ -38,21 +47,16 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const certId = (searchParams.get("certId") || "").toUpperCase().trim() || null;
+    const rawCertId = searchParams.get("certId") || "";
+    const certId = normalizeCertId(rawCertId);
     const filterCategory = searchParams.get("category") || "";
     const filterSubCategory = searchParams.get("subCategory") || "";
 
     if (!certId) {
-      return NextResponse.json(
-        { error: "Certificate ID is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Certificate ID is required" }, { status: 400 });
     }
 
-    // Search 1: certificates collection (generated via generate route)
-    const certificatesRef = collection(db, "certificates");
-    const q = query(certificatesRef, where("uniqueCertId", "==", certId));
-    const querySnapshot = await getDocs(q);
+    const adminDb = getAdminDb();
 
     function validateCategoryMatch(certData: any): boolean {
       if (filterCategory && certData.category !== filterCategory) return false;
@@ -60,79 +64,70 @@ export async function GET(request: NextRequest) {
       return true;
     }
 
-    if (!querySnapshot.empty) {
-      const certDoc = querySnapshot.docs[0];
+    function categoryMismatch() {
+      return NextResponse.json(
+        { error: "Certificate found but does not match the selected category/subcategory." },
+        { status: 404 }
+      );
+    }
+
+    // ── Search 1: certificates collection ────────────────────────────────────
+    // Legacy documents may hold the ID in any case, so try the normalized form plus
+    // the raw and lowercase variants. These run in parallel rather than sequentially.
+    const certVariants = [...new Set([certId, rawCertId, rawCertId.toLowerCase()])].filter(Boolean);
+    const certSnaps = await Promise.all(
+      certVariants.map((v) => adminDb.collection("certificates").where("uniqueCertId", "==", v).limit(1).get())
+    );
+    const certHit = certSnaps.find((s) => !s.empty);
+
+    if (certHit) {
+      const certDoc = certHit.docs[0];
       const certData = await enrichDriveLink(certDoc.data() as any);
-      if (!validateCategoryMatch(certData)) {
-        return NextResponse.json({ error: "Certificate found but does not match the selected category/subcategory." }, { status: 404 });
-      }
+      if (!validateCategoryMatch(certData)) return categoryMismatch();
       return NextResponse.json({ certificate: { id: certDoc.id, ...certData } });
     }
 
-    // Search 2: also try case-insensitive variations
-    const qLower = query(certificatesRef, where("uniqueCertId", "==", certId.toLowerCase()));
-    const qOrig = query(certificatesRef, where("uniqueCertId", "==", searchParams.get("certId") || ""));
-    const [snapLower, snapOrig] = await Promise.all([getDocs(qLower), getDocs(qOrig)]);
+    // ── Search 2: participants, via a single collection-group query ──────────
+    // This previously looped every database and issued up to four sequential queries
+    // per database — O(databases x 4) round trips on every miss, which is the common
+    // case for a typo'd ID. A collection group query covers all of them at once.
+    const participantSnaps = await Promise.all(
+      certVariants.map((v) =>
+        adminDb.collectionGroup("participants").where("certificateId", "==", v).limit(1).get()
+      )
+    );
+    const pHit = participantSnaps.find((s) => !s.empty);
 
-    const altSnap = !snapLower.empty ? snapLower : !snapOrig.empty ? snapOrig : null;
-    if (altSnap && !altSnap.empty) {
-      const altDoc = altSnap.docs[0];
-      const certData = await enrichDriveLink(altDoc.data() as any);
-      if (!validateCategoryMatch(certData)) {
-        return NextResponse.json({ error: "Certificate found but does not match the selected category/subcategory." }, { status: 404 });
-      }
-      return NextResponse.json({ certificate: { id: altDoc.id, ...certData } });
-    }
+    if (pHit) {
+      const pDoc = pHit.docs[0];
+      const pData = pDoc.data();
 
-    // Search 3: fallback — search participants in all databases (try multiple case variants)
-    const origCertId = searchParams.get("certId") || "";
-    const certIdVariants = [...new Set([certId, origCertId, origCertId.toUpperCase(), origCertId.toLowerCase()])];
+      // The parent of a participants subcollection doc is the database document.
+      const dbDoc = await pDoc.ref.parent.parent!.get();
+      const dbData = dbDoc.data() || {};
 
-    const databasesRef = collection(db, "databases");
-    const dbSnap = await getDocs(databasesRef);
+      const certificate = {
+        id: pDoc.id,
+        uniqueCertId: pData.certificateId || certId,
+        recipientName: pData.name || "",
+        recipientEmail: pData.email || "",
+        category: dbData.category || "",
+        subCategory: dbData.subCategory || "",
+        topic: dbData.topic || "",
+        certType: dbData.topic || dbData.subCategory || "",
+        issueDate: pData.issueDate || pData.createdAt || "",
+        status: pData.status || "generated",
+        pdfUrl: pData.driveLink || "",
+        driveLink: pData.driveLink || "",
+        verificationUrl: pData.certificateUrl || buildVerificationUrl(certId),
+        blockchainHash: `0x${pDoc.id.replace(/-/g, "")}`,
+        databaseId: dbDoc.id,
+        participantId: pDoc.id,
+        createdAt: pData.createdAt || "",
+      };
 
-    for (const dbDoc of dbSnap.docs) {
-      const participantsRef = collection(db, "databases", dbDoc.id, "participants");
-      // Try all case variants
-      let pSnap: any = null;
-      for (const variant of certIdVariants) {
-        const pQuery = query(participantsRef, where("certificateId", "==", variant));
-        const snap = await getDocs(pQuery);
-        if (!snap.empty) { pSnap = snap; break; }
-      }
-      if (!pSnap) continue;
-
-      {
-        const pDoc = pSnap.docs[0];
-        const pData = pDoc.data();
-        const dbData = dbDoc.data();
-
-        // Map participant data to certificate format for VerificationResult
-        const certificate = {
-          id: pDoc.id,
-          uniqueCertId: pData.certificateId || certId,
-          recipientName: pData.name || "",
-          recipientEmail: pData.email || "",
-          category: dbData.category || "",
-          subCategory: dbData.subCategory || "",
-          topic: dbData.topic || "",
-          certType: dbData.topic || dbData.subCategory || "",
-          issueDate: pData.issueDate || pData.createdAt || "",
-          status: pData.status || "generated",
-          pdfUrl: pData.driveLink || "",
-          driveLink: pData.driveLink || "",
-          verificationUrl: pData.certificateUrl || `${process.env.NEXT_PUBLIC_BASE_URL || ""}/verify?certId=${certId}`,
-          blockchainHash: `0x${pDoc.id.replace(/-/g, "")}`,
-          databaseId: dbDoc.id,
-          participantId: pDoc.id,
-          createdAt: pData.createdAt || "",
-        };
-
-        if (!validateCategoryMatch(certificate)) {
-          return NextResponse.json({ error: "Certificate found but does not match the selected category/subcategory." }, { status: 404 });
-        }
-        return NextResponse.json({ certificate });
-      }
+      if (!validateCategoryMatch(certificate)) return categoryMismatch();
+      return NextResponse.json({ certificate });
     }
 
     return NextResponse.json(

@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { getAdminDb } from "@/lib/firebase.admin";
+import { requireAdmin } from "@/lib/requireAdmin";
+import { runScheduledJob } from "@/lib/scheduledEmail";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://cert.pharmacozyme.com";
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
 
-export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    await updateDoc(doc(db, "scheduled_emails", id), {
+    await getAdminDb().collection("scheduled_emails").doc(id).update({
       status: "cancelled",
       cancelledAt: new Date().toISOString(),
     });
@@ -18,42 +20,38 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
     const { id } = await params;
     const body = await request.json();
-    if (body.action !== "send_now") {
+
+    // retry re-runs a job that previously failed; send_now runs a pending one early.
+    if (body.action !== "send_now" && body.action !== "retry") {
       return NextResponse.json({ error: "Unknown action" }, { status: 400 });
     }
 
-    const jobSnap = await getDoc(doc(db, "scheduled_emails", id));
-    if (!jobSnap.exists()) {
+    const jobSnap = await getAdminDb().collection("scheduled_emails").doc(id).get();
+    if (!jobSnap.exists) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
-    const job = jobSnap.data();
-    if (job.status !== "pending") {
-      return NextResponse.json({ error: "Job is not pending" }, { status: 400 });
+    const job = jobSnap.data()!;
+    const allowed = body.action === "retry" ? ["failed", "partial"] : ["pending"];
+    if (!allowed.includes(job.status)) {
+      return NextResponse.json(
+        { error: `Job is ${job.status}; expected one of: ${allowed.join(", ")}` },
+        { status: 400 }
+      );
     }
 
-    const response = await fetch(`${BASE_URL}/api/send-email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        recipients: job.recipients,
-        subject: job.subject,
-        message: job.message,
-      }),
-    });
+    const result = await runScheduledJob(id, job);
 
-    const result = await response.json();
-
-    await updateDoc(doc(db, "scheduled_emails", id), {
-      status: "sent",
-      sentAt: new Date().toISOString(),
-      result: { sent: result.sent ?? 0, failed: result.failed ?? 0 },
-    });
-
-    return NextResponse.json({ success: true, sent: result.sent ?? 0, failed: result.failed ?? 0 });
+    return NextResponse.json(
+      { success: result.ok, sent: result.sent, failed: result.failed, error: result.error },
+      { status: result.ok ? 200 : 502 }
+    );
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

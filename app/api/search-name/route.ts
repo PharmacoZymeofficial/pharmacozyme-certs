@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, limit, doc, getDoc } from "firebase/firestore";
+import { getAdminDb } from "@/lib/firebase.admin";
 import { rateLimit } from "@/lib/rateLimit";
 
-//  is a high Unicode sentinel used to match all strings with a given prefix in Firestore range queries
-const RANGE_SENTINEL = "";
+// Public by design: this backs the "search by name" verification flow.
+// High-Unicode sentinel used to match all strings with a given prefix in range queries.
+const RANGE_SENTINEL = "\uf8ff";
 
 function nameVariants(name: string): string[] {
   const title = name.replace(/\b\w/g, (c) => c.toUpperCase());
@@ -35,28 +35,25 @@ export async function GET(request: NextRequest) {
   const subCategory = (searchParams.get("subCategory") || "").trim();
 
   if (!name || name.length < 2) {
-    return NextResponse.json(
-      { error: "Name must be at least 2 characters" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Name must be at least 2 characters" }, { status: 400 });
   }
 
+  const adminDb = getAdminDb();
   const results: Record<string, unknown>[] = [];
   const seen = new Set<string>();
 
-  // ── Search 1: certificates collection by recipientName prefix ──────────────
+  // Search 1: certificates collection by recipientName prefix.
   if (!databaseId) {
     try {
-      const certRef = collection(db, "certificates");
+      const certRef = adminDb.collection("certificates");
       for (const variant of nameVariants(name)) {
         if (results.length >= 20) break;
-        let q = query(
-          certRef,
-          where("recipientName", ">=", variant),
-          where("recipientName", "<=", variant + RANGE_SENTINEL),
-          limit(15)
-        );
-        const snap = await getDocs(q);
+        const snap = await certRef
+          .where("recipientName", ">=", variant)
+          .where("recipientName", "<=", variant + RANGE_SENTINEL)
+          .limit(15)
+          .get();
+
         for (const d of snap.docs) {
           const data = d.data() as Record<string, unknown>;
           if (subCategory && data.subCategory !== subCategory) continue;
@@ -82,19 +79,18 @@ export async function GET(request: NextRequest) {
     } catch { /* non-fatal */ }
   }
 
-  // ── Search 2: participants subcollections ──────────────────────────────────
+  // Search 2: participants subcollections.
   if (results.length < 20) {
     try {
-      // If databaseId provided, scope to that one DB; otherwise scan all live DBs
       let dbDocs: { id: string; data: () => Record<string, unknown> }[];
       if (databaseId) {
-        const dbSnap = await getDoc(doc(db, "databases", databaseId));
-        if (!dbSnap.exists()) {
+        const dbSnap = await adminDb.collection("databases").doc(databaseId).get();
+        if (!dbSnap.exists) {
           return NextResponse.json({ results: [] });
         }
         dbDocs = [{ id: dbSnap.id, data: () => dbSnap.data() as Record<string, unknown> }];
       } else {
-        const snap = await getDocs(collection(db, "databases"));
+        const snap = await adminDb.collection("databases").get();
         dbDocs = snap.docs.map((d) => ({ id: d.id, data: () => d.data() as Record<string, unknown> }));
       }
 
@@ -103,16 +99,19 @@ export async function GET(request: NextRequest) {
         const dbData = dbDoc.data();
         if (subCategory && dbData.subCategory !== subCategory) continue;
 
-        const participantsRef = collection(db, "databases", dbDoc.id, "participants");
+        const participantsRef = adminDb
+          .collection("databases")
+          .doc(dbDoc.id)
+          .collection("participants");
+
         for (const variant of nameVariants(name)) {
           if (results.length >= 20) break;
-          const q = query(
-            participantsRef,
-            where("name", ">=", variant),
-            where("name", "<=", variant + RANGE_SENTINEL),
-            limit(10)
-          );
-          const snap = await getDocs(q);
+          const snap = await participantsRef
+            .where("name", ">=", variant)
+            .where("name", "<=", variant + RANGE_SENTINEL)
+            .limit(10)
+            .get();
+
           for (const p of snap.docs) {
             const pData = p.data() as Record<string, unknown>;
             const certId = (pData.certificateId as string) || p.id;
@@ -125,11 +124,8 @@ export async function GET(request: NextRequest) {
                 category: (dbData.category as string) || "",
                 subCategory: (dbData.subCategory as string) || "",
                 topic: (dbData.topic as string) || "",
-                certType:
-                  (dbData.topic as string) ||
-                  (dbData.subCategory as string) ||
-                  "",
-                issueDate: ((pData.issueDate || pData.createdAt || "") as string),
+                certType: (dbData.topic as string) || (dbData.subCategory as string) || "",
+                issueDate: (pData.issueDate || pData.createdAt || "") as string,
                 status: (pData.status as string) || "generated",
                 driveLink: (pData.driveLink as string) || "",
               });

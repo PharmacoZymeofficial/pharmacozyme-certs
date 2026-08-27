@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { NextRequest, NextResponse } from "next/server";
+import { getAdminDb } from "@/lib/firebase.admin";
+import { requireAdmin } from "@/lib/requireAdmin";
 
 const SMTP_ACCOUNTS = [
   { email: "info@pharmacozyme.com",           label: "PharmacoZyme Official", key: "brevo_pharmacozyme" },
@@ -10,14 +10,18 @@ const SMTP_ACCOUNTS = [
 const GMAIL_DAILY_LIMIT = 500;
 const RESEND_DAILY_LIMIT = 100;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   const today = new Date().toISOString().split("T")[0];
 
   // Firestore stats doc (tracks both Resend and per-Gmail-account counts)
   let firestoreData: Record<string, number> = {};
   try {
-    const statsSnap = await getDoc(doc(db, "email_stats", today));
-    if (statsSnap.exists()) firestoreData = statsSnap.data() as Record<string, number>;
+    const statsSnap = await getAdminDb().collection("email_stats").doc(today).get();
+    // Admin SDK: `exists` is a property, not a method.
+    if (statsSnap.exists) firestoreData = statsSnap.data() as Record<string, number>;
   } catch { /* non-fatal */ }
 
   // Resend: try live API first, fall back to Firestore counter

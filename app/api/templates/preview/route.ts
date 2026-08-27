@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { getAdminDb } from "@/lib/firebase.admin";
+import { requireAdmin } from "@/lib/requireAdmin";
 import { renderCertificatePdf } from "@/lib/certificateRender";
+import { buildVerificationUrl } from "@/lib/urls";
 
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
     const body = await request.json();
     const { templateId, templateUrl, templatePositions, testData, testFieldValues } = body;
@@ -11,11 +15,11 @@ export async function POST(request: NextRequest) {
     let templateBytes: ArrayBuffer;
 
     if (templateId) {
-      const snap = await getDoc(doc(db, "certificateTemplates", templateId));
-      if (!snap.exists()) {
+      const snap = await getAdminDb().collection("certificateTemplates").doc(templateId).get();
+      if (!snap.exists) {
         return NextResponse.json({ error: "Template not found" }, { status: 404 });
       }
-      const tData = snap.data();
+      const tData = snap.data() || {};
       if (tData.driveFileId) {
         const downloadUrl = `https://drive.google.com/uc?export=download&id=${tData.driveFileId}`;
         const driveRes = await fetch(downloadUrl, { redirect: "follow" });
@@ -49,7 +53,7 @@ export async function POST(request: NextRequest) {
       positions: templatePositions,
       recipientName: testData?.name || "Dr John Doe Wright",
       certId: testData?.certId || "2026-PZ-CRS-0001",
-      verificationUrl: "https://cert.pharmacozyme.com/verify?id=TEST-123",
+      verificationUrl: buildVerificationUrl(testData?.certId || "TEST-123"),
       fieldValues: testFieldValues,
     });
 

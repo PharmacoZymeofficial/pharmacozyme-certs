@@ -2,6 +2,7 @@ import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import QRCode from "qrcode";
 import { loadFontBytes } from "@/lib/fonts.server";
+import { buildCertificateUrl } from "@/lib/urls";
 
 export interface RenderCustomElement {
   id: string;
@@ -193,7 +194,7 @@ export async function renderCertificatePdf(params: RenderCertificateParams): Pro
   });
 
   // QR code
-  const qrUrl = verificationUrl || `https://cert.pharmacozyme.com/claim?id=${certId}`;
+  const qrUrl = verificationUrl || buildCertificateUrl(certId);
   const qrSize = pos.qrPos.width;
   const qrX = pos.qrPos.x - qrSize / 2;
   const qrY = pos.qrPos.y - qrSize / 2;

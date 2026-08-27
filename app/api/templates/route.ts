@@ -1,34 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, addDoc, doc, deleteDoc, updateDoc, query, orderBy } from "firebase/firestore";
+import { getAdminDb } from "@/lib/firebase.admin";
+import { requireAdmin } from "@/lib/requireAdmin";
+import { callAppsScript, appsScriptConfigured } from "@/lib/appsScript";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
-    const templatesRef = collection(db, "certificateTemplates");
-    const q = query(templatesRef, orderBy("createdAt", "desc"));
-    const querySnapshot = await getDocs(q);
+    const snap = await getAdminDb()
+      .collection("certificateTemplates")
+      .orderBy("createdAt", "desc")
+      .get();
 
-    const templates = querySnapshot.docs.map((docSnap) => {
-      const data = docSnap.data();
-      const { pdfBase64, ...rest } = data;
-      // Always compute fileUrl from doc ID so the iframe always has a valid URL
+    const templates = snap.docs.map((docSnap) => {
+      const { pdfBase64: _pdfBase64, ...rest } = docSnap.data();
+      // Always compute fileUrl from the doc ID so the iframe always has a valid URL.
       return { id: docSnap.id, ...rest, fileUrl: `/api/templates/${docSnap.id}/pdf` };
     });
 
     return NextResponse.json({ templates });
   } catch (error: any) {
     console.error("Error fetching templates:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch templates", details: error?.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to fetch templates", details: error?.message }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
-    const appsScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL;
-    if (!appsScriptUrl) {
+    if (!appsScriptConfigured()) {
       return NextResponse.json({ error: "GOOGLE_APPS_SCRIPT_URL environment variable not set" }, { status: 500 });
     }
 
@@ -48,49 +51,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "File size must be less than 20MB" }, { status: 400 });
     }
 
-    // Upload to Google Drive via Apps Script
-    const arrayBuffer = await file.arrayBuffer();
-    const base64Data = Buffer.from(arrayBuffer).toString("base64");
-
-    const uploadOnce = async () => {
-      const res = await fetch(appsScriptUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "uploadTemplate", fileName: file.name, base64Data }),
-        redirect: "follow",
-      });
-      const text = await res.text();
-      if (!res.ok) {
-        throw new Error(`Apps Script HTTP ${res.status}: ${text.substring(0, 300)}`);
-      }
-      try {
-        return JSON.parse(text);
-      } catch {
-        if (text.includes("<!DOCTYPE") || text.includes("<html")) {
-          throw new Error(
-            "The certificate-storage service (Google Apps Script) returned an error page instead of a result. " +
-            "This is usually transient — please try uploading again. If it keeps happening, the Apps Script " +
-            "deployment may need to be redeployed (Deploy → New deployment) or its access set to 'Anyone'."
-          );
-        }
-        throw new Error(`Apps Script returned an unexpected response: ${text.substring(0, 150)}`);
-      }
-    };
+    const base64Data = Buffer.from(await file.arrayBuffer()).toString("base64");
 
     let driveData: any;
     try {
-      driveData = await uploadOnce();
-    } catch (firstErr) {
-      // One retry — Apps Script cold starts / transient hiccups are common and self-resolve.
-      await new Promise(r => setTimeout(r, 1500));
-      driveData = await uploadOnce();
+      driveData = await callAppsScript("uploadTemplate", { fileName: file.name, base64Data });
+    } catch {
+      // One retry — Apps Script cold starts and transient hiccups are common.
+      await new Promise((r) => setTimeout(r, 1500));
+      driveData = await callAppsScript("uploadTemplate", { fileName: file.name, base64Data });
     }
 
     if (!driveData.success) {
       throw new Error(`Drive upload failed: ${driveData.error || JSON.stringify(driveData)}`);
     }
 
-    const templatesRef = collection(db, "certificateTemplates");
     const newTemplate = {
       name,
       description: description || "",
@@ -111,75 +86,56 @@ export async function POST(request: NextRequest) {
       createdAt: new Date().toISOString(),
     };
 
-    const docRef = await addDoc(templatesRef, newTemplate);
+    const docRef = await getAdminDb().collection("certificateTemplates").add(newTemplate);
 
-    return NextResponse.json({
-      success: true,
-      id: docRef.id,
-      template: { id: docRef.id, ...newTemplate },
-    });
+    return NextResponse.json({ success: true, id: docRef.id, template: { id: docRef.id, ...newTemplate } });
   } catch (error: any) {
     console.error("Error creating template:", error);
-    return NextResponse.json(
-      { error: "Failed to create template", details: error?.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to create template", details: error?.message }, { status: 500 });
   }
 }
 
 export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { id, positions } = body;
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
 
+  try {
+    const { id, positions } = await request.json();
     if (!id || !positions) {
       return NextResponse.json({ error: "ID and positions are required" }, { status: 400 });
     }
 
-    const templateRef = doc(db, "certificateTemplates", id);
-    await updateDoc(templateRef, { positions });
-
+    await getAdminDb().collection("certificateTemplates").doc(id).update({ positions });
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("Error updating template positions:", error);
-    return NextResponse.json(
-      { error: "Failed to update positions", details: error?.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to update positions", details: error?.message }, { status: 500 });
   }
 }
 
 export async function DELETE(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
 
+  try {
+    const id = new URL(request.url).searchParams.get("id");
     if (!id) {
       return NextResponse.json({ error: "Template ID is required" }, { status: 400 });
     }
 
-    const templateRef = doc(db, "certificateTemplates", id);
+    const templateRef = getAdminDb().collection("certificateTemplates").doc(id);
+    const snap = await templateRef.get();
+    const driveFileId = snap.exists ? snap.data()?.driveFileId : null;
 
-    // Delete the Drive file if one exists
-    const appsScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL;
-    const snap = await import("firebase/firestore").then(m => m.getDoc(templateRef));
-    const driveFileId = snap.exists() ? snap.data()?.driveFileId : null;
-    if (driveFileId && appsScriptUrl) {
-      await fetch(appsScriptUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "deleteTemplate", fileId: driveFileId }),
-      }).catch(() => {}); // non-fatal
+    if (driveFileId && appsScriptConfigured()) {
+      // Non-fatal: a leftover Drive file is better than a failed delete.
+      await callAppsScript("deleteTemplate", { fileId: driveFileId }).catch(() => {});
     }
 
-    await deleteDoc(templateRef);
-
+    await templateRef.delete();
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("Error deleting template:", error);
-    return NextResponse.json(
-      { error: "Failed to delete template", details: error?.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to delete template", details: error?.message }, { status: 500 });
   }
 }

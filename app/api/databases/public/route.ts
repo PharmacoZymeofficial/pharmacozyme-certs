@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { getAdminDb } from "@/lib/firebase.admin";
 
+// Public by design: powers the course cards on the verify page. Returns only a
+// hand-picked subset of fields, and only for databases explicitly marked isLive.
 export async function GET() {
   try {
-    const snap = await getDocs(collection(db, "databases"));
+    const snap = await getAdminDb().collection("databases").where("isLive", "==", true).get();
     const live = snap.docs
-      .filter((d) => d.data().isLive === true)
       .map((d) => {
         const data = d.data();
         return {

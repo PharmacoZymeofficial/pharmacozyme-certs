@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { getAdminDb } from "@/lib/firebase.admin";
+import { buildVerificationUrl } from "@/lib/urls";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import QRCode from "qrcode";
 
@@ -16,15 +16,16 @@ export async function POST(request: NextRequest) {
     // Fetch database details
     let database = { category: "Courses", subCategory: "Workshops", topic: "Certificate" };
     if (databaseId) {
-      const dbRef = doc(db, "databases", databaseId);
-      const dbSnap = await getDoc(dbRef);
-      if (dbSnap.exists()) {
+      const dbSnap = await getAdminDb().collection("databases").doc(databaseId).get();
+      if (dbSnap.exists) {
         database = dbSnap.data() as any;
       }
     }
 
     // Generate QR Code
-    const verificationUrl = `${process.env.NEXT_PUBLIC_VERIFY_URL || "https://cert.pharmacozyme.com/verify"}?id=${certificateId}`;
+    // Was `?id=`, which app/verify/page.tsx does read, but only as a legacy alias.
+    // Use the canonical builder so every QR target has the same shape.
+    const verificationUrl = buildVerificationUrl(certificateId);
     const qrCodeDataUrl = await QRCode.toDataURL(verificationUrl);
     const qrCodeBytes = Buffer.from(qrCodeDataUrl.split(",")[1], "base64");
 

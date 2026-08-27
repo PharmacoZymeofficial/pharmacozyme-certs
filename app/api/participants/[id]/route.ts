@@ -1,34 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { doc, deleteDoc, updateDoc, getDoc } from "firebase/firestore";
-
-const APPS_SCRIPT_URL = process.env.GOOGLE_APPS_SCRIPT_URL || "";
-
-async function callAppsScript(action: string, payload: any) {
-  const body = { action, ...payload };
-  const response = await fetch(APPS_SCRIPT_URL, {
-    method: "POST",
-    body: JSON.stringify(body),
-    redirect: "follow",
-    headers: { "Content-Type": "application/json" },
-  });
-  const text = await response.text();
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error(`Invalid JSON: ${text.substring(0, 200)}`);
-  }
-}
+import { getAdminDb } from "@/lib/firebase.admin";
+import { requireAdmin } from "@/lib/requireAdmin";
+import { callAppsScript, appsScriptConfigured } from "@/lib/appsScript";
 
 async function getSheetInfo(databaseId: string) {
-  const dbSnap = await getDoc(doc(db, "databases", databaseId));
-  if (!dbSnap.exists()) return null;
-  const d = dbSnap.data();
-  if (!d?.sheetId) return null;
+  const dbSnap = await getAdminDb().collection("databases").doc(databaseId).get();
+  if (!dbSnap.exists) return null;
+  const d = dbSnap.data() || {};
+  if (!d.sheetId) return null;
   return { spreadsheetId: d.sheetId, tabName: d.sheetTabName || "Participants" };
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
     const { id } = await params;
     const body = await request.json();
@@ -37,18 +23,21 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!id) return NextResponse.json({ error: "Participant ID is required" }, { status: 400 });
     if (!databaseId) return NextResponse.json({ error: "Database ID is required" }, { status: 400 });
 
-    const participantRef = doc(db, "databases", databaseId, "participants", id);
+    const participantRef = getAdminDb()
+      .collection("databases")
+      .doc(databaseId)
+      .collection("participants")
+      .doc(id);
 
-    const { databaseId: _, ...updateData } = body;
-    await updateDoc(participantRef, { ...updateData, updatedAt: new Date().toISOString() });
+    const { databaseId: _omit, ...updateData } = body;
+    await participantRef.update({ ...updateData, updatedAt: new Date().toISOString() });
 
-    // Sync updated participant to sheet via upsertRow
-    if (APPS_SCRIPT_URL) {
+    if (appsScriptConfigured()) {
       try {
         const sheet = await getSheetInfo(databaseId);
         if (sheet) {
-          const snap = await getDoc(participantRef);
-          const p = snap.exists() ? snap.data() : null;
+          const snap = await participantRef.get();
+          const p = snap.exists ? snap.data() : null;
           if (p) {
             await callAppsScript("upsertRow", {
               ...sheet,
@@ -82,6 +71,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
     const { id } = await params;
     const { searchParams } = new URL(request.url);
@@ -91,12 +83,15 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     if (!id) return NextResponse.json({ error: "Participant ID is required" }, { status: 400 });
     if (!databaseId) return NextResponse.json({ error: "Database ID is required" }, { status: 400 });
 
-    const participantRef = doc(db, "databases", databaseId, "participants", id);
-    const participantSnap = await getDoc(participantRef);
-    const participantData = participantSnap.exists() ? participantSnap.data() : null;
+    const participantRef = getAdminDb()
+      .collection("databases")
+      .doc(databaseId)
+      .collection("participants")
+      .doc(id);
+    const participantSnap = await participantRef.get();
+    const participantData = participantSnap.exists ? participantSnap.data() : null;
 
-    // Delete PDF from Drive if requested
-    if (deletePdf && APPS_SCRIPT_URL) {
+    if (deletePdf && appsScriptConfigured()) {
       let fileId = participantData?.driveFileId;
       if (!fileId && participantData?.driveLink) {
         const match = participantData.driveLink.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
@@ -111,11 +106,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       }
     }
 
-    await deleteDoc(participantRef);
+    await participantRef.delete();
 
-    // Sync: clear only col A (cert ID) for this participant — never delete the row
+    // Sync: clear only col A (cert ID) for this participant, never delete the row.
     // Preserves pre-existing sheet data (Google Form responses etc.)
-    if (APPS_SCRIPT_URL) {
+    if (appsScriptConfigured()) {
       try {
         const sheet = await getSheetInfo(databaseId);
         const email = participantData?.email;

@@ -1,58 +1,134 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Public read for certificate verification
-    match /certificates/{certificateId} {
-      allow read: if true;
-      allow write: if true;
+
+    // ============================================================
+    // Default deny.
+    //
+    // Every collection below used to be `allow read, write: if true`. Because the
+    // Firebase web config is public by design (it ships to every browser), that meant
+    // anyone could read or rewrite the entire database directly, bypassing the Next.js
+    // app and its cookie check entirely.
+    //
+    // All server-side reads/writes (every API route) now go through the Firebase Admin
+    // SDK (lib/firebase.admin.ts), which bypasses these rules — so they only need to
+    // serve the handful of client components that still talk to Firestore directly:
+    // app/admin/login, app/admin/reports, app/admin/settings, and components/AdminSidebar
+    // (which only uses Firebase Auth, no Firestore). Everything else is admin-gated or
+    // denied; public verification goes through /api/verify, not direct Firestore reads.
+    // ============================================================
+
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // Databases and their nested participants subcollection
+    function ownDoc(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Matches the SUPER_ADMIN_EMAIL constant in app/api/admin/auth/route.ts.
+    function isSuperAdminEmail() {
+      return isSignedIn() && request.auth.token.email == "pharmacozymeofficial@gmail.com";
+    }
+
+    function adminDoc(uid) {
+      return get(/databases/$(database)/documents/admins/$(uid));
+    }
+
+    function isApprovedAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && adminDoc(request.auth.uid).data.status == "approved";
+    }
+
+    function isApprovedSuperAdmin() {
+      return isApprovedAdmin() && adminDoc(request.auth.uid).data.role == "super_admin";
+    }
+
+    // ── Admin accounts ───────────────────────────────────────────────────────
+    // Self-registration flow (app/admin/login/page.tsx): a signed-in Firebase Auth
+    // user may create their own admin doc, but role/status are pinned server-side by
+    // this rule to exactly what app/api/admin/auth/route.ts would derive — the client
+    // cannot grant itself super_admin or approved status by posting a different value.
+    match /admins/{uid} {
+      allow get: if ownDoc(uid) || isApprovedSuperAdmin();
+      allow list: if isApprovedSuperAdmin();
+
+      allow create: if ownDoc(uid)
+        && request.resource.data.email == request.auth.token.email
+        && (
+          (isSuperAdminEmail()
+            && request.resource.data.role == "super_admin"
+            && request.resource.data.status == "approved")
+          || (!isSuperAdminEmail()
+            && request.resource.data.role == "admin"
+            && request.resource.data.status == "pending")
+        );
+
+      // A super admin can change anyone's status/role (approve/reject/reactivate).
+      // The account owner may only resubmit after rejection (status -> "pending") and
+      // edit their own displayName — never self-approve or change their own role.
+      allow update: if isApprovedSuperAdmin()
+        || (ownDoc(uid)
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.status == "pending");
+
+      allow delete: if isApprovedSuperAdmin();
+    }
+
+    // ── Certificates ─────────────────────────────────────────────────────────
+    // Public certificate lookups go through /api/verify (Admin SDK). Direct client
+    // reads are only for the admin reports page.
+    match /certificates/{certificateId} {
+      allow read: if isApprovedAdmin();
+      allow write: if false;
+    }
+
+    // ── Databases / participants / templates ────────────────────────────────
+    // No client component reads these directly — the admin UI goes through the API
+    // routes, and public database cards go through /api/databases/public.
     match /databases/{databaseId} {
-      allow read, write: if true;
+      allow read, write: if false;
 
       match /participants/{participantId} {
-        allow read, write: if true;
+        allow read, write: if false;
       }
 
       match /templates/{templateId} {
-        allow read, write: if true;
+        allow read, write: if false;
       }
     }
 
-    // Top-level participants (legacy)
+    // Legacy top-level participants collection.
     match /participants/{participantId} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
 
-    // Certificate templates
     match /certificateTemplates/{templateId} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
 
-    // Categories
     match /categories/{categoryId} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
 
-    // Email tracking
     match /email_stats/{dateId} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
 
-    // Scheduled email jobs
     match /scheduled_emails/{jobId} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
 
-    // Admin user accounts and approval status
-    match /admins/{adminId} {
-      allow read, write: if true;
+    match /activity_logs/{logId} {
+      allow read, write: if false;
     }
 
-    // Global app settings
+    // ── Global app settings ──────────────────────────────────────────────────
+    // Any approved admin can read/save the sender-name/org settings from
+    // app/admin/settings/page.tsx — this page has no super-admin gate in the UI.
     match /settings/{settingId} {
-      allow read, write: if true;
+      allow read, write: if isApprovedAdmin();
     }
   }
 }

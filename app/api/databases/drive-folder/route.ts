@@ -1,39 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { doc, updateDoc } from "firebase/firestore";
-
-const APPS_SCRIPT_URL = process.env.GOOGLE_APPS_SCRIPT_URL || "";
+import { getAdminDb } from "@/lib/firebase.admin";
+import { requireAdmin } from "@/lib/requireAdmin";
+import { callAppsScript, appsScriptConfigured } from "@/lib/appsScript";
 
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
     const { databaseId, databaseName } = await request.json();
 
     if (!databaseId || !databaseName) {
       return NextResponse.json({ error: "databaseId and databaseName are required" }, { status: 400 });
     }
-
-    if (!APPS_SCRIPT_URL) {
+    if (!appsScriptConfigured()) {
       return NextResponse.json({ error: "Apps Script not configured" }, { status: 500 });
     }
 
-    const res = await fetch(APPS_SCRIPT_URL, {
-      method: "POST",
-      redirect: "follow",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "getFolder", databaseName }),
-    });
-
-    const text = await res.text();
-    let result: any;
-    try { result = JSON.parse(text); } catch {
-      return NextResponse.json({ error: "Invalid Apps Script response" }, { status: 500 });
-    }
+    const result = await callAppsScript("getFolder", { databaseName });
 
     if (!result.success || !result.folderId) {
       return NextResponse.json({ error: result.error || "Folder not found" }, { status: 404 });
     }
 
-    await updateDoc(doc(db, "databases", databaseId), {
+    await getAdminDb().collection("databases").doc(databaseId).update({
       driveFolderId: result.folderId,
       driveFolderUrl: result.folderUrl,
     });

@@ -1,44 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, addDoc, query, where, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import { getAdminDb } from "@/lib/firebase.admin";
+import { requireAdmin } from "@/lib/requireAdmin";
 
-export async function GET() {
+/**
+ * Admin-only. This endpoint returns every certificate document — including every
+ * recipient's name and email — and was previously reachable unauthenticated.
+ */
+export async function GET(request: NextRequest) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
-    const certificatesRef = collection(db, "certificates");
-    
-    // Get all certificates without ordering to avoid index issues
-    const querySnapshot = await getDocs(certificatesRef);
+    const { searchParams } = new URL(request.url);
+    const max = Math.min(parseInt(searchParams.get("limit") || "1000", 10) || 1000, 5000);
 
-    const certificates = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const snap = await getAdminDb().collection("certificates").limit(max).get();
+    const certificates = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
     return NextResponse.json({ certificates });
   } catch (error: any) {
     console.error("Error fetching certificates:", error);
     return NextResponse.json(
-      { 
-        error: "Failed to fetch certificates", 
-        details: error?.message || "Unknown error",
-        code: error?.code 
-      },
+      { error: "Failed to fetch certificates", details: error?.message || "Unknown error", code: error?.code },
       { status: 500 }
     );
   }
 }
 
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
     const body = await request.json();
-    const certificatesRef = collection(db, "certificates");
-
-    const newCert = {
-      ...body,
-      createdAt: new Date().toISOString(),
-    };
-
-    const docRef = await addDoc(certificatesRef, newCert);
+    const newCert = { ...body, createdAt: new Date().toISOString() };
+    const docRef = await getAdminDb().collection("certificates").add(newCert);
 
     return NextResponse.json({
       success: true,
@@ -48,27 +44,30 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("Error creating certificate:", error);
     return NextResponse.json(
-      {
-        error: "Failed to create certificate",
-        details: error?.message || "Unknown error"
-      },
+      { error: "Failed to create certificate", details: error?.message || "Unknown error" },
       { status: 500 }
     );
   }
 }
 
-// Delete certificate records from the certificates collection by uniqueCertId.
-// Called when a certificate is revoked / deleted from the Databases page.
+// Delete certificate records by uniqueCertId. Called when a certificate is revoked.
 export async function DELETE(request: NextRequest) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const uniqueCertId = searchParams.get("uniqueCertId");
     if (!uniqueCertId) {
       return NextResponse.json({ error: "uniqueCertId is required" }, { status: 400 });
     }
-    const q = query(collection(db, "certificates"), where("uniqueCertId", "==", uniqueCertId));
-    const snap = await getDocs(q);
-    await Promise.all(snap.docs.map(d => deleteDoc(doc(db, "certificates", d.id))));
+
+    const snap = await getAdminDb()
+      .collection("certificates")
+      .where("uniqueCertId", "==", uniqueCertId)
+      .get();
+
+    await Promise.all(snap.docs.map((d) => d.ref.delete()));
     return NextResponse.json({ success: true, deleted: snap.size });
   } catch (error: any) {
     console.error("Error deleting certificate:", error);
@@ -76,20 +75,22 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// Update a certificate's driveLink / pdfUrl / driveFileId by uniqueCertId.
-// Used after Drive upload completes so the /verify and /claim pages see the PDF.
+// Update a certificate's driveLink / pdfUrl / driveFileId after Drive upload completes.
 export async function PATCH(request: NextRequest) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
-    const body = await request.json();
-    const { uniqueCertId, driveLink, driveFileId, pdfUrl } = body || {};
+    const { uniqueCertId, driveLink, driveFileId, pdfUrl } = (await request.json()) || {};
 
     if (!uniqueCertId) {
       return NextResponse.json({ error: "uniqueCertId is required" }, { status: 400 });
     }
 
-    const certificatesRef = collection(db, "certificates");
-    const q = query(certificatesRef, where("uniqueCertId", "==", uniqueCertId));
-    const snap = await getDocs(q);
+    const snap = await getAdminDb()
+      .collection("certificates")
+      .where("uniqueCertId", "==", uniqueCertId)
+      .get();
 
     if (snap.empty) {
       return NextResponse.json({ success: false, updated: 0, message: "No matching certificate" });
@@ -101,9 +102,7 @@ export async function PATCH(request: NextRequest) {
     if (pdfUrl !== undefined) updates.pdfUrl = pdfUrl || driveLink || "";
     else if (driveLink !== undefined) updates.pdfUrl = driveLink || "";
 
-    await Promise.all(
-      snap.docs.map((d) => updateDoc(doc(db, "certificates", d.id), updates))
-    );
+    await Promise.all(snap.docs.map((d) => d.ref.update(updates)));
 
     return NextResponse.json({ success: true, updated: snap.size });
   } catch (error: any) {

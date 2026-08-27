@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
-import { db } from "@/lib/firebase";
+import { getDb } from "@/lib/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 
 export interface AdminUser {
@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!adminUser?.uid || adminUser.uid === "legacy") return;
 
     const unsub = onSnapshot(
-      doc(db, "admins", adminUser.uid),
+      doc(getDb(), "admins", adminUser.uid),
       (snap) => {
         if (!snap.exists()) {
           setRevoked(true);

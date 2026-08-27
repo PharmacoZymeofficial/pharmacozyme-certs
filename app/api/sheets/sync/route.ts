@@ -1,43 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, addDoc, updateDoc } from "firebase/firestore";
-
-const APPS_SCRIPT_URL = process.env.GOOGLE_APPS_SCRIPT_URL || "";
-
-async function callAppsScript(action: string, payload: any) {
-  const body = { action, ...payload };
-  
-  console.log("Calling Apps Script:", action, JSON.stringify(body).substring(0, 200));
-
-  const response = await fetch(APPS_SCRIPT_URL, {
-    method: "POST",
-    body: JSON.stringify(body),
-    redirect: "follow",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-
-  const text = await response.text();
-  console.log("Apps Script response:", text.substring(0, 300));
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    if (text.includes("<!DOCTYPE") || text.includes("<html")) {
-      throw new Error(
-        "Apps Script returned an HTML error page. Likely causes: " +
-        "(1) URL ends in /dev instead of /exec, " +
-        "(2) Web app access is not set to 'Anyone', " +
-        "(3) Script not redeployed after code change. " +
-        `HTTP status: ${response.status}`
-      );
-    }
-    throw new Error(`Apps Script returned invalid JSON: ${text.substring(0, 150)}`);
-  }
-}
+import { getAdminDb } from "@/lib/firebase.admin";
+import { requireAdmin } from "@/lib/requireAdmin";
+import { callAppsScript } from "@/lib/appsScript";
+import { sortParticipantsForSheet } from "@/lib/participantSort";
 
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
     const body = await request.json();
     const { databaseId, mode } = body;
@@ -46,16 +16,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "databaseId is required" }, { status: 400 });
     }
 
-    // Get database info from Firestore
-    const databasesRef = collection(db, "databases");
-    const dbSnap = await getDocs(databasesRef);
-    const dbDoc = dbSnap.docs.find(d => d.id === databaseId);
+    const adminDb = getAdminDb();
+    const dbSnap = await adminDb.collection("databases").doc(databaseId).get();
 
-    if (!dbDoc) {
+    if (!dbSnap.exists) {
       return NextResponse.json({ error: "Database not found" }, { status: 404 });
     }
 
-    const dbData = dbDoc.data();
+    const dbData = dbSnap.data() || {};
     const spreadsheetId = dbData.sheetId;
     const tabName = dbData.sheetTabName || "Participants";
 
@@ -64,22 +32,26 @@ export async function POST(request: NextRequest) {
     }
 
     if (mode === "firebaseToSheets") {
-      // Read from Firebase, write to Sheets
-      const participantsRef = collection(db, "databases", databaseId, "participants");
-      const participantsSnap = await getDocs(participantsRef);
+      const participantsSnap = await adminDb
+        .collection("databases")
+        .doc(databaseId)
+        .collection("participants")
+        .get();
 
-      const participants = participantsSnap.docs.map(doc => doc.data() as any);
+      const participants = participantsSnap.docs.map((d) => d.data() as any);
+      const sortedParticipants = sortParticipantsForSheet(participants);
 
-      // Sort by numeric serial at end of certificate ID (e.g. "Hamza-MDC-001" → 1)
-      const getSerial = (id: string) => { const m = id?.match(/(\d+)$/); return m ? parseInt(m[1], 10) : 0; };
-      const sortedParticipants = [...participants].sort((a: any, b: any) => {
-        if (!a.certificateId && !b.certificateId) return 0;
-        if (!a.certificateId) return 1;
-        if (!b.certificateId) return -1;
-        return getSerial(a.certificateId) - getSerial(b.certificateId);
-      });
-
-      const headerRow = ["name", "email", "certificateId", "certificateUrl", "status", "issueDate", "emailSent", "driveLink", "createdAt"];
+      const headerRow = [
+        "name",
+        "email",
+        "certificateId",
+        "certificateUrl",
+        "status",
+        "issueDate",
+        "emailSent",
+        "driveLink",
+        "createdAt",
+      ];
 
       const result = await callAppsScript("syncData", {
         spreadsheetId,
@@ -90,32 +62,16 @@ export async function POST(request: NextRequest) {
         writeHeaders: true,
       });
 
-      return NextResponse.json({
-        success: true,
-        mode: "firebaseToSheets",
-        synced: result.rowsWritten,
-      });
-
+      return NextResponse.json({ success: true, mode: "firebaseToSheets", synced: result.rowsWritten });
     } else if (mode === "sheetsToFirebase") {
-      // Read from Sheets, write to Firebase
-      const result = await callAppsScript("syncData", {
-        spreadsheetId,
-        tabName,
-        mode: "read",
-      });
+      const result = await callAppsScript("syncData", { spreadsheetId, tabName, mode: "read" });
 
       if (!result.data || result.data.length === 0) {
-        return NextResponse.json({
-          success: true,
-          mode: "sheetsToFirebase",
-          synced: 0,
-        });
+        return NextResponse.json({ success: true, mode: "sheetsToFirebase", synced: 0 });
       }
 
-      const participantsRef = collection(db, "databases", databaseId, "participants");
-
-      // Fetch existing participants ONCE and index by name+email (same key as CSV import)
-      const existingSnap = await getDocs(participantsRef);
+      const participantsRef = adminDb.collection("databases").doc(databaseId).collection("participants");
+      const existingSnap = await participantsRef.get();
       const existingByKey = new Map<string, any>();
       for (const d of existingSnap.docs) {
         const data = d.data();
@@ -125,10 +81,19 @@ export async function POST(request: NextRequest) {
       }
 
       let synced = 0;
-      // Fixed columns the app already understands — anything else in a sheet row
-      // (e.g. "Designation", "Start Date") is captured as a per-participant custom
-      // field so templates can bind a placeholder to it at generation time.
-      const KNOWN_KEYS = new Set(["name", "email", "certificateId", "certificateUrl", "status", "issueDate", "emailSent", "driveLink", "createdAt"]);
+      // Fixed columns the app already understands; anything else (e.g. "Designation",
+      // "Start Date") becomes a per-participant custom field for templates to bind to.
+      const KNOWN_KEYS = new Set([
+        "name",
+        "email",
+        "certificateId",
+        "certificateUrl",
+        "status",
+        "issueDate",
+        "emailSent",
+        "driveLink",
+        "createdAt",
+      ]);
 
       for (const p of result.data) {
         if (!p.name) continue;
@@ -158,38 +123,27 @@ export async function POST(request: NextRequest) {
         };
 
         if (existing) {
-          await updateDoc(existing.ref, fields);
+          await existing.ref.update(fields);
         } else {
-          const newRef = await addDoc(participantsRef, { ...fields, createdAt: new Date().toISOString() });
+          const newRef = await participantsRef.add({ ...fields, createdAt: new Date().toISOString() });
           existingByKey.set(key, { ref: newRef });
         }
         synced++;
       }
 
-      return NextResponse.json({
-        success: true,
-        mode: "sheetsToFirebase",
-        synced,
-      });
-
+      return NextResponse.json({ success: true, mode: "sheetsToFirebase", synced });
     } else if (mode === "updateCertIds") {
-      // Fast targeted update: only writes column A (cert ID) matched by email.
       const updates = body.updates as Array<{ email: string; certificateId: string }>;
       if (!updates || updates.length === 0) {
         return NextResponse.json({ success: true, updated: 0 });
       }
       const result = await callAppsScript("updateCertIds", { spreadsheetId, tabName, updates });
       return NextResponse.json({ success: true, updated: result.updated ?? 0 });
-
     } else {
       return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
     }
-
   } catch (error: any) {
     console.error("Sync error:", error);
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

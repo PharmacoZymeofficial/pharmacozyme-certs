@@ -1,54 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { getAdminDb } from "@/lib/firebase.admin";
+import { requireAdmin } from "@/lib/requireAdmin";
 
 export async function DELETE(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
 
+  try {
+    const id = new URL(request.url).searchParams.get("id");
     if (!id) {
-      return NextResponse.json(
-        { error: "Certificate ID is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Certificate ID is required" }, { status: 400 });
     }
 
-    await deleteDoc(doc(db, "certificates", id));
-
+    await getAdminDb().collection("certificates").doc(id).delete();
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting certificate:", error);
-    return NextResponse.json(
-      { error: "Failed to delete certificate" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to delete certificate" }, { status: 500 });
   }
 }
 
 export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { id, ...data } = body;
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
 
+  try {
+    const { id, ...data } = await request.json();
     if (!id) {
-      return NextResponse.json(
-        { error: "Certificate ID is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Certificate ID is required" }, { status: 400 });
     }
 
-    await updateDoc(doc(db, "certificates", id), {
-      ...data,
-      updatedAt: new Date().toISOString(),
-    });
+    await getAdminDb()
+      .collection("certificates")
+      .doc(id)
+      .update({ ...data, updatedAt: new Date().toISOString() });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error updating certificate:", error);
-    return NextResponse.json(
-      { error: "Failed to update certificate" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to update certificate" }, { status: 500 });
   }
 }

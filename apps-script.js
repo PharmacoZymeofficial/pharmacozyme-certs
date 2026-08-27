@@ -33,6 +33,22 @@ function grantPermissions() {
 
 // ===== WEB APP HANDLERS =====
 
+// The web app is deployed with access "Anyone" (required for the Next.js app to reach
+// it from serverless functions with no Google identity). That also means anyone who
+// learns the deployment URL can call it. APPS_SCRIPT_SECRET is the actual authentication
+// layer: set it once via Project Settings, Script Properties (key: APPS_SCRIPT_SECRET),
+// and set the same value as the Next.js APPS_SCRIPT_SECRET env var.
+function isAuthorized(payload) {
+  const expected = PropertiesService.getScriptProperties().getProperty("APPS_SCRIPT_SECRET");
+  // No secret configured yet: allow through so an existing deployment is not bricked by
+  // this change alone, but log loudly so it does not stay this way.
+  if (!expected) {
+    console.warn("APPS_SCRIPT_SECRET is not set in Script Properties -- requests are not authenticated.");
+    return true;
+  }
+  return payload && payload.secret === expected;
+}
+
 function doPost(e) {
   try {
     let action, payload;
@@ -49,6 +65,12 @@ function doPost(e) {
     } else {
       action = e.parameter.action;
       payload = e.parameter;
+    }
+
+    if (!isAuthorized(payload)) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ error: "Unauthorized" }))
+        .setMimeType(ContentService.MimeType.JSON);
     }
     
     console.log("Received action:", action);
@@ -117,6 +139,12 @@ function doGet(e) {
   try {
     const action = e.parameter.action;
     const payload = e.parameter;
+
+    if (!isAuthorized(payload)) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ error: "Unauthorized" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
     
     if (action === "getTabs") {
       return getSheetTabs(payload);

@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { getAdminDb } from "@/lib/firebase.admin";
+import { requireAdmin } from "@/lib/requireAdmin";
 import { renderCertificatePdf } from "@/lib/certificateRender";
 
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
     const body = await request.json();
     const { templateId, recipientName, certId, verificationUrl, qrDarkColor, qrLightColor, fieldValues } = body;
@@ -12,11 +15,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "templateId, recipientName, certId required" }, { status: 400 });
     }
 
-    const snap = await getDoc(doc(db, "certificateTemplates", templateId));
-    if (!snap.exists()) {
+    const snap = await getAdminDb().collection("certificateTemplates").doc(templateId).get();
+    if (!snap.exists) {
       return NextResponse.json({ error: "Template not found" }, { status: 404 });
     }
-    const templateData = snap.data();
+    const templateData = snap.data() || {};
 
     let templateBytes: ArrayBuffer;
     if (templateData.driveFileId) {

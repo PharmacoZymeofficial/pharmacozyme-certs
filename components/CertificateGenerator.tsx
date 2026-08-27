@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Document, Page, Text, View, StyleSheet, PDFDownloadLink, Image, Font } from "@react-pdf/renderer";
 import QRCode from "qrcode";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { buildCertificateUrl } from "@/lib/urls";
 // loadFontBytes runs server-side only (needs custom User-Agent for TTF from Google Fonts).
 // Client-side: proxy through /api/fonts so the server does the fetch with the correct UA.
 async function loadFontBytesViaProxy(fontName: string): Promise<Uint8Array | null> {
@@ -530,7 +531,6 @@ export default function CertificateGenerator({ database, participants, onGenerat
       : sortedParticipants;
 
     try {
-      const verificationBase = process.env.NEXT_PUBLIC_VERIFY_URL || "https://cert.pharmacozyme.com/verify";
       const year = new Date().getFullYear();
 
       const isUploadedTemplate = !["standard", "modern"].includes(selectedTemplate);
@@ -561,7 +561,6 @@ export default function CertificateGenerator({ database, participants, onGenerat
       } catch {}
 
       const issueDate = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-      const claimBase = verificationBase.replace(/\/verify$/, "");
       const qrDark = templateData?.positions?.qr?.darkColor || "#1b4332";
       const qrLight = templateData?.positions?.qr?.transparentBg
         ? "#00000000"
@@ -608,7 +607,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
         setCurrentGenerating(`Rendering ${i + 1}–${end} of ${participantsWithCertIds.length}…`);
 
         const batchResults = await Promise.all(batchSlice.map(async ({ participant, certId }) => {
-          const verificationUrl = `${claimBase}/claim?id=${certId}`;
+          const verificationUrl = buildCertificateUrl(certId);
           try {
             let pdfBytes: Uint8Array | undefined;
             let qrCodeDataUrl: string;

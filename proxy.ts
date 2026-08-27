@@ -1,17 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifySession, ADMIN_COOKIE } from "@/lib/session";
 
-const ADMIN_COOKIE = "pz_admin_auth";
-
-export function proxy(request: NextRequest) {
+/**
+ * Gate for the /admin UI.
+ *
+ * This previously checked only that the cookie was non-empty — `pz_admin_auth=x` was
+ * enough to get in. It now verifies the HMAC signature and expiry.
+ *
+ * Note this is defence in depth for the UI shell only; the API routes enforce their own
+ * auth via `requireAdmin`, because proxy matchers are easy to bypass in ways route
+ * handlers are not.
+ */
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Protect all /admin routes except /admin/login
   if (pathname.startsWith("/admin") && !pathname.startsWith("/admin/login")) {
-    const authCookie = request.cookies.get(ADMIN_COOKIE);
-    if (!authCookie?.value) {
+    const session = await verifySession(request.cookies.get(ADMIN_COOKIE)?.value);
+
+    if (!session) {
       const loginUrl = new URL("/admin/login", request.url);
       loginUrl.searchParams.set("from", pathname);
-      return NextResponse.redirect(loginUrl);
+      const response = NextResponse.redirect(loginUrl);
+      // Clear a stale or tampered cookie so the browser stops re-sending it.
+      response.cookies.delete(ADMIN_COOKIE);
+      return response;
     }
   }
 

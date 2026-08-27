@@ -5,8 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import { app } from "@/lib/firebase";
-import { db } from "@/lib/firebase";
+import { getFirebaseApp, getDb } from "@/lib/firebase";
 
 const SUPER_ADMIN_EMAIL = "pharmacozymeofficial@gmail.com";
 
@@ -74,15 +73,15 @@ function LoginForm() {
     setInfo("");
 
     try {
-      const auth = getAuth(app!);
+      const auth = getAuth(getFirebaseApp());
       const credential = await signInWithEmailAndPassword(auth, email, password);
       const user = credential.user;
 
-      const adminDoc = await getDoc(doc(db, "admins", user.uid));
+      const adminDoc = await getDoc(doc(getDb(), "admins", user.uid));
 
       if (!adminDoc.exists()) {
         if (user.email === SUPER_ADMIN_EMAIL) {
-          await setDoc(doc(db, "admins", user.uid), {
+          await setDoc(doc(getDb(), "admins", user.uid), {
             email: user.email,
             displayName: user.displayName || user.email?.split("@")[0] || "Admin",
             role: "super_admin",
@@ -91,7 +90,7 @@ function LoginForm() {
             tutorialSeen: false,
           });
         } else {
-          await setDoc(doc(db, "admins", user.uid), {
+          await setDoc(doc(getDb(), "admins", user.uid), {
             email: user.email,
             displayName: user.displayName || user.email?.split("@")[0] || "Admin",
             role: "admin",
@@ -120,24 +119,20 @@ function LoginForm() {
         }
       }
 
-      const role = user.email === SUPER_ADMIN_EMAIL ? "super_admin" : "admin";
-      const adminData = (await getDoc(doc(db, "admins", user.uid))).data();
+      // The server verifies this token and derives uid/email/role from it.
+      // Identity is never sent in the request body.
       const res = await fetch("/api/admin/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          uid: user.uid,
-          email: user.email,
-          displayName: adminData?.displayName || user.displayName || user.email?.split("@")[0],
-          role,
-        }),
+        body: JSON.stringify({ idToken: await user.getIdToken() }),
       });
 
       if (res.ok) {
         router.push(from);
         router.refresh();
       } else {
-        setError("Session error. Please try again.");
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Session error. Please try again.");
       }
     } catch (err: any) {
       setError(handleFirebaseError(err.code || ""));
@@ -154,14 +149,14 @@ function LoginForm() {
     setInfo("");
 
     try {
-      const auth = getAuth(app!);
+      const auth = getAuth(getFirebaseApp());
       const credential = await createUserWithEmailAndPassword(auth, email, password);
       const user = credential.user;
 
       await updateProfile(user, { displayName: displayName.trim() });
 
       const isSuperAdmin = user.email === SUPER_ADMIN_EMAIL;
-      await setDoc(doc(db, "admins", user.uid), {
+      await setDoc(doc(getDb(), "admins", user.uid), {
         email: user.email,
         displayName: displayName.trim(),
         role: isSuperAdmin ? "super_admin" : "admin",
@@ -173,12 +168,7 @@ function LoginForm() {
         const res = await fetch("/api/admin/auth", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            uid: user.uid,
-            email: user.email,
-            displayName: displayName.trim(),
-            role: "super_admin",
-          }),
+          body: JSON.stringify({ idToken: await user.getIdToken() }),
         });
         if (res.ok) {
           router.push(from);
@@ -193,14 +183,14 @@ function LoginForm() {
     } catch (err: any) {
       if (err.code === "auth/email-already-in-use") {
         try {
-          const auth = getAuth(app!);
+          const auth = getAuth(getFirebaseApp());
           const cred = await signInWithEmailAndPassword(auth, email, password);
           const user = cred.user;
-          const adminDoc = await getDoc(doc(db, "admins", user.uid));
+          const adminDoc = await getDoc(doc(getDb(), "admins", user.uid));
 
           if (!adminDoc.exists()) {
             await updateProfile(user, { displayName: displayName.trim() });
-            await setDoc(doc(db, "admins", user.uid), {
+            await setDoc(doc(getDb(), "admins", user.uid), {
               email: user.email,
               displayName: displayName.trim(),
               role: "admin",
@@ -214,7 +204,7 @@ function LoginForm() {
           } else {
             const status = adminDoc.data().status;
             if (status === "rejected") {
-              await updateDoc(doc(db, "admins", user.uid), {
+              await updateDoc(doc(getDb(), "admins", user.uid), {
                 status: "pending",
                 displayName: displayName.trim(),
                 updatedAt: new Date().toISOString(),
@@ -228,12 +218,10 @@ function LoginForm() {
               setInfo("Your account is already awaiting approval.");
               setMode("signin");
             } else {
-              const role = user.email === SUPER_ADMIN_EMAIL ? "super_admin" : "admin";
-              const data = adminDoc.data();
               const res = await fetch("/api/admin/auth", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ uid: user.uid, email: user.email, displayName: data.displayName, role }),
+                body: JSON.stringify({ idToken: await user.getIdToken() }),
               });
               if (res.ok) { router.push(from); router.refresh(); }
             }

@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { doc, deleteDoc, updateDoc, getDoc } from "firebase/firestore";
+import { getAdminDb } from "@/lib/firebase.admin";
+import { requireAdmin } from "@/lib/requireAdmin";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
     const { id } = await params;
-    const templateRef = doc(db, "certificateTemplates", id);
-    const snap = await getDoc(templateRef);
+    const snap = await getAdminDb().collection("certificateTemplates").doc(id).get();
 
-    if (!snap.exists()) {
+    if (!snap.exists) {
       return NextResponse.json({ error: "Template not found" }, { status: 404 });
     }
 
@@ -19,38 +21,37 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
+
   try {
     const { id } = await params;
-    const templateRef = doc(db, "certificateTemplates", id);
-    await deleteDoc(templateRef);
+    await getAdminDb().collection("certificateTemplates").doc(id).delete();
     return NextResponse.json({ success: true, message: "Template deleted" });
   } catch (error: any) {
     console.error("Error deleting template:", error);
-    return NextResponse.json(
-      { error: "Failed to delete template", details: error?.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to delete template", details: error?.message }, { status: 500 });
   }
 }
 
 export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { id, ...updates } = body;
+  const guard = await requireAdmin(request);
+  if (!guard.ok) return guard.response;
 
+  try {
+    const { id, ...updates } = await request.json();
     if (!id) {
       return NextResponse.json({ error: "Template ID is required" }, { status: 400 });
     }
 
-    const templateRef = doc(db, "certificateTemplates", id);
-    await updateDoc(templateRef, { ...updates, updatedAt: new Date().toISOString() });
+    await getAdminDb()
+      .collection("certificateTemplates")
+      .doc(id)
+      .update({ ...updates, updatedAt: new Date().toISOString() });
 
     return NextResponse.json({ success: true, message: "Template updated" });
   } catch (error: any) {
     console.error("Error updating template:", error);
-    return NextResponse.json(
-      { error: "Failed to update template", details: error?.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to update template", details: error?.message }, { status: 500 });
   }
 }

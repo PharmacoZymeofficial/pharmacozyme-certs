@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { doc, setDoc, increment, collection, addDoc } from "firebase/firestore";
-import { getAdminFromCookieHeader, logActivity } from "@/lib/activity";
+import { getAdminDb } from "@/lib/firebase.admin";
+import { FieldValue } from "firebase-admin/firestore";
+import { logActivity } from "@/lib/activity";
+import { sessionFromCookieHeader } from "@/lib/session";
 // Brevo REST API — separate API keys per Brevo account
 const BREVO_SENDERS: Record<string, { name: string; apiKey: string | undefined; statsKey: string }> = {
   "info@pharmacozyme.com": {
@@ -134,6 +135,21 @@ function buildEmailHtml({ name, certificateId, emailMessage, driveLink, pdfBase6
 }
 
 export async function POST(request: NextRequest) {
+  // Was completely unauthenticated — anyone could send arbitrary mail from the
+  // organisation's verified sender. Accepts either an admin session or the internal
+  // secret used by the scheduled-email runner.
+  const session = await sessionFromCookieHeader(request.headers.get("cookie"));
+  const internalSecret = process.env.CRON_SECRET;
+  const isInternal =
+    Boolean(internalSecret) && request.headers.get("x-internal-secret") === internalSecret;
+
+  if (!session && !isInternal) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const actorName = session?.displayName ?? "Scheduled job";
+  const actorEmail = session?.email ?? "system@pharmacozyme.com";
+
   try {
     const body = await request.json();
     const { recipients, subject, message, replyTo, senderName, gmailEmail } = body;
@@ -162,7 +178,7 @@ export async function POST(request: NextRequest) {
 
       for (const recipient of validRecipients) {
         const { email, name, certificateId, pdfBase64, driveLink } = recipient;
-        let emailMessage = (message || "")
+        const emailMessage = (message || "")
           .replace(/\[Name\]/g, name || "")
           .replace(/\[CertificateID\]/g, certificateId || "")
           .replace(/\[VerificationLink\]/g, VERIFY_URL + "?certId=" + certificateId);
@@ -188,11 +204,13 @@ export async function POST(request: NextRequest) {
       if (results.length > 0) {
         try {
           const today = new Date().toISOString().split("T")[0];
-          await setDoc(doc(db, "email_stats", today), { sent: increment(results.length), [sender.statsKey]: increment(results.length) }, { merge: true });
+          await getAdminDb().collection("email_stats").doc(today).set(
+            { sent: FieldValue.increment(results.length), [sender.statsKey]: FieldValue.increment(results.length) },
+            { merge: true }
+          );
         } catch { /* non-fatal */ }
 
-        const { adminName, adminEmail: adminEmailVal } = getAdminFromCookieHeader(request.headers.get("cookie") || "");
-        await logActivity({ type: "email_sent", adminName, adminEmail: adminEmailVal, count: results.length, details: `Sent ${results.length} email(s) via Brevo (${gmailEmail})` });
+        await logActivity({ type: "email_sent", adminName: actorName, adminEmail: actorEmail, count: results.length, details: `Sent ${results.length} email(s) via Brevo (${gmailEmail})` });
       }
 
       return NextResponse.json({
@@ -213,21 +231,31 @@ export async function POST(request: NextRequest) {
       resend = new Resend(apiKey);
     }
     if (!apiKey || apiKey === "your_resend_api_key_here") {
+      // Previously this returned success:true with sent:N for mail that was never sent,
+      // which is how scheduled jobs ended up marked "sent" having delivered nothing.
+      // Simulation is now opt-in and never reports success.
+      if (process.env.ALLOW_SIMULATED_EMAIL !== "true") {
+        return NextResponse.json(
+          {
+            error: "Email provider not configured",
+            details:
+              "RESEND_API_KEY is not set and no Brevo sender was selected, so nothing was sent. " +
+              "Set ALLOW_SIMULATED_EMAIL=true in development to bypass this.",
+            sent: 0,
+            failed: validRecipients.length,
+          },
+          { status: 503 }
+        );
+      }
+
       console.log("Simulating email send (no API key configured)");
-      
-      const simulatedResults = (recipients as any[]).map(r => ({
-        email: r.email,
-        success: true,
-        simulated: true,
-      }));
-      
       return NextResponse.json({
-        success: true,
-        sent: recipients.length,
+        success: false,
+        sent: 0,
         failed: 0,
         simulated: true,
-        results: simulatedResults,
-        message: "Emails simulated (Resend API key not configured)",
+        results: validRecipients.map((r: any) => ({ email: r.email, success: true, simulated: true })),
+        message: "Emails simulated (Resend API key not configured) — nothing was delivered",
       });
     }
 
@@ -258,7 +286,7 @@ export async function POST(request: NextRequest) {
         const { email, name, certificateId, pdfBase64, driveLink } = recipient;
 
         // Replace placeholders in message
-        let emailMessage = message
+        const emailMessage = message
           .replace(/\[Name\]/g, name || "")
           .replace(/\[CertificateID\]/g, certificateId || "")
           .replace(/\[VerificationLink\]/g, VERIFY_URL + "?certId=" + certificateId);
@@ -316,31 +344,54 @@ export async function POST(request: NextRequest) {
     if (results.length > 0) {
       try {
         const today = new Date().toISOString().split("T")[0];
-        await setDoc(doc(db, "email_stats", today), { sent: increment(results.length) }, { merge: true });
+        await getAdminDb().collection("email_stats").doc(today).set(
+          { sent: FieldValue.increment(results.length) },
+          { merge: true }
+        );
       } catch { /* non-fatal */ }
 
-      const { adminName, adminEmail: adminEmailVal } = getAdminFromCookieHeader(request.headers.get("cookie") || "");
-      await logActivity({ type: "email_sent", adminName, adminEmail: adminEmailVal, count: results.length, details: `Sent ${results.length} email(s) via Resend` });
+      await logActivity({ type: "email_sent", adminName: actorName, adminEmail: actorEmail, count: results.length, details: `Sent ${results.length} email(s) via Resend` });
     }
 
     // Auto-queue quota-failed recipients for next day 12:01 AM
     let autoQueued = 0;
+    let autoQueueError: string | undefined;
     if (quotaFailed.length > 0) {
       try {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         tomorrow.setHours(0, 1, 0, 0);
-        await addDoc(collection(db, "scheduled_emails"), {
-          recipients: quotaFailed,
-          subject: subject || "Your Certificate from PharmacoZyme",
-          message: message || "",
-          scheduledAt: tomorrow.toISOString(),
-          status: "pending",
-          autoQueued: true,
-          createdAt: new Date().toISOString(),
-        });
-        autoQueued = quotaFailed.length;
-      } catch { /* non-fatal */ }
+
+        // pdfBase64 must NOT be persisted: a Firestore document is capped at 1 MiB and
+        // a couple of certificate PDFs blow past it. The whole write used to throw into
+        // a silent catch, so the queued recipients simply vanished while the response
+        // still claimed they were queued. Store the reference instead and re-attach at
+        // send time from driveLink.
+        const slim = quotaFailed.map(({ pdfBase64: _pdfBase64, ...rest }: any) => rest);
+
+        // Chunk so a large batch cannot approach the document limit either.
+        const QUEUE_CHUNK = 200;
+        const scheduledRef = getAdminDb().collection("scheduled_emails");
+        for (let i = 0; i < slim.length; i += QUEUE_CHUNK) {
+          await scheduledRef.add({
+            recipients: slim.slice(i, i + QUEUE_CHUNK),
+            subject: subject || "Your Certificate from PharmacoZyme",
+            message: message || "",
+            gmailEmail: gmailEmail || null,
+            senderName: senderName || null,
+            replyTo: replyTo || null,
+            scheduledAt: tomorrow.toISOString(),
+            status: "pending",
+            autoQueued: true,
+            createdAt: new Date().toISOString(),
+          });
+        }
+        autoQueued = slim.length;
+      } catch (err) {
+        // Surfaced rather than swallowed — losing recipients silently is worse than a warning.
+        autoQueueError = err instanceof Error ? err.message : "Failed to queue quota-failed recipients";
+        console.error("Failed to auto-queue quota-failed recipients:", err);
+      }
     }
 
     return NextResponse.json({
@@ -348,6 +399,7 @@ export async function POST(request: NextRequest) {
       sent: results.length,
       failed: errors.length,
       autoQueued,
+      autoQueueError,
       results,
       errors: errors.length > 0 ? errors : undefined,
     });
