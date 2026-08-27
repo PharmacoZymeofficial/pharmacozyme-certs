@@ -443,6 +443,18 @@ last deployment (env vars bake in at deploy time, never hot-reload — the repea
 lesson in CONTEXT.md). Every Drive + Sheets bridge call is affected, not just
 template upload — the operator just hit template upload first.
 
+**The Apps Script `{error:"Unauthorized"}` is purely the shared-secret check** —
+`isAuthorized()` at `apps-script.js:70`, `payload.secret === ScriptProperties`.
+There is no per-user / email allowlist in `apps-script.js`. The `secret` is sent
+server-side by the Vercel function, so the outcome is identical for every
+logged-in admin. If the error appears for one operator's browser but not
+another's, they are hitting **different deployments**: the likeliest cause is
+`APPS_SCRIPT_SECRET` set only in Vercel's **Production** environment scope while
+the failing browser reaches a Preview / branch / `*.vercel.app` build that has no
+secret. Enable the env var for **Production, Preview, and Development** and
+redeploy; confirm the failing browser's address bar is `cert.pharmacozyme.com`,
+not a `*.vercel.app` alias.
+
 **Fix (no code change):**
 
 1. Vercel → Project → Settings → Environment Variables: `APPS_SCRIPT_SECRET`
