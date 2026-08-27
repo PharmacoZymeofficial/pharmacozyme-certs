@@ -2,8 +2,10 @@
  * Best-effort Google Drive cleanup + sharing, via the Apps Script bridge.
  *
  * Deletion must never block or reverse a Firestore write — every network call
- * here logs and swallows its own errors. `fileIdFromLink` is the one pure
- * function and is unit-tested.
+ * here logs and swallows its own errors. `deleteDriveFile` / `deleteDriveFolder`
+ * return the bridge's `success` flag (`false` on any failure) so callers can
+ * report an accurate result instead of "a fileId existed". `fileIdFromLink` is
+ * the one pure function and is unit-tested.
  */
 import { callAppsScript, appsScriptConfigured } from "@/lib/appsScript";
 
@@ -17,21 +19,27 @@ export function fileIdFromLink(link?: string | null): string | null {
   return null;
 }
 
-export async function deleteDriveFile(fileId: string): Promise<void> {
-  if (!fileId || !appsScriptConfigured()) return;
+/** @returns true only when the bridge reported the delete succeeded. */
+export async function deleteDriveFile(fileId: string): Promise<boolean> {
+  if (!fileId || !appsScriptConfigured()) return false;
   try {
-    await callAppsScript("deletePDF", { fileId });
+    const res = await callAppsScript<{ success?: boolean }>("deletePDF", { fileId });
+    return Boolean(res?.success);
   } catch (err) {
     console.error(`Drive file delete failed for ${fileId}:`, err);
+    return false;
   }
 }
 
-export async function deleteDriveFolder(folderId: string): Promise<void> {
-  if (!folderId || !appsScriptConfigured()) return;
+/** @returns true only when the bridge reported the delete succeeded. */
+export async function deleteDriveFolder(folderId: string): Promise<boolean> {
+  if (!folderId || !appsScriptConfigured()) return false;
   try {
-    await callAppsScript("deleteFolder", { folderId });
+    const res = await callAppsScript<{ success?: boolean }>("deleteFolder", { folderId });
+    return Boolean(res?.success);
   } catch (err) {
     console.error(`Drive folder delete failed for ${folderId}:`, err);
+    return false;
   }
 }
 

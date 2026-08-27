@@ -14,6 +14,7 @@ interface CascadeOpts {
   certDocId?: string;
   uniqueCertId?: string;
   clearParticipant?: boolean; // default true
+  deleteDriveFile?: boolean; // default true — only `=== false` opts out
 }
 
 export async function deleteCertificateCascade(
@@ -21,9 +22,9 @@ export async function deleteCertificateCascade(
 ): Promise<{ deletedCertDocs: number; driveFileDeleted: boolean; participantCleared: boolean }> {
   const db = getAdminDb();
   const clearParticipant = opts.clearParticipant !== false;
+  const dropDriveFile = opts.deleteDriveFile !== false;
 
   // Resolve the cert doc(s).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let docs: FirebaseFirestore.QueryDocumentSnapshot[] = [];
   if (opts.certDocId) {
     const snap = await db.collection("certificates").doc(opts.certDocId).get();
@@ -42,9 +43,8 @@ export async function deleteCertificateCascade(
   for (const doc of docs) {
     const data = doc.data() || {};
     const fileId = data.driveFileId || fileIdFromLink(data.driveLink) || fileIdFromLink(data.pdfUrl);
-    if (fileId) {
-      await deleteDriveFile(fileId);
-      driveFileDeleted = true;
+    if (dropDriveFile && fileId) {
+      if (await deleteDriveFile(fileId)) driveFileDeleted = true;
     }
 
     if (clearParticipant && data.databaseId && data.participantId) {
@@ -56,15 +56,20 @@ export async function deleteCertificateCascade(
           .doc(data.participantId);
         const pSnap = await pRef.get();
         if (pSnap.exists) {
-          await pRef.update({
+          const reset: Record<string, unknown> = {
             certificateId: "",
             certificateUrl: "",
             verificationUrl: "",
-            driveLink: "",
-            driveFileId: "",
             status: "pending",
+            emailSent: false,
             updatedAt: new Date().toISOString(),
-          });
+          };
+          // Keep the participant's PDF pointers when the caller opted to keep the file.
+          if (dropDriveFile) {
+            reset.driveLink = "";
+            reset.driveFileId = "";
+          }
+          await pRef.update(reset);
           participantCleared = true;
 
           const email = pSnap.data()?.email;
