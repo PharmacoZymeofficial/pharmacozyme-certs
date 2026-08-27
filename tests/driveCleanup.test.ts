@@ -14,6 +14,16 @@ describe("fileIdFromLink", () => {
     ).toBe("1AbC-dEf_2GhI");
   });
 
+  it("parses the real stored share link shape (?usp=drivesdk)", () => {
+    expect(
+      fileIdFromLink("https://drive.google.com/file/d/1Abc-DEF_ghi/view?usp=drivesdk")
+    ).toBe("1Abc-DEF_ghi");
+  });
+
+  it("returns null for a folder URL (no file id to extract)", () => {
+    expect(fileIdFromLink("https://drive.google.com/drive/folders/1Xyz")).toBeNull();
+  });
+
   it("returns null for junk or empty input", () => {
     expect(fileIdFromLink("")).toBeNull();
     expect(fileIdFromLink(null)).toBeNull();
