@@ -81,6 +81,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const { searchParams } = new URL(request.url);
     const databaseId = searchParams.get("databaseId");
     const keepPdf = searchParams.get("keepPdf") === "true";
+    // ?keepCert=true → leave the linked certificate doc + its PDF untouched.
+    // undo/redo round-trips a delete + re-POST and must stay reversible.
+    const keepCert = searchParams.get("keepCert") === "true";
 
     if (!id) return NextResponse.json({ error: "Participant ID is required" }, { status: 400 });
     if (!databaseId) return NextResponse.json({ error: "Database ID is required" }, { status: 400 });
@@ -94,15 +97,17 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const participantData = participantSnap.exists ? participantSnap.data() : null;
 
     // Cascade the linked certificate doc + its Drive file first (best-effort).
-    if (participantData?.certificateId) {
+    if (participantData?.certificateId && !keepCert) {
       await deleteCertificateCascade({
         uniqueCertId: participantData.certificateId,
         clearParticipant: false, // the participant is about to be deleted outright
+        deleteDriveFile: !keepPdf,
       }).catch((e) => console.error("Cert cascade during participant delete failed:", e));
     }
 
-    // Delete the participant's own Drive file if the cert cascade did not already.
-    if (!keepPdf) {
+    // Delete the participant's own Drive file — but only when the cert cascade above
+    // did NOT already handle it (a cert'd participant's file is deleted by the cascade).
+    if (!keepPdf && !(participantData?.certificateId && !keepCert)) {
       const fileId =
         participantData?.driveFileId || fileIdFromLink(participantData?.driveLink);
       if (fileId) await deleteDriveFile(fileId);

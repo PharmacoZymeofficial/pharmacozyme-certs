@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase.admin";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { callAppsScript, appsScriptConfigured } from "@/lib/appsScript";
-import { deleteDriveFolder } from "@/lib/driveCleanup";
+import { deleteDriveFile, deleteDriveFolder, fileIdFromLink } from "@/lib/driveCleanup";
+import { deleteCertificateCascade } from "@/lib/certCascade";
 
 export async function PUT(request: NextRequest) {
   const guard = await requireAdmin(request);
@@ -43,10 +44,15 @@ export async function DELETE(request: NextRequest) {
     const participantsSnap = await databaseRef.collection("participants").get();
     for (const pDoc of participantsSnap.docs) {
       const pData = pDoc.data();
-      if (pData.driveFileId && appsScriptConfigured()) {
-        try {
-          await callAppsScript("deletePDF", { fileId: pData.driveFileId });
-        } catch { /* non-fatal */ }
+      if (pData.certificateId) {
+        // Cascade the cert doc + its PDF so the ID stops resolving in /api/verify.
+        await deleteCertificateCascade({
+          uniqueCertId: pData.certificateId,
+          clearParticipant: false,
+        }).catch((e) => console.error("Cert cascade during database delete failed:", e));
+      } else {
+        // No cert → the cascade won't run; delete the participant's own PDF here.
+        await deleteDriveFile(pData.driveFileId || fileIdFromLink(pData.driveLink) || "");
       }
       await pDoc.ref.delete();
     }

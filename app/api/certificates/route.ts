@@ -61,15 +61,20 @@ export async function DELETE(request: NextRequest) {
     const uniqueCertId = searchParams.get("uniqueCertId") || undefined;
     const id = searchParams.get("id") || undefined;
     const clearParticipant = searchParams.get("clearParticipant") !== "false";
+    // ?keepPdf=true → revoke the cert ID but leave the Drive PDF (and the
+    // participant's driveLink/driveFileId) intact. Backs the "Delete ID Only" UX.
+    const keepPdf = searchParams.get("keepPdf") === "true";
 
     if (!uniqueCertId && !id) {
       return NextResponse.json({ error: "id or uniqueCertId is required" }, { status: 400 });
     }
 
     const result = await deleteCertificateCascade({
+      // When both are supplied, certDocId wins — the cascade resolves it first.
       certDocId: id,
       uniqueCertId,
       clearParticipant,
+      deleteDriveFile: !keepPdf,
     });
     return NextResponse.json({ success: true, ...result });
   } catch (error: unknown) {
