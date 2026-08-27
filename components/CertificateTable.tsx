@@ -81,7 +81,8 @@ export default function CertificateTable({ certificates, onDataChange }: Certifi
     
     setIsDeleting(cert.id || cert.uniqueCertId);
     try {
-      const response = await fetch(`/api/certificates?id=${cert.id}`, { method: "DELETE" });
+      const key = cert.id ? `id=${encodeURIComponent(cert.id)}` : `uniqueCertId=${encodeURIComponent(cert.uniqueCertId)}`;
+      const response = await fetch(`/api/certificates?${key}`, { method: "DELETE" });
       if (response.ok) {
         sfx.delete();
         onDataChange();

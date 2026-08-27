@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase.admin";
 import { requireAdmin } from "@/lib/requireAdmin";
+import { deleteCertificateCascade } from "@/lib/certCascade";
 
 /**
  * Admin-only. This endpoint returns every certificate document — including every
@@ -50,28 +51,31 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Delete certificate records by uniqueCertId. Called when a certificate is revoked.
+// Delete certificate records by id or uniqueCertId. Called when a certificate is revoked.
 export async function DELETE(request: NextRequest) {
   const guard = await requireAdmin(request);
   if (!guard.ok) return guard.response;
 
   try {
     const { searchParams } = new URL(request.url);
-    const uniqueCertId = searchParams.get("uniqueCertId");
-    if (!uniqueCertId) {
-      return NextResponse.json({ error: "uniqueCertId is required" }, { status: 400 });
+    const uniqueCertId = searchParams.get("uniqueCertId") || undefined;
+    const id = searchParams.get("id") || undefined;
+    const clearParticipant = searchParams.get("clearParticipant") !== "false";
+
+    if (!uniqueCertId && !id) {
+      return NextResponse.json({ error: "id or uniqueCertId is required" }, { status: 400 });
     }
 
-    const snap = await getAdminDb()
-      .collection("certificates")
-      .where("uniqueCertId", "==", uniqueCertId)
-      .get();
-
-    await Promise.all(snap.docs.map((d) => d.ref.delete()));
-    return NextResponse.json({ success: true, deleted: snap.size });
-  } catch (error: any) {
+    const result = await deleteCertificateCascade({
+      certDocId: id,
+      uniqueCertId,
+      clearParticipant,
+    });
+    return NextResponse.json({ success: true, ...result });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
     console.error("Error deleting certificate:", error);
-    return NextResponse.json({ error: "Failed to delete certificate", details: error?.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to delete certificate", details: msg }, { status: 500 });
   }
 }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase.admin";
 import { requireAdmin } from "@/lib/requireAdmin";
+import { deleteCertificateCascade } from "@/lib/certCascade";
 
 export async function DELETE(request: NextRequest) {
   const guard = await requireAdmin(request);
@@ -11,9 +12,8 @@ export async function DELETE(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: "Certificate ID is required" }, { status: 400 });
     }
-
-    await getAdminDb().collection("certificates").doc(id).delete();
-    return NextResponse.json({ success: true });
+    const result = await deleteCertificateCascade({ certDocId: id });
+    return NextResponse.json({ success: true, ...result });
   } catch (error) {
     console.error("Error deleting certificate:", error);
     return NextResponse.json({ error: "Failed to delete certificate" }, { status: 500 });
