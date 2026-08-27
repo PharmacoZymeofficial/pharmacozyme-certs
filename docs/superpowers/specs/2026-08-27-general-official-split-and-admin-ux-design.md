@@ -37,6 +37,7 @@ delete call site):
 | Bulk generation resume | **Resumable, still client-driven.** Firestore job doc + chunked writes + resume banner. No new server infra. |
 | Email delivery status | **Trustworthy counts only.** Real per-recipient outcome tallied, failed list with retry. No per-row status model, no provider webhooks. |
 | Drive cleanup | **Server-authoritative cascade.** One server call owns file + folder + doc + sheet cleanup on every delete path. |
+| Drive access for operators | **Guaranteed Anyone-with-link sharing** on every artifact the app creates, plus an `ensurePublic` retro-fix action. Bridge owner account must permit link sharing. |
 
 ---
 
@@ -417,21 +418,122 @@ Guarded by `appsScriptConfigured()`.
 - `tests/driveCleanup.test.ts` — `fileIdFromLink` parses the two known link
   shapes and returns `null` for junk.
 - Cascade routes are integration-shaped (need Firestore) — cover with manual
-  verification in §10, not unit tests, consistent with the repo's current
+  verification in §11.2, not unit tests, consistent with the repo's current
   test boundary (no Firestore emulator in this sandbox).
 
 ---
 
-## 10. Testing & rollout
+## 10. Team access to Drive artifacts (personal-email operators)
 
-### 10.1 Automated (must be green before every push)
+### 10.1 The "Unauthorized" bug — fix first, config only
+
+`admin/templates` template upload fails with
+`Failed to create template — Details: Drive upload failed: Unauthorized`.
+
+Traced: `app/api/templates/route.ts:66` throws
+`Drive upload failed: ${driveData.error}`, and `"Unauthorized"` is the literal
+string `apps-script.js:72` returns when `isAuthorized(payload)` is false —
+i.e. `payload.secret !== PropertiesService.getScriptProperties()
+.getProperty("APPS_SCRIPT_SECRET")`.
+
+Root cause: the 2026-08-27 security pass added the shared-secret gate. The Script
+Property is set (otherwise `isAuthorized` falls through to allow-all), but the
+Vercel `APPS_SCRIPT_SECRET` env var is unset, mismatched, or was set after the
+last deployment (env vars bake in at deploy time, never hot-reload — the repeated
+lesson in CONTEXT.md). Every Drive + Sheets bridge call is affected, not just
+template upload — the operator just hit template upload first.
+
+**Fix (no code change):**
+
+1. Vercel → Project → Settings → Environment Variables: `APPS_SCRIPT_SECRET`
+   exists for **Production** and its value is byte-for-byte the Apps Script
+   Script Property value (Apps Script editor → Project Settings → Script
+   Properties → `APPS_SCRIPT_SECRET`).
+2. Apps Script → Deploy → Manage deployments: the active `/exec` deployment is
+   the latest code version (redeploy if not).
+3. Trigger a **fresh Vercel production deployment** (new build — not a "Redeploy"
+   of an older listing).
+4. Verify: template upload **and** a Sheet sync both succeed.
+
+On the critical path — blocks the team today. Do this before the implementation
+work.
+
+### 10.2 Guaranteed public-link sharing
+
+The operators use the app from personal Google accounts. They never touch Drive
+directly — every Drive operation runs as the single Apps Script owner account
+("execute as: me"). So "the team must be able to upload files and access folders"
+resolves to:
+
+- the bridge must work for them (§10.1), **and**
+- every folder/file the app creates must be **Anyone-with-link (Viewer)** so any
+  operator or recipient can open and re-share it without being added explicitly.
+
+CONTEXT.md's 2026-08-27 session already made the `setSharing` calls best-effort
+try/catch — meaning a silent failure (a Workspace domain sharing policy, or a
+transient error) leaves the artifact private, which is exactly this complaint.
+
+**Code changes:**
+
+- `apps-script.js` — every artifact-creating action (`uploadPDF`,
+  `uploadTemplate`, `createNewSheet`, and the per-database certificate folder
+  created during upload) applies
+  `setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW)` to
+  **both the file and its parent folder**. Still wrapped so a sharing failure
+  never aborts the upload — but the action's JSON response now carries
+  `shared: true | false`.
+- New `ensurePublic` action: `{ fileId?, folderId? }` → re-applies
+  `ANYONE_WITH_LINK` / `VIEW`. Lets the app retro-fix anything created while
+  sharing was silently failing. Best-effort, returns `{ success, shared }`.
+- `lib/driveCleanup.ts` gains a sibling module or the same file gains
+  `ensureDrivePublic(target)` wrapping the new action.
+- Artifact-creating API routes (`templates`, `drive-upload`, `databases/drive-folder`)
+  read `shared` from the bridge response; when `false`, still return the artifact
+  but with `sharingFailed: true`.
+
+**UI changes:**
+
+- Templates page + `DatabaseDetail` Drive tool group: when a response carries
+  `sharingFailed`, show
+  "Uploaded — but the Drive link is not public yet. **[Make public]**" calling
+  `ensurePublic`.
+- `DatabaseDetail`: an always-available **"Fix folder sharing"** action on the
+  database's Drive folder (calls `ensurePublic` with the `driveFolderId`).
+
+**Config / documentation** (`.env.example` comment + a CONTEXT.md note):
+
+- The Apps Script owner account **must** be one where `ANYONE_WITH_LINK` sharing
+  is permitted. A personal Gmail account satisfies this. A Google Workspace
+  account whose admin restricts external link sharing does **not** — the files
+  upload but stay private and **no code change can override the domain policy**.
+  If the bridge account is Workspace-restricted: loosen the policy for that
+  account/OU, or move the bridge to a personal account.
+
+### 10.3 Bundling
+
+`deleteFolder` (§9), `ensurePublic`, and the sharing changes are all
+`apps-script.js` edits needing one Apps Script redeploy — do them in a single
+`apps-script.js` change and one redeploy.
+
+### 10.4 Tests
+
+`apps-script.js` has no runtime here — covered by §11.2 manual verification:
+after redeploy, upload a template and generate a certificate, then open both
+Drive links in a logged-out / incognito browser — both must load with no
+permission prompt. After a delete, both must 404.
+
+---
+
+## 11. Testing & rollout
+
+### 11.1 Automated (must be green before every push)
 
 - `npx tsc --noEmit`
 - `npx vitest run` — existing 22 + new: `generationResume`, `emailOutcome`,
   `driveCleanup`.
 - `npm run build`
 
-### 10.2 Manual verification
+### 11.2 Manual verification
 
 1. **Public split:** `/verify` shows only General databases + General sub-category
    chips; `/official` shows only Official. Name search on each is scoped.
@@ -458,27 +560,44 @@ Guarded by `appsScriptConfigured()`.
      file all gone.
    - Delete a whole database → participants, cert docs, all Drive files, **and the
      Drive folder** trashed.
+9. **Drive sharing (§10.2):** after the Apps Script redeploy, upload a template
+   and generate a certificate, then open both Drive links in an incognito /
+   logged-out browser — both load with no permission prompt. Force a sharing
+   failure is not reproducible here without a restricted account; instead confirm
+   `ensurePublic` ("Make public" / "Fix folder sharing") returns success on an
+   already-public folder.
 
-### 10.3 Deploy checklist (this repo's history)
+### 11.3 Config prerequisites — do before any implementation
 
-- New env / config: **none** for this work (the §6 job collection and §9 folder
-  action need no new env vars). `deleteFolder` needs an **Apps Script redeploy**.
+1. **`APPS_SCRIPT_SECRET` (§10.1)** — Vercel Production env var must equal the
+   Apps Script Script Property; fresh Vercel deploy after setting it. This is
+   currently broken and blocks all Drive/Sheets bridge calls.
+2. **Bridge owner account (§10.2)** — confirm the Apps Script owner account
+   permits `ANYONE_WITH_LINK` sharing (personal Gmail = yes; restricted Workspace
+   = no).
+
+### 11.4 Deploy checklist (this repo's history)
+
+- New env / config: **none new** for the code work. Pre-existing
+  `APPS_SCRIPT_SECRET` must be correct (§11.3).
+- **`apps-script.js` redeploy** carries `deleteFolder` (§9) + `ensurePublic` and
+  the sharing changes (§10) — one redeploy for all three.
 - New Firestore index for `/api/search-name` category filter — deploy
-  `firestore.indexes.json`.
-- `firestore.rules` — `generationJobs` is API-only (Admin SDK), so it stays
-  `if false` in the deny-by-default rules. No rules change needed.
-- Work on a branch (`feat/general-official-split`), fast-forward merge to `main`
-  when green (keeps the linear history this repo uses).
+  `firestore.indexes.json` **first**, before the code that queries it ships.
+- `firestore.rules` — `generationJobs` is API-only (Admin SDK), stays `if false`
+  in the deny-by-default rules. No rules change.
+- Work on branch `feat/general-official-split`, fast-forward merge to `main`
+  when green (keeps this repo's linear history).
 - After `git push`: open the Vercel **Deployments** tab and confirm the commit
   SHA next to the live (blue-dot) **Production** deployment matches the pushed
-  SHA. Do not trust a "Redeploy" — it can re-promote stale code
-  (two incidents this session from skipping this check).
-- Apps Script redeploy + `firebase deploy --only firestore:indexes` before or with
-  the Vercel deploy.
+  SHA. Do not trust a "Redeploy" — it can re-promote stale code (two incidents
+  this session from skipping this check).
+- Sequence: `firestore.indexes.json` deploy → `apps-script.js` redeploy →
+  Vercel production deploy → verify blue-dot SHA → §11.2 manual pass.
 
 ---
 
-## 11. File-change summary
+## 12. File-change summary
 
 **New:**
 - `app/official/page.tsx`
@@ -488,7 +607,7 @@ Guarded by `appsScriptConfigured()`.
 - `components/admin/databases/*` (≈14 files per §5.1)
 - `app/api/generation-jobs/[databaseId]/route.ts`
 - `app/api/participants/bulk-delete/route.ts`
-- `lib/driveCleanup.ts`
+- `lib/driveCleanup.ts` — file/folder delete + `ensureDrivePublic` + `fileIdFromLink`
 - `tests/generationResume.test.ts`, `tests/emailOutcome.test.ts`,
   `tests/driveCleanup.test.ts`
 
@@ -498,6 +617,7 @@ Guarded by `appsScriptConfigured()`.
 - `components/Navbar.tsx` — `next/link`, Official link, active state
 - `components/VerificationResult.tsx` — `Math.random()` → `useMemo`
 - `app/admin/databases/page.tsx` — reduced to a tab wrapper
+- `app/admin/templates/page.tsx` — surface `sharingFailed` + "Make public"
 - `app/api/databases/public/route.ts` — `?category=` filter
 - `app/api/search-name/route.ts` — `?category=` filter
 - `app/api/verify/route.ts` — `mismatch` payload on category mismatch
@@ -505,22 +625,32 @@ Guarded by `appsScriptConfigured()`.
 - `app/api/certificates/[id]/route.ts` — delegate DELETE to the cascade helper
 - `app/api/participants/[id]/route.ts` — default PDF delete, cascade cert doc
 - `app/api/databases/route.ts` — delete `driveFolderId` folder
-- `apps-script.js` — `deleteFolder` action
+- `app/api/templates/route.ts`, `app/api/drive-upload/route.ts`,
+  `app/api/databases/drive-folder/route.ts` — read `shared`, return `sharingFailed`
+- `apps-script.js` — `deleteFolder` + `ensurePublic` actions; `setSharing` on every
+  created file **and** parent folder, with `shared` in the response
 - `lib/types.ts` — `GenerationJob`, `Participant.emailError`
 - `components/CertificateGenerator.tsx` — job checkpointing, chunked writes, resume
 - `firestore.indexes.json` — search-name category composite index
+- `.env.example` — note on the bridge owner account's sharing requirement
 
 ---
 
-## 12. Open risks
+## 13. Open risks
 
 - **Refactor blast radius.** The monolith split is the riskiest part on a live
   app. Mitigation: behavior-preserving extraction first, tabs last, manual smoke
   after each extraction step, branch + FF merge.
 - **`search-name` composite index** must be built in Firestore before the
   category-scoped query runs, or that query errors. Deploy the index first.
-- **Apps Script `deleteFolder`** silently no-ops until the script is redeployed;
-  folder cleanup will appear broken until then. Call it out in the deploy step.
+- **Apps Script `deleteFolder` / `ensurePublic`** silently no-op until the script
+  is redeployed; folder cleanup and sharing fixes appear broken until then.
+- **`APPS_SCRIPT_SECRET` mismatch (§10.1)** currently breaks *all* Drive + Sheets
+  bridge calls in production. Must be fixed before implementation work is testable
+  end-to-end.
+- **Restricted Workspace bridge account** — if the Apps Script owner is a
+  Workspace account that blocks external link sharing, no code change makes
+  artifacts public. Requires an admin policy change or moving the bridge account.
 - **Chunked cert writes** change the failure profile of generation — a mid-run
   failure now leaves *some* committed certs rather than none. This is the
   intended behavior (that's what makes resume work) but the operator-facing
