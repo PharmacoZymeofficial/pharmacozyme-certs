@@ -7,28 +7,7 @@ import * as XLSX from "xlsx";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ConfirmModal";
 import { sfx } from "@/lib/sfx";
-
-const SENDER_IDENTITIES = [
-  { name: "PharmacoZyme Certificates", email: "" },
-  { name: "PharmacoZyme Official", email: "info@pharmacozyme.com" },
-  { name: "PZ Academy", email: "info@pzacademy.pharmacozyme.com" },
-];
-
-const categoryStructure = {
-  General: {
-    Courses: ["Module 1", "Module 2", "Module 3", "Module 4", "Course Completion"],
-    Workshops: ["Workshop"],
-    Webinars: ["Webinar"],
-    "MED-Q": ["MED-Q Assessment"],
-  },
-  Official: {
-    "Central Team": ["Team Certificate"],
-    "Sub Team": ["Team Certificate"],
-    Ambassadors: ["Ambassador Certificate"],
-    Affiliates: ["Affiliate Certificate"],
-    Mentors: ["Mentor Certificate"],
-  },
-};
+import { SENDER_IDENTITIES, categoryStructure, subCategoryShortMap } from "@/components/admin/databases/constants";
 
 export default function DatabaseManagementPage() {
   const toast = useToast();
@@ -1290,19 +1269,6 @@ export default function DatabaseManagementPage() {
       toast.error("Error deleting PDF");
       sfx.error();
     }
-  };
-
-  // Subcategory short forms
-  const subCategoryShortMap: Record<string, string> = {
-    "Courses": "CRS",
-    "Workshops": "WKS",
-    "Webinars": "WBN",
-    "MED-Q": "MDQ",
-    "Central Team": "CTM",
-    "Sub Team": "STM",
-    "Ambassadors": "AMB",
-    "Affiliates": "AFF",
-    "Mentors": "MTR",
   };
 
   const subCategories = categoryStructure[newDatabase.category as keyof typeof categoryStructure] || {};
