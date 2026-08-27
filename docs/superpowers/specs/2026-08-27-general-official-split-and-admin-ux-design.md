@@ -362,12 +362,15 @@ one throw does not abort the loop.
 
 **`lib/driveCleanup.ts` (new):**
 ```ts
-export async function deleteDriveFile(fileId: string): Promise<void>;
-export async function deleteDriveFolder(folderId: string): Promise<void>;
-export function fileIdFromLink(link?: string): string | null; // /file/d/<id>/ or ?id=<id>
+export async function deleteDriveFile(fileId: string): Promise<boolean>;   // true = bridge reported success
+export async function deleteDriveFolder(folderId: string): Promise<boolean>;
+export function fileIdFromLink(link?: string | null): string | null; // /file/d/<id>/ or ?id=<id>
+export async function ensureDrivePublic(t: { fileId?: string; folderId?: string }): Promise<{ shared: boolean }>;
 ```
-All best-effort: call `callAppsScript`, catch, `console.error`, return. Never throw.
-Guarded by `appsScriptConfigured()`.
+All best-effort: call `callAppsScript`, catch, `console.error`, return `false`.
+Never throw. Guarded by `appsScriptConfigured()`. The boolean return lets
+`deleteCertificateCascade` report an accurate `driveFileDeleted` instead of
+"a fileId existed".
 
 **`DELETE /api/certificates` (collection route):**
 - Accept **`id` OR `uniqueCertId`** (fixes the `CertificateTable` call without
@@ -378,10 +381,18 @@ Guarded by `appsScriptConfigured()`.
   3. Delete the cert doc(s).
   4. If the cert references `databaseId` + `participantId`, clear that
      participant's `certificateId` / `certificateUrl` / `verificationUrl` /
-     `driveLink` / `driveFileId` and set `status: "pending"`.
+     `driveLink` / `driveFileId` and set `status: "pending"`, `emailSent: false`.
   5. If that database has a linked sheet, `clearCertIdsByEmail` for the
      participant's email (reuse existing action).
 - `?clearParticipant=false` opts out of steps 4–5 (default: clear).
+- **`?keepPdf=true` opts out of step 2** (default: delete the PDF). Added
+  post-review: the admin UI has three separable operations — "Delete ID Only"
+  (keep the PDF), "Delete PDF Only", and "Delete Both" — and the confirm text of
+  the first promises the PDF survives. `deleteCertificateCascade` therefore takes
+  `deleteDriveFile?: boolean` (default `true`); when `false` it skips the Drive
+  delete **and** leaves the participant's `driveLink` / `driveFileId` intact
+  (only `certificateId` / `certificateUrl` / `verificationUrl` / `status` are
+  reset). The "Delete ID Only" call sites pass `?keepPdf=true`.
 
 **`DELETE /api/certificates/[id]`:** delegate to the same helper, or remove its
 `DELETE` export (grep confirms no caller — but keep it delegating for safety).
@@ -392,9 +403,20 @@ Guarded by `appsScriptConfigured()`.
 - Also delete the associated `certificates` doc(s) (`where uniqueCertId ==
   participant.certificateId`) and their Drive files — via the §9.2 cert helper so
   the logic lives in one place.
+- **`?keepCert=true` opts out of the certificate cascade entirely** (default:
+  cascade). Added post-review: the `undo` / `redo` handlers delete a participant
+  and then re-`POST` an identical one to reverse an edit — that round-trip must
+  not revoke the certificate or trash its PDF. Undo/redo pass
+  `?keepPdf=true&keepCert=true`.
 - Existing sheet cert-id clear stays.
 
 **`DELETE /api/databases?id=`:**
+- The participant-cleanup loop also **deletes each participant's `certificates`
+  doc** (via `deleteCertificateCascade({ uniqueCertId, clearParticipant: false })`
+  when `certificateId` is set) — a bare database delete otherwise leaves every
+  cert ID still resolving in `/api/verify`. Drive-file deletion in the loop uses
+  `deleteDriveFile(driveFileId || fileIdFromLink(driveLink))`, not a hand-rolled
+  `deletePDF` call.
 - After the participant loop and template cleanup, if `dbData.driveFolderId`:
   `await deleteDriveFolder(dbData.driveFolderId)`. Best-effort, logged.
 - Response message updated to mention the folder.
@@ -402,10 +424,13 @@ Guarded by `appsScriptConfigured()`.
 **Bulk delete paths in the admin UI:**
 - Replace the client-side `Promise.all` fan-out of `drive-upload` + `certificates`
   + `batch-update` calls with a single server endpoint that performs the cascade
-  per participant. Simplest: a `POST /api/participants/batch-update` mode, or a
-  new `POST /api/participants/bulk-delete` taking `{ databaseId, participantIds,
-  deleteCerts, deletePdfs }`. **Decision:** new `bulk-delete` route — clearer than
-  overloading `batch-update`, and it can reuse the §9 helpers.
+  per participant. **Decision:** new `POST /api/participants/bulk-delete` taking
+  `{ databaseId, participantIds, deleteCerts, deletePdfs }`, reusing the §9 helpers.
+- The route **caps `participantIds` (reject >500 with a 400)**, processes in
+  **chunks of ~5 concurrently** (matching `CertificateGenerator`'s existing
+  concurrency), and issues **one batched `clearCertIdsByEmail`** for all deleted
+  participants' emails at the end (the per-item cascade runs with
+  `clearParticipant: false`, so the sheet clear must happen once here).
 
 **UI confirm copy:**
 - Single cert delete: "Delete this certificate? This also removes the PDF from
@@ -488,12 +513,21 @@ transient error) leaves the artifact private, which is exactly this complaint.
 **Code changes:**
 
 - `apps-script.js` — every artifact-creating action (`uploadPDF`,
-  `uploadTemplate`, `createNewSheet`, and the per-database certificate folder
-  created during upload) applies
+  `uploadTemplate`, `createNewSheet`) applies
   `setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW)` to
-  **both the file and its parent folder**. Still wrapped so a sharing failure
-  never aborts the upload — but the action's JSON response now carries
-  `shared: true | false`.
+  **the file it created**. Still wrapped so a sharing failure never aborts the
+  upload — the action's JSON response carries `shared: true | false`.
+  **Folder sharing (revised post-review):** only **app-created** folders are
+  shared, and only **once, at creation** — the per-database certificate subfolder
+  in `getOrCreateFolder`, and the `DRIVE_FOLDER_NAME` parent only on the
+  by-name-creation fallback path. `uploadPDF` / `uploadTemplate` do **not**
+  re-share the folder on every file (redundant, and it burns `setSharing` quota
+  on the concurrent-upload path CONTEXT.md flags as already flaky). The
+  pre-existing operator-supplied `TEMPLATES_FOLDER_ID` / `DRIVE_FOLDER_ID`
+  folders are **never** auto-shared — flipping a folder the app did not create to
+  anyone-with-link would expose unrelated content. Making an existing folder
+  public is only ever done through the explicit `ensurePublic` action (the "Fix
+  folder sharing" button).
 - New `ensurePublic` action: `{ fileId?, folderId? }` → re-applies
   `ANYONE_WITH_LINK` / `VIEW`. Lets the app retro-fix anything created while
   sharing was silently failing. Best-effort, returns `{ success, shared }`.
