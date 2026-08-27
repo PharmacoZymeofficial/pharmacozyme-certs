@@ -188,6 +188,41 @@ plus a few genuine ones worth a look: `components/VerificationResult.tsx` calls
 raw `<a>` for internal nav, a couple of unescaped `"` in JSX. Not touched this session
 — flagged for the Phase 4 (admin UX) pass.
 
+## Deploy incident — 2026-08-27: Turbopack + firebase-admin ESM crash
+
+Deploying the above session's work to production surfaced a real incident, now fixed:
+
+1. **First deploy attempt did nothing** — the session's 70 changed files were never
+   committed, so every Vercel "Redeploy" just rebuilt the old pre-migration commit
+   (`3dfcf40`) while the new `firestore.rules` (published straight to Firebase,
+   independent of git) were already live. Old client-SDK routes + new deny-by-default
+   rules = every Firestore read 500'd. Fixed by committing and pushing
+   (`3dfcf40..7f6b15f`) — see git log.
+2. **Stale GitHub credential blocked the push** — same issue as the 2026-08-26 session
+   (`ditpharmacozyme` cached in Windows Git Credential Manager, no push access to this
+   repo). Cleared with `cmdkey /delete:LegacyGeneric:target=git:https://github.com`,
+   then the next `git push` prompted a fresh interactive login.
+3. **After the real deploy, `/api/admin/auth` 500'd** with
+   `Error [ERR_REQUIRE_ESM]: require() of ES Module .../jose/dist/webapi/index.js from
+   .../jwks-rsa/src/utils.js not supported`, stack trace through Turbopack's own
+   `externalImport` runtime helper. Root cause: `firebase-admin@14.3.0` →
+   `jwks-rsa@4.1.0` → hard dependency on `jose@^6.1.3`, which ships pure ESM
+   (`"type": "module"`). `firebase-admin` is in Next's built-in
+   `serverExternalPackages` auto-list, but **Turbopack's production build has a known,
+   currently-unresolved limitation externalizing packages whose own internal `require()`
+   chain bottoms out in an ESM-only dependency** (confirmed via
+   [auth0/node-jwks-rsa#493](https://github.com/auth0/node-jwks-rsa/issues/493), open
+   since March 2026 with no fix at time of writing). This is **not** a Node.js version
+   issue — Vercel's Node.js Version setting was already 24.x, matching local.
+   **Fix**: `package.json`'s `build` script changed from `next build` to
+   `next build --webpack` (the documented Turbopack opt-out flag). Verified locally:
+   built, ran `next start`, and confirmed `/api/admin/auth` returns the expected
+   `401 {"error":"Invalid or expired sign-in token"}` for a malformed token instead of
+   crashing — checked the server log directly for any trace of the ESM error (none).
+   `dev` was left on Turbopack (only the production build path was affected).
+   **If a future Next.js/Turbopack release fixes this upstream, revert `build` back to
+   plain `next build` and confirm the same runtime smoke test still passes.**
+
 ### Not yet done from the original plan
 
 - **Firestore rules emulator verification** — see above, needs Java in this sandbox.
