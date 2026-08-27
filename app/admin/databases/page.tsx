@@ -147,7 +147,9 @@ export default function DatabaseManagementPage() {
     // Delete participants that were removed
     for (const p of toDelete) {
       if (p.id) {
-        await fetch(`/api/participants/${p.id}?databaseId=${selectedDatabase.id}`, {
+        // keepPdf/keepCert: undo/redo reverses an edit by deleting then re-POSTing
+        // the participant — it must not revoke the certificate or trash its PDF.
+        await fetch(`/api/participants/${p.id}?databaseId=${selectedDatabase.id}&keepPdf=true&keepCert=true`, {
           method: "DELETE",
         });
       }
@@ -220,7 +222,9 @@ export default function DatabaseManagementPage() {
     // Delete participants that were removed
     for (const p of toDelete) {
       if (p.id) {
-        await fetch(`/api/participants/${p.id}?databaseId=${selectedDatabase.id}`, {
+        // keepPdf/keepCert: undo/redo reverses an edit by deleting then re-POSTing
+        // the participant — it must not revoke the certificate or trash its PDF.
+        await fetch(`/api/participants/${p.id}?databaseId=${selectedDatabase.id}&keepPdf=true&keepCert=true`, {
           method: "DELETE",
         });
       }
@@ -1227,8 +1231,9 @@ export default function DatabaseManagementPage() {
     if (!ok) return;
 
     try {
-      // Revoke from certificates collection (cert ID removed → no longer valid)
-      await fetch(`/api/certificates?uniqueCertId=${encodeURIComponent(participant.certificateId)}`, { method: "DELETE" });
+      // Revoke from certificates collection (cert ID removed → no longer valid).
+      // keepPdf=true: this is "Delete ID Only" — the PDF must survive.
+      await fetch(`/api/certificates?uniqueCertId=${encodeURIComponent(participant.certificateId)}&keepPdf=true`, { method: "DELETE" });
 
       const response = await fetch(`/api/participants/${participant.id}`, {
         method: "PUT",
@@ -2060,7 +2065,7 @@ export default function DatabaseManagementPage() {
                                   // Revoke from certificates collection
                                   await Promise.all(selectedParticipants.map(id => {
                                     const p = participants.find(x => x.id === id);
-                                    return p?.certificateId ? fetch(`/api/certificates?uniqueCertId=${encodeURIComponent(p.certificateId)}`, { method: "DELETE" }) : Promise.resolve();
+                                    return p?.certificateId ? fetch(`/api/certificates?uniqueCertId=${encodeURIComponent(p.certificateId)}&keepPdf=true`, { method: "DELETE" }) : Promise.resolve();
                                   }));
                                   await fetch("/api/participants/batch-update", {
                                     method: "POST",
