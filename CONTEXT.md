@@ -250,9 +250,8 @@ Deploying the above session's work to production surfaced a real incident, now f
    clean JSON error (missing local `FIREBASE_SERVICE_ACCOUNT_JSON`, expected — no
    `.env.local` in this dev sandbox), with zero trace of `jwks-rsa`/`jose`/`ERR_REQUIRE_ESM`
    anywhere in the server log. Same clean result for `/api/databases/public`.
-   **Not yet confirmed on the actual Vercel deployment** — do that next, and if it
-   somehow still fails, get the Logs tab entry again rather than assume this write-up
-   is the end of it.
+   **Confirmed working on the live Vercel deployment (commit `a13de09`)** — login,
+   admin panel, and Firestore reads all functioning. Incident closed.
 5. **Lesson for next time**: after any `git push` intended to deploy, explicitly
    verify (via the Deployments tab) that the git commit shown next to the **live**
    (blue-dot) Production deployment matches the pushed SHA — a "Redeploy" action on an
