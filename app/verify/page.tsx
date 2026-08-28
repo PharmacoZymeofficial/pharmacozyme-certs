@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import VerifySearch from "@/components/VerifySearch";
 import VerificationResult from "@/components/VerificationResult";
 import PublicDatabaseCards from "@/components/PublicDatabaseCards";
+import CrossCategoryHint from "@/components/verify/shared/CrossCategoryHint";
 import { Certificate } from "@/lib/types";
 import { sfx } from "@/lib/sfx";
 import FontLoadGate from "@/components/FontLoadGate";
@@ -48,6 +49,7 @@ function VerifyContent() {
   const [certificate, setCertificate] = useState<Certificate | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mismatch, setMismatch] = useState<{ actualCategory: "General" | "Official"; certId: string } | null>(null);
   const [hasAutoVerified, setHasAutoVerified] = useState(false);
   const [preselectedDbId, setPreselectedDbId] = useState<string | null>(null);
 
@@ -61,6 +63,7 @@ function VerifyContent() {
     setIsLoading(true);
     setError(null);
     setCertificate(null);
+    setMismatch(null);
 
     try {
       const params = new URLSearchParams({ certId });
@@ -70,6 +73,11 @@ function VerifyContent() {
       const data = await response.json();
 
       if (!response.ok) {
+        if (data.mismatch && (data.actualCategory === "General" || data.actualCategory === "Official")) {
+          setMismatch({ actualCategory: data.actualCategory, certId: data.certId || certId });
+          setCertificate(null);
+          return;
+        }
         throw new Error(data.error || "Certificate not found. Please check the ID and try again.");
       }
 
@@ -102,6 +110,7 @@ function VerifyContent() {
   const handleClose = () => {
     setCertificate(null);
     setError(null);
+    setMismatch(null);
   };
 
   const handleDatabaseSelect = (dbId: string) => {
@@ -182,7 +191,12 @@ function VerifyContent() {
 
         {/* ── RESULT SECTION ── */}
         <div ref={resultRef}>
-          {(certificate || error || isLoading) && (
+          {mismatch && (
+            <section className="max-w-2xl mx-auto px-4 sm:px-6 py-12">
+              <CrossCategoryHint actualCategory={mismatch.actualCategory} certId={mismatch.certId} currentCategory="General" />
+            </section>
+          )}
+          {!mismatch && (certificate || error || isLoading) && (
             <section className="max-w-2xl mx-auto px-4 sm:px-6 py-12">
               <div className="flex items-center justify-between mb-5">
                 <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-outline">
