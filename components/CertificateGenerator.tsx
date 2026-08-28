@@ -20,6 +20,7 @@ async function loadFontBytesViaProxy(fontName: string): Promise<Uint8Array | nul
 }
 import { useToast } from "@/components/Toast";
 import { sfx } from "@/lib/sfx";
+import { remainingToGenerate } from "@/lib/generationResume";
 
 
 
@@ -457,9 +458,10 @@ interface CertificateGeneratorProps {
   database: any;
   participants: any[];
   onGenerated: () => void;
+  resumeMode?: boolean;
 }
 
-export default function CertificateGenerator({ database, participants, onGenerated }: CertificateGeneratorProps) {
+export default function CertificateGenerator({ database, participants, onGenerated, resumeMode }: CertificateGeneratorProps) {
   const toast = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [certificates, setCertificates] = useState<CertificateData[]>([]);
@@ -526,9 +528,32 @@ export default function CertificateGenerator({ database, participants, onGenerat
       return 0;
     });
 
-    const participantsToGenerate = filterNewOnly
+    let participantsToGenerate = filterNewOnly
       ? sortedParticipants.filter(p => !p.certificateId)
       : sortedParticipants;
+
+    if (resumeMode) {
+      try {
+        const jr = await fetch(`/api/generation-jobs/${database.id}`);
+        if (jr.ok) {
+          const { job } = await jr.json();
+          const remainingIds = new Set(remainingToGenerate(sortedParticipants, job?.completedParticipantIds || []));
+          participantsToGenerate = sortedParticipants.filter((p) => p.id && remainingIds.has(p.id));
+        }
+      } catch { /* fall back to a full run */ }
+    }
+
+    const jobUrl = `/api/generation-jobs/${database.id}`;
+    const completedIds: string[] = [];
+    const checkpoint = async (phase: "rendering" | "drive-upload" | "sheet-sync") => {
+      try {
+        await fetch(jobUrl, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ total: participantsToGenerate.length, completedParticipantIds: completedIds, phase }),
+        });
+      } catch { /* non-fatal — resume just won't be as fresh */ }
+    };
 
     try {
       const year = new Date().getFullYear();
@@ -600,6 +625,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
         pdfBytes?: Uint8Array;
       };
       const allResults: RenderResult[] = [];
+      await checkpoint("rendering");
 
       for (let i = 0; i < participantsWithCertIds.length; i += RENDER_CONCURRENCY) {
         const batchSlice = participantsWithCertIds.slice(i, i + RENDER_CONCURRENCY);
@@ -671,51 +697,59 @@ export default function CertificateGenerator({ database, participants, onGenerat
           }
         }));
 
-        allResults.push(...(batchResults.filter(r => r !== null) as RenderResult[]));
+        const fresh = batchResults.filter(r => r !== null) as RenderResult[];
+        allResults.push(...fresh);
+
+        if (fresh.length > 0) {
+          // ── Flush this chunk: Firestore write (participants + cert docs) ────
+          const certDocs = fresh.map(({ participant, certId, verificationUrl }) => ({
+            uniqueCertId: certId,
+            recipientName: participant.name,
+            recipientEmail: participant.email || "",
+            category: database.category,
+            subCategory: database.subCategory,
+            topic: database.topic,
+            certType: database.topic || database.subCategory,
+            issueDate,
+            status: "generated",
+            verificationUrl,
+            databaseId: database.id,
+            participantId: participant.id,
+            createdAt: new Date().toISOString(),
+          }));
+
+          await fetch("/api/participants/batch-update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              databaseId: database.id,
+              updates: fresh.map(({ participant, certId, verificationUrl }) => ({
+                id: participant.id,
+                certificateId: certId,
+                status: "generated",
+                verificationUrl,
+                certificateUrl: verificationUrl,
+                issueDate,
+                template: selectedTemplate,
+                templateName: templateData?.name || "Standard",
+              })),
+              certDocs,
+              skipSheetSync: true,
+            }),
+          });
+
+          for (const r of fresh) if (r.participant.id) completedIds.push(r.participant.id);
+          await checkpoint("rendering");
+        }
+
         setGenerationProgress(Math.round(((i + RENDER_CONCURRENCY) / participantsWithCertIds.length) * 60));
       }
 
-      // ── Phase 2: One batch Firestore write (participants + cert docs) ───────
-      setCurrentGenerating("Saving to database…");
-
-      const certDocs = allResults.map(({ participant, certId, verificationUrl }) => ({
-        uniqueCertId: certId,
-        recipientName: participant.name,
-        recipientEmail: participant.email || "",
-        category: database.category,
-        subCategory: database.subCategory,
-        topic: database.topic,
-        certType: database.topic || database.subCategory,
-        issueDate,
-        status: "generated",
-        verificationUrl,
-        databaseId: database.id,
-        participantId: participant.id,
-        createdAt: new Date().toISOString(),
-      }));
-
-      await fetch("/api/participants/batch-update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          databaseId: database.id,
-          updates: allResults.map(({ participant, certId, verificationUrl }) => ({
-            id: participant.id,
-            certificateId: certId,
-            status: "generated",
-            verificationUrl,
-            certificateUrl: verificationUrl,
-            issueDate,
-            template: selectedTemplate,
-            templateName: templateData?.name || "Standard",
-          })),
-          certDocs,
-          skipSheetSync: true,
-        }),
-      });
+      // ── Phase 2: renders + cert-doc writes flushed per-chunk above ─────────
       setGenerationProgress(65);
 
       // ── Phase 3: Drive uploads (5 concurrent) ──────────────────────────────
+      await checkpoint("drive-upload");
       if (database.linkedSheet) {
         const DRIVE_CONCURRENCY = 5;
         type DriveResult = { participantId: string; certId: string; driveLink: string; driveFileId: string; failed?: boolean; name?: string };
@@ -816,6 +850,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
       }
 
       // ── Phase 4: One sheet sync ─────────────────────────────────────────────
+      await checkpoint("sheet-sync");
       if (database.linkedSheet) {
         setCurrentGenerating("Syncing to sheet…");
         setGenerationProgress(92);
@@ -827,6 +862,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
       }
 
       setGenerationProgress(100);
+      await fetch(jobUrl, { method: "DELETE" }).catch(() => {});
       setCertificates(allResults.map(r => ({
         recipientName: r.participant.name,
         uniqueCertId: r.certId,
@@ -855,7 +891,12 @@ export default function CertificateGenerator({ database, participants, onGenerat
     } catch (err) {
       console.error("Error generating certificates:", err);
       sfx.error();
-      toast.error("Failed to generate certificates: " + (err as Error).message);
+      const written = completedIds.length;
+      toast.error(
+        written > 0
+          ? `Generation interrupted — ${written} of ${participantsToGenerate.length} certificates written. Reopen this database to resume.`
+          : "Failed to generate certificates: " + (err as Error).message
+      );
     } finally {
       setIsGenerating(false);
       setCurrentGenerating("");
