@@ -5,6 +5,7 @@ import { sfx } from "@/lib/sfx";
 import ResultCard, { SearchResult } from "@/components/verify/shared/ResultCard";
 import SkeletonCard from "@/components/verify/shared/SkeletonCard";
 import IdlePlaceholder from "@/components/verify/shared/IdlePlaceholder";
+import { CATEGORY_SUBCATS } from "@/lib/category";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -26,17 +27,7 @@ export interface Props {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const SUB_CATS = [
-  "Courses",
-  "Workshops",
-  "Webinars",
-  "MED-Q",
-  "Central Team",
-  "Sub Team",
-  "Ambassadors",
-  "Affiliates",
-  "Mentors",
-];
+const SUB_CATS = CATEGORY_SUBCATS.General;
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -119,7 +110,7 @@ export default function VerifySearch({
 
   // Fetch live databases for dropdown
   useEffect(() => {
-    fetch("/api/databases/public")
+    fetch("/api/databases/public?category=General")
       .then((r) => r.json())
       .then((d) => setDatabases(d.databases || []))
       .catch(() => {})
@@ -148,6 +139,7 @@ export default function VerifySearch({
       const params = new URLSearchParams({ name });
       if (dbId) params.set("databaseId", dbId);
       if (subCat) params.set("subCategory", subCat);
+      params.set("category", "General");
       const res = await fetch(`/api/search-name?${params}`);
       const data = await res.json();
       if (res.status === 429) {
@@ -232,7 +224,7 @@ export default function VerifySearch({
     e.preventDefault();
     if (!certIdInput.trim() || isLoading) return;
     sfx.click();
-    const cat = selectedDb?.category;
+    const cat = "General";
     const sub = selectedDb?.subCategory || selectedSubCat || undefined;
     onVerify(certIdInput.trim(), cat, sub);
   };

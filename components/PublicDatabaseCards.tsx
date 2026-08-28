@@ -250,7 +250,7 @@ export default function PublicDatabaseCards({ onDatabaseSelect }: Props) {
   const sectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    fetch("/api/databases/public")
+    fetch("/api/databases/public?category=General")
       .then((r) => r.json())
       .then((d) => setDatabases(d.databases || []))
       .catch(() => {})
