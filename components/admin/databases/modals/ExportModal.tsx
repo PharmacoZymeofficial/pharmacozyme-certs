@@ -3,7 +3,7 @@
 import type { JSX } from "react";
 import * as XLSX from "xlsx";
 import { Database, Participant } from "@/lib/types";
-import { useToast } from "@/components/Toast";
+import type { useToast } from "@/components/Toast";
 import { sfx } from "@/lib/sfx";
 
 interface ExportModalProps {

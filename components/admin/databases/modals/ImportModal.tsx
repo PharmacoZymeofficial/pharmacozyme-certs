@@ -2,7 +2,7 @@
 
 import type { JSX } from "react";
 import * as XLSX from "xlsx";
-import { useToast } from "@/components/Toast";
+import type { useToast } from "@/components/Toast";
 import { sfx } from "@/lib/sfx";
 
 interface ImportModalProps {

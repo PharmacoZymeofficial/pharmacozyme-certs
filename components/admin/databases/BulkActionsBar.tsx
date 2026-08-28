@@ -3,8 +3,8 @@
 import type { JSX } from "react";
 import { Database, Participant } from "@/lib/types";
 import { sfx } from "@/lib/sfx";
-import { useToast } from "@/components/Toast";
-import { useConfirm } from "@/components/ConfirmModal";
+import type { useToast } from "@/components/Toast";
+import type { useConfirm } from "@/components/ConfirmModal";
 
 interface BulkActionsBarProps {
   selectedParticipants: string[];

@@ -2,7 +2,7 @@
 
 import type { JSX, ReactNode } from "react";
 import { Database } from "@/lib/types";
-import { useToast } from "@/components/Toast";
+import type { useToast } from "@/components/Toast";
 
 interface DatabaseDetailProps {
   selectedDatabase: Database;

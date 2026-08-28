@@ -3,7 +3,7 @@
 import type { Dispatch, SetStateAction, JSX } from "react";
 import { Database, Participant } from "@/lib/types";
 import { sfx } from "@/lib/sfx";
-import { useToast } from "@/components/Toast";
+import type { useToast } from "@/components/Toast";
 
 interface ParticipantRowProps {
   participant: Participant;

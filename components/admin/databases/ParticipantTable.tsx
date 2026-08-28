@@ -2,8 +2,8 @@
 
 import type { Dispatch, SetStateAction, JSX } from "react";
 import { Database, Participant } from "@/lib/types";
-import { useToast } from "@/components/Toast";
-import { useConfirm } from "@/components/ConfirmModal";
+import type { useToast } from "@/components/Toast";
+import type { useConfirm } from "@/components/ConfirmModal";
 import BulkActionsBar from "@/components/admin/databases/BulkActionsBar";
 import ParticipantRow from "@/components/admin/databases/ParticipantRow";
 
