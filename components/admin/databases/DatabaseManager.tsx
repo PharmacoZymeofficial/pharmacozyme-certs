@@ -163,7 +163,7 @@ export default function DatabaseManager({ category }: { category: "General" | "O
 
   if (isLoading) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
+      <div>
         {/* Animated top progress bar */}
         <div className="fixed top-0 left-0 right-0 z-50 h-1 overflow-hidden">
           <div
@@ -200,7 +200,7 @@ export default function DatabaseManager({ category }: { category: "General" | "O
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 xl:p-12" onClick={() => setOpenDropdown(null)}>
+    <div onClick={() => setOpenDropdown(null)}>
       {/* Global loading overlay for important actions */}
       {isDeletingDatabase && (
         <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center">
