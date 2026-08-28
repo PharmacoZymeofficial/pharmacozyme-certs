@@ -505,7 +505,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
   const generateCertificates = async () => {
     // Check for existing certificates
     const existingCount = participants.filter(p => p.certificateId).length;
-    if (existingCount > 0) {
+    if (existingCount > 0 && !resumeMode) {
       setExistingCertCount(existingCount);
       setShowExistingWarning(true);
       return;
@@ -532,25 +532,34 @@ export default function CertificateGenerator({ database, participants, onGenerat
       ? sortedParticipants.filter(p => !p.certificateId)
       : sortedParticipants;
 
+    // Whole-run total, fixed before the resume filter narrows the list — so the job
+    // doc + operator messaging always report progress against the entire run, even
+    // when a resume is itself interrupted.
+    const jobTotal = participantsToGenerate.length;
+
+    const jobUrl = `/api/generation-jobs/${database.id}`;
+    const completedIds: string[] = [];
+
     if (resumeMode) {
       try {
         const jr = await fetch(`/api/generation-jobs/${database.id}`);
         if (jr.ok) {
           const { job } = await jr.json();
-          const remainingIds = new Set(remainingToGenerate(sortedParticipants, job?.completedParticipantIds || []));
+          const priorCompleted: string[] = job?.completedParticipantIds || [];
+          // Accumulate on top of prior progress rather than restarting from zero.
+          completedIds.push(...priorCompleted);
+          const remainingIds = new Set(remainingToGenerate(sortedParticipants, priorCompleted));
           participantsToGenerate = sortedParticipants.filter((p) => p.id && remainingIds.has(p.id));
         }
       } catch { /* fall back to a full run */ }
     }
 
-    const jobUrl = `/api/generation-jobs/${database.id}`;
-    const completedIds: string[] = [];
     const checkpoint = async (phase: "rendering" | "drive-upload" | "sheet-sync") => {
       try {
         await fetch(jobUrl, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ total: participantsToGenerate.length, completedParticipantIds: completedIds, phase }),
+          body: JSON.stringify({ total: jobTotal, completedParticipantIds: completedIds, phase }),
         });
       } catch { /* non-fatal — resume just won't be as fresh */ }
     };
@@ -894,7 +903,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
       const written = completedIds.length;
       toast.error(
         written > 0
-          ? `Generation interrupted — ${written} of ${participantsToGenerate.length} certificates written. Reopen this database to resume.`
+          ? `Generation interrupted — ${written} of ${jobTotal} certificates written. Reopen this database to resume.`
           : "Failed to generate certificates: " + (err as Error).message
       );
     } finally {
