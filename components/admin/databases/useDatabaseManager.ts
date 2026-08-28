@@ -6,6 +6,7 @@ import type { GenerationJob } from "@/lib/types";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ConfirmModal";
 import { sfx } from "@/lib/sfx";
+import { tallyEmailOutcomes } from "@/lib/emailOutcome";
 import { SENDER_IDENTITIES, subCategoryShortMap, categoryStructure } from "@/components/admin/databases/constants";
 
 export function useDatabaseManager(category: "General" | "Official") {
@@ -55,6 +56,7 @@ export function useDatabaseManager(category: "General" | "Official") {
   const [emailMessage, setEmailMessage] = useState("Dear [Name],\n\nCongratulations! Your certificate is now ready.\n\nYou can verify your certificate at: [VerificationLink]\n\nBest regards,\nPharmacoZyme Team");
   const [isSending, setIsSending] = useState(false);
   const [sendProgress, setSendProgress] = useState({ current: 0, total: 0 });
+  const [emailResult, setEmailResult] = useState<{ sent: number; failed: number; queued: number; failures: { email: string; name: string; error: string }[] } | null>(null);
   const [emailStats, setEmailStats] = useState<{
     sent: number; limit: number; remaining: number; source: string;
     accounts?: Record<string, { sent: number; limit: number; remaining: number; label: string; email: string }>;
@@ -628,10 +630,12 @@ export function useDatabaseManager(category: "General" | "Official") {
     }
   };
 
-  const handleSendEmails = async () => {
-    const recipients = selectedParticipants.length > 0
-      ? participants.filter(p => selectedParticipants.includes(p.id || ""))
-      : participants;
+  const handleSendEmails = async (overrideRecipients?: Participant[]) => {
+    const recipients = Array.isArray(overrideRecipients) && overrideRecipients.length > 0
+      ? overrideRecipients
+      : (selectedParticipants.length > 0
+          ? participants.filter(p => selectedParticipants.includes(p.id || ""))
+          : participants);
 
     if (!selectedDatabase || recipients.length === 0) {
       toast.warning("No participants to send emails to");
@@ -647,6 +651,7 @@ export function useDatabaseManager(category: "General" | "Official") {
     let totalSent = 0;
     let totalFailed = 0;
     const allErrors: { email: string; error: string }[] = [];
+    const outcomes: { email: string; name: string; id?: string; ok: boolean; queued?: boolean; error?: string }[] = [];
 
     try {
       for (let i = 0; i < recipients.length; i += CHUNK_SIZE) {
@@ -674,25 +679,33 @@ export function useDatabaseManager(category: "General" | "Official") {
         const result = await response.json();
 
         if (!response.ok) {
-          toast.error(result.error || "Failed to send emails");
-          sfx.error();
-          setIsSending(false);
-          setSendProgress({ current: 0, total: 0 });
-          return;
+          // Don't abandon the remaining recipients — record this chunk as failed
+          // and move on to the next one.
+          for (const p of chunk) {
+            outcomes.push({ email: p.email, name: p.name, id: p.id, ok: false, error: result?.error || `HTTP ${response.status}` });
+          }
+          continue;
         }
 
         totalSent += result.sent || 0;
         totalFailed += result.failed || 0;
         if (result.errors?.length > 0) allErrors.push(...result.errors);
 
-        // Mark emailSent only for participants actually delivered
-        const successEmails = new Set(
-          ((result.results || []) as { email: string; success: boolean }[])
-            .filter(r => r.success)
-            .map(r => r.email)
-        );
+        // Per-recipient outcome mapping. Quota-failed recipients are auto-queued
+        // server-side and show up in neither `results` nor `errors` — a chunk
+        // recipient absent from both is treated as queued.
+        const okEmails = new Set(((result.results || []) as { email: string; success: boolean }[]).filter(r => r.success).map(r => r.email));
+        const errByEmail = new Map(((result.errors || []) as { email: string; error: string }[]).map(e => [e.email, e.error] as [string, string]));
+        for (const p of chunk) {
+          const ok = okEmails.has(p.email);
+          const errored = errByEmail.has(p.email);
+          outcomes.push({ email: p.email, name: p.name, id: p.id, ok, queued: !ok && !errored, error: errByEmail.get(p.email) });
+        }
+
+        // Mark emailSent only for participants actually delivered; clear any
+        // stale emailError on a successful re-send.
         const sentIds = chunk
-          .filter(p => successEmails.has(p.email))
+          .filter(p => okEmails.has(p.email))
           .map(p => p.id!)
           .filter(Boolean);
 
@@ -703,13 +716,23 @@ export function useDatabaseManager(category: "General" | "Official") {
             body: JSON.stringify({
               databaseId: selectedDatabase.id,
               participantIds: sentIds,
-              fields: { emailSent: true },
+              fields: { emailSent: true, emailError: "" },
               skipSheetSync: true,
             }),
           });
         }
 
         setSendProgress({ current: Math.min(i + CHUNK_SIZE, recipients.length), total: recipients.length });
+      }
+
+      // Persist emailError for the recipients that failed outright (not queued).
+      const failedIds = outcomes.filter(o => !o.ok && !o.queued && o.id).map(o => o.id!);
+      if (failedIds.length > 0 && selectedDatabase?.id) {
+        await fetch("/api/participants/batch-update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ databaseId: selectedDatabase.id, participantIds: failedIds, fields: { emailError: "Last send failed" }, skipSheetSync: true }),
+        }).catch(() => {});
       }
 
       // Final sheet sync once after all chunks
@@ -742,9 +765,14 @@ export function useDatabaseManager(category: "General" | "Official") {
         }).catch(() => {});
       }
 
+      const tally = tallyEmailOutcomes(outcomes);
+      setEmailResult({
+        ...tally,
+        failures: outcomes.filter(o => !o.ok && !o.queued).map(o => ({ email: o.email, name: o.name, error: o.error || "Unknown error" })),
+      });
+
       sfx.send();
-      toast.success(`Emails sent! ${totalSent} delivered${totalFailed > 0 ? `, ${totalFailed} failed` : ""}.`);
-      if (allErrors.length > 0) toast.error(`Send error: ${allErrors[0].error}`);
+      toast.success(`${tally.sent} sent${tally.failed ? `, ${tally.failed} failed` : ""}${tally.queued ? `, ${tally.queued} queued` : ""}.`);
     } catch (err: any) {
       console.error("Error sending emails:", err);
       toast.error("Error sending emails: " + (err?.message || "Network error"));
@@ -752,13 +780,22 @@ export function useDatabaseManager(category: "General" | "Official") {
     } finally {
       setIsSending(false);
       setSendProgress({ current: 0, total: 0 });
-      setShowEmailModal(false);
+      // Modal stays open so the result panel is visible; the user closes it.
     }
+  };
+
+  const retryFailed = () => {
+    if (!emailResult?.failures.length) return;
+    const failedEmails = new Set(emailResult.failures.map(f => f.email));
+    const retryRecipients = participants.filter(p => failedEmails.has(p.email));
+    setEmailResult(null);
+    handleSendEmails(retryRecipients);
   };
 
   const openEmailModal = async () => {
     setScheduleMode(false);
     setScheduledAt("");
+    setEmailResult(null);
     setShowEmailModal(true);
     try {
       const res = await fetch("/api/email-stats");
@@ -1252,6 +1289,7 @@ export function useDatabaseManager(category: "General" | "Official") {
     emailMessage,
     isSending,
     sendProgress,
+    emailResult,
     emailStats,
     scheduleMode,
     scheduledAt,
@@ -1364,6 +1402,7 @@ export function useDatabaseManager(category: "General" | "Official") {
     handleAddParticipant,
     handleBulkImport,
     handleSendEmails,
+    retryFailed,
     openEmailModal,
     handleScheduleEmails,
     handleDeleteParticipant,
