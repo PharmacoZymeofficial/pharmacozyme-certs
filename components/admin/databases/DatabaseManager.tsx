@@ -12,10 +12,19 @@ import DatabaseList from "@/components/admin/databases/DatabaseList";
 import DatabaseDetail from "@/components/admin/databases/DatabaseDetail";
 import ParticipantTable from "@/components/admin/databases/ParticipantTable";
 import { useDatabaseManager } from "@/components/admin/databases/useDatabaseManager";
+import { useEffect } from "react";
+import type { Database } from "@/lib/types";
 
-export default function DatabaseManager({ category }: { category: "General" | "Official" }) {
+export default function DatabaseManager({
+  category,
+  onDatabasesLoaded,
+}: {
+  category: "General" | "Official";
+  onDatabasesLoaded?: (list: Database[]) => void;
+}) {
   const {
     databases,
+    allDatabases,
     participants,
     isCreating,
     selectedDatabase,
@@ -160,6 +169,10 @@ export default function DatabaseManager({ category }: { category: "General" | "O
     handleDeleteCertId,
     handleDeletePdfOnly,
   } = useDatabaseManager(category);
+
+  useEffect(() => {
+    onDatabasesLoaded?.(allDatabases);
+  }, [allDatabases, onDatabasesLoaded]);
 
   if (isLoading) {
     return (

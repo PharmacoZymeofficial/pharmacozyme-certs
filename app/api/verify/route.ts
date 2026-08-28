@@ -3,7 +3,7 @@ import { getAdminDb } from "@/lib/firebase.admin";
 import { rateLimit } from "@/lib/rateLimit";
 import { normalizeCertId } from "@/lib/certificateId";
 import { buildVerificationUrl } from "@/lib/urls";
-import { isCategoryMismatch } from "@/lib/category";
+import { isCategoryMismatch, parseCategoryParam } from "@/lib/category";
 
 // Public route by design — verification is the product. Kept unauthenticated, but it
 // reads through the Admin SDK because firestore.rules is now deny-by-default.
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const rawCertId = searchParams.get("certId") || "";
     const certId = normalizeCertId(rawCertId);
-    const filterCategory = searchParams.get("category") || "";
+    const filterCategory = parseCategoryParam(searchParams.get("category")) ?? "";
     const filterSubCategory = searchParams.get("subCategory") || "";
 
     if (!certId) {

@@ -138,7 +138,7 @@ export default function ParticipantTable({
         filterEmailed === "yes" ? (p as any).emailSent : !(p as any).emailSent
       );
     }
-    const sorted = [...filtered].sort((a, b) => {
+    const rows = [...filtered].sort((a, b) => {
       let aVal = "", bVal = "";
       if (sortBy === "sheet") {
         // Preserve import order: sort by createdAt ascending always
@@ -167,7 +167,7 @@ export default function ParticipantTable({
       }
       return sortOrder === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
     });
-    return sorted;
+    return rows;
   }, [participants, participantSearch, filterStatus, filterEmailed, sortBy, sortOrder]);
 
   return (

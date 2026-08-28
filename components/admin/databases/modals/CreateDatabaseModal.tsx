@@ -88,13 +88,12 @@ export default function CreateDatabaseModal({
               <select
                 value={newDatabase.category}
                 disabled
-                aria-readonly="true"
-                title="Category is set by the active tab"
                 className="w-full bg-surface-container-low border border-green-100 rounded-xl p-3 text-sm outline-none opacity-70 cursor-not-allowed"
               >
                 <option value="General">General</option>
                 <option value="Official">Official</option>
               </select>
+              <p className="text-xs text-on-surface-variant mt-1">Set by the active tab.</p>
             </div>
             <div>
               <label className="block text-xs font-bold text-brand-grass-green uppercase mb-2">Sub-Category *</label>

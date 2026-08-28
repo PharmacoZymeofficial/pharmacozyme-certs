@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { isCategory, parseCategoryParam, CATEGORY_SUBCATS, isCategoryMismatch } from "@/lib/category";
+import { categoryStructure } from "@/components/admin/databases/constants";
 
 describe("category helpers", () => {
   it("isCategory accepts only the two exact strings", () => {
@@ -25,6 +26,15 @@ describe("category helpers", () => {
     expect(g.size).toBeGreaterThan(0);
     expect(o.size).toBeGreaterThan(0);
     for (const s of g) expect(o.has(s)).toBe(false);
+  });
+});
+
+describe("CATEGORY_SUBCATS parity with admin categoryStructure", () => {
+  it("General sub-categories match key-for-key and in order", () => {
+    expect(CATEGORY_SUBCATS.General).toEqual(Object.keys(categoryStructure.General));
+  });
+  it("Official sub-categories match key-for-key and in order", () => {
+    expect(CATEGORY_SUBCATS.Official).toEqual(Object.keys(categoryStructure.Official));
   });
 });
 

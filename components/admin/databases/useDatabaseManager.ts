@@ -329,7 +329,6 @@ export function useDatabaseManager(category: "General" | "Official") {
     setFilterEmailed("all");
     setParticipantSearch("");
     setSelectedParticipants([]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
 
   // When the create modal opens, force the new-database category to the active
@@ -342,7 +341,6 @@ export function useDatabaseManager(category: "General" | "Official") {
         subCategory: Object.keys(categoryStructure[category])[0],
       }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showCreateModal, category]);
 
   const handleCreateDatabase = async () => {
@@ -1195,6 +1193,7 @@ export function useDatabaseManager(category: "General" | "Official") {
 
   return {
     databases,
+    allDatabases,
     participants,
     isCreating,
     selectedDatabase,

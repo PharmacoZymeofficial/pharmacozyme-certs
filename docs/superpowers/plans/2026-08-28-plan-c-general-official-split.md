@@ -22,6 +22,10 @@ The admin monolith is now `components/admin/databases/` — `DatabaseManager.tsx
 - **New Task C0 (do FIRST, before Task 11): fix the `displayedRowsRef` render-time read.** `ParticipantTable.tsx` reads `displayedRowsRef.current` during render (the select-all `checked=` at ~line 308) and writes `displayedRowsRef.current = sorted` in the filter/sort IIFE (~line 422) — 4 `react-hooks/refs` eslint errors, and a real latent bug (select-all checkbox shows the previous row set for one paint after a filter/sort change). Carried verbatim from the monolith by Plan B. Fix: hoist the filter+sort into `const sorted = useMemo(() => {...}, [participants, sortBy, sortOrder, filterStatus, filterEmailed, participantSearch])` above the `return`, derive BOTH the `checked` value and the row `.map` from `sorted`, and keep `displayedRowsRef.current = sorted` in a `useEffect` (or drop the ref if nothing else reads it — `grep displayedRowsRef` first; the keyboard range-select in the `<tbody> onKeyDown` may use it). Verify: the 4 eslint errors clear, `tsc`/`vitest 38`/`build` stay green, keyboard range-select still works. This is a behavior FIX (removes the stale paint) — call that out; it's the one intentional behavior change, pre-approved by the Plan B review.
 - Pre-existing warts Plan B deliberately left (do NOT fix as a side effect): 21 `no-explicit-any`, a `forEach(async)` race in `BulkActionsBar.tsx` "Mark as Emailed", 2 `no-unescaped-entities` in `CreateDatabaseModal.tsx`, an unused `const year` in `useDatabaseManager.ts`.
 
+## Pre-merge data check
+
+Run `node scripts/category-audit.mjs` (or the tsx form) against production before merge — backfill any `databases`/`certificates` doc whose `category` is not exactly General/Official; those docs silently vanish from the split UI.
+
 ## Global Constraints
 
 - **This is NOT the Next.js you know** — App Router, Next 16. Read `node_modules/next/dist/docs/` first for unfamiliar APIs.

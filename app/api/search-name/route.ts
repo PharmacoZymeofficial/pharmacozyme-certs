@@ -78,7 +78,9 @@ export async function GET(request: NextRequest) {
           if (results.length >= 20) break;
         }
       }
-    } catch { /* non-fatal */ }
+    } catch (e) {
+      console.error("search-name Search-1 (certificates by recipientName) failed — missing composite index?", e);
+    }
   }
 
   // Search 2: participants subcollections.
@@ -137,7 +139,9 @@ export async function GET(request: NextRequest) {
           }
         }
       }
-    } catch { /* non-fatal */ }
+    } catch (e) {
+      console.error("search-name Search-2 (participants subcollections) failed", e);
+    }
   }
 
   return NextResponse.json({ results: results.slice(0, 20) });
