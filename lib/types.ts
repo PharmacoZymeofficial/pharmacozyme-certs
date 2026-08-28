@@ -29,6 +29,7 @@ export interface Participant {
   status?: string;
   emailSent?: boolean;
   emailSentAt?: string;
+  emailError?: string;
   createdAt?: string;
   // Arbitrary extra Sheet/CSV columns (e.g. Designation, Start Date, Department),
   // keyed by the original column header. Bound to template custom-text elements
@@ -77,4 +78,14 @@ export interface Category {
   subCategories: (string | SubCategory)[];
   isActive: boolean;
   order: number;
+}
+
+export interface GenerationJob {
+  databaseId: string;
+  total: number;
+  completedParticipantIds: string[];
+  phase: "rendering" | "drive-upload" | "sheet-sync";
+  startedAt: string;
+  updatedAt: string;
+  startedBy: string;
 }
