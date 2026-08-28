@@ -41,7 +41,7 @@ export function useDatabaseManager() {
   
   const [bulkParticipants, setBulkParticipants] = useState("");
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [importPreview, setImportPreview] = useState<{name: string; email: string; certificateId?: string; issueDate?: string; status?: string}[]>([]);
+  const [importPreview, setImportPreview] = useState<{name: string; email: string; certificateId?: string; issueDate?: string; status?: string; customFields?: Record<string, string>}[]>([]);
   const [isImporting, setIsImporting] = useState(false);
   const [emailSubject, setEmailSubject] = useState("Your Certificate from PharmacoZyme");
   const [emailMessage, setEmailMessage] = useState("Dear [Name],\n\nCongratulations! Your certificate is now ready.\n\nYou can verify your certificate at: [VerificationLink]\n\nBest regards,\nPharmacoZyme Team");

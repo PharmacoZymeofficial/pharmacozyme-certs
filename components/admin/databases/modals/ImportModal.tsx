@@ -10,7 +10,7 @@ interface ImportModalProps {
   onClose: () => void;
   importFile: File | null;
   setImportFile: (f: File | null) => void;
-  importPreview: { name: string; email: string; certificateId?: string; issueDate?: string; status?: string }[];
+  importPreview: { name: string; email: string; certificateId?: string; issueDate?: string; status?: string; customFields?: Record<string, string> }[];
   setImportPreview: (v: ImportModalProps["importPreview"]) => void;
   isImporting: boolean;
   bulkParticipants: string;
