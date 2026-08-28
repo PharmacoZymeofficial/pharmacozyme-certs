@@ -3,6 +3,7 @@ import { getAdminDb } from "@/lib/firebase.admin";
 import { rateLimit } from "@/lib/rateLimit";
 import { normalizeCertId } from "@/lib/certificateId";
 import { buildVerificationUrl } from "@/lib/urls";
+import { isCategoryMismatch } from "@/lib/category";
 
 // Public route by design — verification is the product. Kept unauthenticated, but it
 // reads through the Admin SDK because firestore.rules is now deny-by-default.
@@ -64,7 +65,18 @@ export async function GET(request: NextRequest) {
       return true;
     }
 
-    function categoryMismatch() {
+    function categoryMismatch(certData: any) {
+      if (isCategoryMismatch(filterCategory, certData?.category)) {
+        return NextResponse.json(
+          {
+            error: `This certificate belongs to the ${certData.category} category.`,
+            mismatch: true,
+            actualCategory: certData.category,
+            certId,
+          },
+          { status: 404 }
+        );
+      }
       return NextResponse.json(
         { error: "Certificate found but does not match the selected category/subcategory." },
         { status: 404 }
@@ -83,7 +95,7 @@ export async function GET(request: NextRequest) {
     if (certHit) {
       const certDoc = certHit.docs[0];
       const certData = await enrichDriveLink(certDoc.data() as any);
-      if (!validateCategoryMatch(certData)) return categoryMismatch();
+      if (!validateCategoryMatch(certData)) return categoryMismatch(certData);
       return NextResponse.json({ certificate: { id: certDoc.id, ...certData } });
     }
 
@@ -126,7 +138,7 @@ export async function GET(request: NextRequest) {
         createdAt: pData.createdAt || "",
       };
 
-      if (!validateCategoryMatch(certificate)) return categoryMismatch();
+      if (!validateCategoryMatch(certificate)) return categoryMismatch(certificate);
       return NextResponse.json({ certificate });
     }
 
