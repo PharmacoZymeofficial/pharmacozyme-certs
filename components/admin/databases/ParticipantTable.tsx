@@ -1,6 +1,7 @@
 "use client";
 
 import type { Dispatch, SetStateAction, JSX } from "react";
+import { useMemo } from "react";
 import { Database, Participant } from "@/lib/types";
 import type { useToast } from "@/components/Toast";
 import type { useConfirm } from "@/components/ConfirmModal";
@@ -42,7 +43,6 @@ interface ParticipantTableProps {
   filterStatus: "all" | "pending" | "id-only" | "generated" | "missing-drive";
   setFilterEmailed: Dispatch<SetStateAction<"all" | "yes" | "no">>;
   filterEmailed: "all" | "yes" | "no";
-  displayedRowsRef: { current: Participant[] };
   focusedRowIndex: number;
   anchorRowIndex: number;
   setFocusedRowIndex: Dispatch<SetStateAction<number>>;
@@ -97,7 +97,6 @@ export default function ParticipantTable({
   filterStatus,
   setFilterEmailed,
   filterEmailed,
-  displayedRowsRef,
   focusedRowIndex,
   anchorRowIndex,
   setFocusedRowIndex,
@@ -116,6 +115,61 @@ export default function ParticipantTable({
   handleDeleteCertId,
   handleDeleteParticipant,
 }: ParticipantTableProps): JSX.Element {
+  const sorted = useMemo(() => {
+    const q = participantSearch.toLowerCase();
+    let filtered = q
+      ? participants.filter(p =>
+          (p.name || "").toLowerCase().includes(q) ||
+          (p.email || "").toLowerCase().includes(q) ||
+          (p.certificateId || "").toLowerCase().includes(q)
+        )
+      : [...participants];
+    if (filterStatus !== "all") {
+      filtered = filtered.filter(p => {
+        if (filterStatus === "pending") return !p.certificateId;
+        if (filterStatus === "id-only") return p.certificateId && !p.driveLink && !p.certificateUrl;
+        if (filterStatus === "generated") return !!(p.driveLink || p.certificateUrl);
+        if (filterStatus === "missing-drive") return !!p.certificateId && !p.driveLink;
+        return true;
+      });
+    }
+    if (filterEmailed !== "all") {
+      filtered = filtered.filter(p =>
+        filterEmailed === "yes" ? (p as any).emailSent : !(p as any).emailSent
+      );
+    }
+    const sorted = [...filtered].sort((a, b) => {
+      let aVal = "", bVal = "";
+      if (sortBy === "sheet") {
+        // Preserve import order: sort by createdAt ascending always
+        return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+      } else if (sortBy === "certId") {
+        // Empty certId goes to end (not top) in ascending order
+        if (!a.certificateId && !b.certificateId) return 0;
+        if (!a.certificateId) return sortOrder === "asc" ? 1 : -1;
+        if (!b.certificateId) return sortOrder === "asc" ? -1 : 1;
+        const aNum = parseInt(a.certificateId.split("-").pop() || "0");
+        const bNum = parseInt(b.certificateId.split("-").pop() || "0");
+        return sortOrder === "asc" ? aNum - bNum : bNum - aNum;
+      } else if (sortBy === "name") {
+        aVal = a.name || "";
+        bVal = b.name || "";
+      } else if (sortBy === "email") {
+        aVal = a.email || "";
+        bVal = b.email || "";
+      } else if (sortBy === "status") {
+        aVal = a.certificateId ? "generated" : "pending";
+        bVal = b.certificateId ? "generated" : "pending";
+      } else if (sortBy === "date") {
+        return sortOrder === "asc"
+          ? (new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime())
+          : (new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      }
+      return sortOrder === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    });
+    return sorted;
+  }, [participants, participantSearch, filterStatus, filterEmailed, sortBy, sortOrder]);
+
   return (
     <>
           {/* Participants Table */}
@@ -305,15 +359,15 @@ export default function ParticipantTable({
                           <input
                             type="checkbox"
                             checked={
-                              displayedRowsRef.current.length > 0 &&
-                              displayedRowsRef.current.every(p => selectedParticipants.includes(p.id || ""))
+                              sorted.length > 0 &&
+                              sorted.every(p => selectedParticipants.includes(p.id || ""))
                             }
                             onChange={(e) => {
                               if (e.target.checked) {
-                                const visibleIds = displayedRowsRef.current.map(p => p.id || "").filter(Boolean);
+                                const visibleIds = sorted.map(p => p.id || "").filter(Boolean);
                                 setSelectedParticipants(prev => Array.from(new Set([...prev, ...visibleIds])));
                               } else {
-                                const visibleIds = new Set(displayedRowsRef.current.map(p => p.id || ""));
+                                const visibleIds = new Set(sorted.map(p => p.id || ""));
                                 setSelectedParticipants(prev => prev.filter(id => !visibleIds.has(id)));
                               }
                             }}
@@ -335,7 +389,7 @@ export default function ParticipantTable({
                       className="divide-y divide-green-50 outline-none"
                       tabIndex={-1}
                       onKeyDown={(e) => {
-                        const rows = displayedRowsRef.current;
+                        const rows = sorted;
                         if (!rows.length) return;
                         const cur = focusedRowIndex;
                         if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -367,60 +421,7 @@ export default function ParticipantTable({
                         if (e.key === "Escape") setSelectedParticipants([]);
                       }}
                     >
-                      {(() => {
-                        const q = participantSearch.toLowerCase();
-                        let filtered = q
-                          ? participants.filter(p =>
-                              (p.name || "").toLowerCase().includes(q) ||
-                              (p.email || "").toLowerCase().includes(q) ||
-                              (p.certificateId || "").toLowerCase().includes(q)
-                            )
-                          : [...participants];
-                        if (filterStatus !== "all") {
-                          filtered = filtered.filter(p => {
-                            if (filterStatus === "pending") return !p.certificateId;
-                            if (filterStatus === "id-only") return p.certificateId && !p.driveLink && !p.certificateUrl;
-                            if (filterStatus === "generated") return !!(p.driveLink || p.certificateUrl);
-                            if (filterStatus === "missing-drive") return !!p.certificateId && !p.driveLink;
-                            return true;
-                          });
-                        }
-                        if (filterEmailed !== "all") {
-                          filtered = filtered.filter(p =>
-                            filterEmailed === "yes" ? (p as any).emailSent : !(p as any).emailSent
-                          );
-                        }
-                        const sorted = [...filtered].sort((a, b) => {
-                          let aVal = "", bVal = "";
-                          if (sortBy === "sheet") {
-                            // Preserve import order: sort by createdAt ascending always
-                            return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
-                          } else if (sortBy === "certId") {
-                            // Empty certId goes to end (not top) in ascending order
-                            if (!a.certificateId && !b.certificateId) return 0;
-                            if (!a.certificateId) return sortOrder === "asc" ? 1 : -1;
-                            if (!b.certificateId) return sortOrder === "asc" ? -1 : 1;
-                            const aNum = parseInt(a.certificateId.split("-").pop() || "0");
-                            const bNum = parseInt(b.certificateId.split("-").pop() || "0");
-                            return sortOrder === "asc" ? aNum - bNum : bNum - aNum;
-                          } else if (sortBy === "name") {
-                            aVal = a.name || "";
-                            bVal = b.name || "";
-                          } else if (sortBy === "email") {
-                            aVal = a.email || "";
-                            bVal = b.email || "";
-                          } else if (sortBy === "status") {
-                            aVal = a.certificateId ? "generated" : "pending";
-                            bVal = b.certificateId ? "generated" : "pending";
-                          } else if (sortBy === "date") {
-                            return sortOrder === "asc"
-                              ? (new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime())
-                              : (new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-                          }
-                          return sortOrder === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-                        });
-                        displayedRowsRef.current = sorted;
-                        return sorted.map((participant, index) => (
+                      {sorted.map((participant, index) => (
                           <ParticipantRow
                             key={participant.id || index}
                             participant={participant}
@@ -451,8 +452,7 @@ export default function ParticipantTable({
                             handleDeleteParticipant={handleDeleteParticipant}
                             toast={toast}
                           />
-                      ));
-                    })()}
+                      ))}
                     </tbody>
                   </table>
                 </div>

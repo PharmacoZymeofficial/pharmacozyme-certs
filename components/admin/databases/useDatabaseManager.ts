@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Database, Participant } from "@/lib/types";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ConfirmModal";
@@ -81,7 +81,6 @@ export function useDatabaseManager() {
   const [filterEmailed, setFilterEmailed] = useState<"all" | "yes" | "no">("all");
   const [focusedRowIndex, setFocusedRowIndex] = useState(-1);
   const [anchorRowIndex, setAnchorRowIndex] = useState(-1);
-  const displayedRowsRef = useRef<typeof participants>([]);
   const [idFormat, setIdFormat] = useState<"app" | "name" | "custom">("app");
   const [idFormatCode, setIdFormatCode] = useState("");
   const [idFormatCategoryNo, setIdFormatCategoryNo] = useState("");
@@ -1278,7 +1277,6 @@ export function useDatabaseManager() {
     setTabFetchError,
     canUndo,
     canRedo,
-    displayedRowsRef,
     toast,
     confirm,
     saveToHistory,

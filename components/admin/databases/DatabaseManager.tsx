@@ -132,7 +132,6 @@ export default function DatabaseManager() {
     setTabFetchError,
     canUndo,
     canRedo,
-    displayedRowsRef,
     toast,
     confirm,
     saveToHistory,
@@ -381,7 +380,6 @@ export default function DatabaseManager() {
             filterStatus={filterStatus}
             setFilterEmailed={setFilterEmailed}
             filterEmailed={filterEmailed}
-            displayedRowsRef={displayedRowsRef}
             focusedRowIndex={focusedRowIndex}
             anchorRowIndex={anchorRowIndex}
             setFocusedRowIndex={setFocusedRowIndex}
