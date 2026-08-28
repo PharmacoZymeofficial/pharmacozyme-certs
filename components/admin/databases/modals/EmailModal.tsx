@@ -24,6 +24,8 @@ interface EmailModalProps {
   setSelectedSenderIndex: (v: number) => void;
   onSend: () => void;
   onSchedule: () => void;
+  emailResult: { sent: number; failed: number; queued: number; failures: { email: string; name: string; error: string }[] } | null;
+  onRetryFailed: () => void;
   selectedCount: number;
   totalCount: number;
 }
@@ -46,6 +48,8 @@ export default function EmailModal({
   setSelectedSenderIndex,
   onSend,
   onSchedule,
+  emailResult,
+  onRetryFailed,
   selectedCount,
   totalCount,
 }: EmailModalProps): JSX.Element | null {
@@ -187,32 +191,70 @@ export default function EmailModal({
             </p>
           </div>
         </div>
-        <div className="p-6 border-t border-green-50 flex justify-end gap-3">
-          <button onClick={onClose} className="px-6 py-3 text-sm font-bold text-on-surface-variant hover:bg-green-50 rounded-xl">
-            Cancel
-          </button>
-          <button
-            onClick={scheduleMode ? onSchedule : onSend}
-            disabled={isSending || (scheduleMode && !scheduledAt)}
-            className="px-6 py-3 vivid-gradient-cta text-white rounded-xl font-bold flex items-center gap-2 disabled:opacity-50"
-          >
-            {isSending ? (
+
+        {emailResult && (
+          <div className="mx-6 mb-4 rounded-xl border border-green-100 p-4">
+            <p className="text-sm font-semibold text-brand-dark-green">
+              {emailResult.sent} sent
+              {emailResult.failed > 0 && <span className="text-red-600"> · {emailResult.failed} failed</span>}
+              {emailResult.queued > 0 && <span className="text-amber-600"> · {emailResult.queued} queued</span>}
+            </p>
+            {emailResult.failures.length > 0 && (
               <>
-                <span className="material-symbols-outlined animate-spin">progress_activity</span>
-                {scheduleMode ? "Scheduling..." : sendProgress.total > 0 ? `Sending ${sendProgress.current}/${sendProgress.total}...` : "Sending..."}
-              </>
-            ) : scheduleMode ? (
-              <>
-                <span className="material-symbols-outlined">schedule_send</span>
-                Schedule for {scheduledAt ? new Date(scheduledAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "..."}
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-outlined">send</span>
-                Send to {selectedCount > 0 ? selectedCount : totalCount} Recipients
+                <ul className="mt-2 max-h-40 overflow-y-auto text-xs text-on-surface-variant space-y-1">
+                  {emailResult.failures.map((f) => (
+                    <li key={f.email}><span className="font-medium">{f.name}</span> ({f.email}) — {f.error}</li>
+                  ))}
+                </ul>
+                <button
+                  onClick={onRetryFailed}
+                  disabled={isSending}
+                  className="mt-3 px-4 py-2 vivid-gradient-cta rounded-lg text-xs font-semibold text-white cursor-pointer disabled:opacity-50"
+                >
+                  Retry failed ({emailResult.failures.length})
+                </button>
               </>
             )}
-          </button>
+          </div>
+        )}
+
+        <div className="p-6 border-t border-green-50 flex justify-end gap-3">
+          {emailResult ? (
+            <button
+              onClick={onClose}
+              className="px-6 py-3 vivid-gradient-cta text-white rounded-xl font-bold flex items-center gap-2"
+            >
+              Close
+            </button>
+          ) : (
+            <>
+              <button onClick={onClose} className="px-6 py-3 text-sm font-bold text-on-surface-variant hover:bg-green-50 rounded-xl">
+                Cancel
+              </button>
+              <button
+                onClick={scheduleMode ? onSchedule : onSend}
+                disabled={isSending || (scheduleMode && !scheduledAt)}
+                className="px-6 py-3 vivid-gradient-cta text-white rounded-xl font-bold flex items-center gap-2 disabled:opacity-50"
+              >
+                {isSending ? (
+                  <>
+                    <span className="material-symbols-outlined animate-spin">progress_activity</span>
+                    {scheduleMode ? "Scheduling..." : sendProgress.total > 0 ? `Sending ${sendProgress.current}/${sendProgress.total}...` : "Sending..."}
+                  </>
+                ) : scheduleMode ? (
+                  <>
+                    <span className="material-symbols-outlined">schedule_send</span>
+                    Schedule for {scheduledAt ? new Date(scheduledAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "..."}
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined">send</span>
+                    Send to {selectedCount > 0 ? selectedCount : totalCount} Recipients
+                  </>
+                )}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

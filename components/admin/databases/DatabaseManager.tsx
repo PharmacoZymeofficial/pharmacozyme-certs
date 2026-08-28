@@ -48,6 +48,7 @@ export default function DatabaseManager({
     isSending,
     sendProgress,
     emailStats,
+    emailResult,
     scheduleMode,
     scheduledAt,
     selectedSenderIndex,
@@ -159,6 +160,7 @@ export default function DatabaseManager({
     handleAddParticipant,
     handleBulkImport,
     handleSendEmails,
+    retryFailed,
     openEmailModal,
     handleScheduleEmails,
     handleDeleteParticipant,
@@ -564,6 +566,8 @@ export default function DatabaseManager({
         setSelectedSenderIndex={setSelectedSenderIndex}
         onSend={handleSendEmails}
         onSchedule={handleScheduleEmails}
+        emailResult={emailResult}
+        onRetryFailed={retryFailed}
         selectedCount={selectedParticipants.length}
         totalCount={participants.length}
       />

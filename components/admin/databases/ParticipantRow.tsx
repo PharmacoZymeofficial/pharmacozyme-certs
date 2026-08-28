@@ -372,6 +372,7 @@ export default function ParticipantRow({
                           </td>
                           {/* Emailed */}
                           <td className="px-4 py-4">
+                            <div className="flex items-center gap-1">
                             <button
                               onClick={async () => {
                                 const newEmailSent = !(participant as any).emailSent;
@@ -391,6 +392,15 @@ export default function ParticipantRow({
                             >
                               <span className="material-symbols-outlined text-lg">{(participant as any).emailSent ? "check_circle" : "cancel"}</span>
                             </button>
+                            {(participant as any).emailError && !(participant as any).emailSent && (
+                              <span
+                                className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-700"
+                                title={(participant as any).emailError}
+                              >
+                                failed
+                              </span>
+                            )}
+                            </div>
                           </td>
                           <td className="px-4 py-4 text-right">
                             <div className="flex justify-end gap-1">
