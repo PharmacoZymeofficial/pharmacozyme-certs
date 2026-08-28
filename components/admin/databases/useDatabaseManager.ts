@@ -631,7 +631,7 @@ export function useDatabaseManager(category: "General" | "Official") {
   };
 
   const handleSendEmails = async (overrideRecipients?: Participant[]) => {
-    const recipients = Array.isArray(overrideRecipients) && overrideRecipients.length > 0
+    const recipients = Array.isArray(overrideRecipients)
       ? overrideRecipients
       : (selectedParticipants.length > 0
           ? participants.filter(p => selectedParticipants.includes(p.id || ""))
@@ -650,7 +650,6 @@ export function useDatabaseManager(category: "General" | "Official") {
     const CHUNK_SIZE = 30;
     let totalSent = 0;
     let totalFailed = 0;
-    const allErrors: { email: string; error: string }[] = [];
     const outcomes: { email: string; name: string; id?: string; ok: boolean; queued?: boolean; error?: string }[] = [];
 
     try {
@@ -676,7 +675,8 @@ export function useDatabaseManager(category: "General" | "Official") {
           }),
         });
 
-        const result = await response.json();
+        let result: any = {};
+        try { result = await response.json(); } catch { result = {}; }
 
         if (!response.ok) {
           // Don't abandon the remaining recipients — record this chunk as failed
@@ -689,7 +689,6 @@ export function useDatabaseManager(category: "General" | "Official") {
 
         totalSent += result.sent || 0;
         totalFailed += result.failed || 0;
-        if (result.errors?.length > 0) allErrors.push(...result.errors);
 
         // Per-recipient outcome mapping. Quota-failed recipients are auto-queued
         // server-side and show up in neither `results` nor `errors` — a chunk
