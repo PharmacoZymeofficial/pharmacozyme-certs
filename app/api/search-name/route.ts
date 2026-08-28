@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase.admin";
 import { rateLimit } from "@/lib/rateLimit";
+import { parseCategoryParam } from "@/lib/category";
 
 // Public by design: this backs the "search by name" verification flow.
 // High-Unicode sentinel used to match all strings with a given prefix in range queries.
@@ -33,6 +34,7 @@ export async function GET(request: NextRequest) {
   const name = (searchParams.get("name") || "").trim();
   const databaseId = (searchParams.get("databaseId") || "").trim();
   const subCategory = (searchParams.get("subCategory") || "").trim();
+  const category = parseCategoryParam(searchParams.get("category"));
 
   if (!name || name.length < 2) {
     return NextResponse.json({ error: "Name must be at least 2 characters" }, { status: 400 });
@@ -48,11 +50,11 @@ export async function GET(request: NextRequest) {
       const certRef = adminDb.collection("certificates");
       for (const variant of nameVariants(name)) {
         if (results.length >= 20) break;
-        const snap = await certRef
+        let certQuery = certRef
           .where("recipientName", ">=", variant)
-          .where("recipientName", "<=", variant + RANGE_SENTINEL)
-          .limit(15)
-          .get();
+          .where("recipientName", "<=", variant + RANGE_SENTINEL);
+        if (category) certQuery = certQuery.where("category", "==", category);
+        const snap = await certQuery.limit(15).get();
 
         for (const d of snap.docs) {
           const data = d.data() as Record<string, unknown>;
@@ -98,6 +100,7 @@ export async function GET(request: NextRequest) {
         if (results.length >= 20) break;
         const dbData = dbDoc.data();
         if (subCategory && dbData.subCategory !== subCategory) continue;
+        if (category && dbData.category !== category) continue;
 
         const participantsRef = adminDb
           .collection("databases")
