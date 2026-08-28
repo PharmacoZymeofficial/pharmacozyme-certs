@@ -2,7 +2,9 @@
 
 import type { JSX, ReactNode } from "react";
 import { Database } from "@/lib/types";
+import type { GenerationJob } from "@/lib/types";
 import type { useToast } from "@/components/Toast";
+import GenerationResumeBanner from "@/components/admin/databases/GenerationResumeBanner";
 
 interface DatabaseDetailProps {
   selectedDatabase: Database;
@@ -20,6 +22,9 @@ interface DatabaseDetailProps {
   toast: ReturnType<typeof useToast>;
   setShowParticipantModal: (v: boolean) => void;
   setShowImportModal: (v: boolean) => void;
+  generationJob?: GenerationJob | null;
+  onResumeGeneration?: () => void;
+  onDiscardGeneration?: () => void;
   children: ReactNode;
 }
 
@@ -39,6 +44,9 @@ export default function DatabaseDetail({
   toast,
   setShowParticipantModal,
   setShowImportModal,
+  generationJob,
+  onResumeGeneration,
+  onDiscardGeneration,
   children,
 }: DatabaseDetailProps): JSX.Element {
   return (
@@ -174,6 +182,16 @@ export default function DatabaseDetail({
                 </div>
               </div>
             </div>
+
+        {generationJob && onResumeGeneration && onDiscardGeneration && (
+          <div className="px-6 pt-4">
+            <GenerationResumeBanner
+              job={generationJob}
+              onResume={onResumeGeneration}
+              onDiscard={onDiscardGeneration}
+            />
+          </div>
+        )}
 
         {children}
       </div>

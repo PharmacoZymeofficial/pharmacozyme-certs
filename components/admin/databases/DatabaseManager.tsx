@@ -31,6 +31,7 @@ export default function DatabaseManager({
     isLoading,
     fetchedOnce,
     generatorResumeMode,
+    generationJob,
     showCreateModal,
     showParticipantModal,
     showImportModal,
@@ -166,6 +167,8 @@ export default function DatabaseManager({
     handlePushToSheet,
     handleFindDriveFolder,
     refreshGenerationJob,
+    resumeGeneration,
+    discardGenerationJob,
     handleGenerateIds,
     handleConfirmGenerateIds,
     handleSaveCertId,
@@ -361,6 +364,9 @@ export default function DatabaseManager({
           toast={toast}
           setShowParticipantModal={setShowParticipantModal}
           setShowImportModal={setShowImportModal}
+          generationJob={generationJob}
+          onResumeGeneration={resumeGeneration}
+          onDiscardGeneration={discardGenerationJob}
         >
           <ParticipantTable
             participants={participants}
