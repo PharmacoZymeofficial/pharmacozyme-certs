@@ -29,6 +29,7 @@ export default function DatabaseManager({
     isCreating,
     selectedDatabase,
     isLoading,
+    fetchedOnce,
     showCreateModal,
     showParticipantModal,
     showImportModal,
@@ -171,8 +172,8 @@ export default function DatabaseManager({
   } = useDatabaseManager(category);
 
   useEffect(() => {
-    onDatabasesLoaded?.(allDatabases);
-  }, [allDatabases, onDatabasesLoaded]);
+    if (fetchedOnce) onDatabasesLoaded?.(allDatabases);
+  }, [fetchedOnce, allDatabases, onDatabasesLoaded]);
 
   if (isLoading) {
     return (

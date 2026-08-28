@@ -1198,6 +1198,7 @@ export function useDatabaseManager(category: "General" | "Official") {
     isCreating,
     selectedDatabase,
     isLoading,
+    fetchedOnce,
     showCreateModal,
     showParticipantModal,
     showImportModal,
