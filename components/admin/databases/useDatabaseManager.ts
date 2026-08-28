@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Database, Participant } from "@/lib/types";
+import type { GenerationJob } from "@/lib/types";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ConfirmModal";
 import { sfx } from "@/lib/sfx";
@@ -19,7 +20,9 @@ export function useDatabaseManager(category: "General" | "Official") {
   const [selectedDatabase, setSelectedDatabase] = useState<Database | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchedOnce, setFetchedOnce] = useState(false);
-  
+  const [generationJob, setGenerationJob] = useState<GenerationJob | null>(null);
+  const [generatorResumeMode, setGeneratorResumeMode] = useState(false);
+
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showParticipantModal, setShowParticipantModal] = useState(false);
@@ -318,6 +321,13 @@ export function useDatabaseManager(category: "General" | "Official") {
   const openDatabase = useCallback((db: Database | null) => {
     if (db && db.category !== category) return;
     setSelectedDatabase(db);
+    setGenerationJob(null);
+    if (db?.id) {
+      fetch(`/api/generation-jobs/${db.id}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => setGenerationJob(d?.job ?? null))
+        .catch(() => {});
+    }
   }, [category]);
 
   // Tab switch mid-selection: drop the open database and reset filters so the
@@ -329,6 +339,8 @@ export function useDatabaseManager(category: "General" | "Official") {
     setFilterEmailed("all");
     setParticipantSearch("");
     setSelectedParticipants([]);
+    setGenerationJob(null);
+    setGeneratorResumeMode(false);
   }, [category]);
 
   // When the create modal opens, force the new-database category to the active
@@ -937,6 +949,25 @@ export function useDatabaseManager(category: "General" | "Official") {
     }
   };
 
+  const resumeGeneration = () => {
+    setGeneratorResumeMode(true);
+    setShowGeneratorModal(true);
+  };
+
+  const discardGenerationJob = async () => {
+    if (!selectedDatabase?.id) return;
+    await fetch(`/api/generation-jobs/${selectedDatabase.id}`, { method: "DELETE" }).catch(() => {});
+    setGenerationJob(null);
+  };
+
+  const refreshGenerationJob = () => {
+    if (!selectedDatabase?.id) return;
+    fetch(`/api/generation-jobs/${selectedDatabase.id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setGenerationJob(d?.job ?? null))
+      .catch(() => {});
+  };
+
   // Generate certificate IDs for all participants
   const handleGenerateIds = () => {
     if (!selectedDatabase) return;
@@ -1199,6 +1230,8 @@ export function useDatabaseManager(category: "General" | "Official") {
     selectedDatabase,
     isLoading,
     fetchedOnce,
+    generationJob,
+    generatorResumeMode,
     showCreateModal,
     showParticipantModal,
     showImportModal,
@@ -1265,6 +1298,7 @@ export function useDatabaseManager(category: "General" | "Official") {
     setShowImportModal,
     setShowEmailModal,
     setShowGeneratorModal,
+    setGeneratorResumeMode,
     setNewDatabase,
     setNewParticipant,
     setBulkParticipants,
@@ -1332,6 +1366,9 @@ export function useDatabaseManager(category: "General" | "Official") {
     handleSyncFromSheet,
     handlePushToSheet,
     handleFindDriveFolder,
+    resumeGeneration,
+    discardGenerationJob,
+    refreshGenerationJob,
     handleGenerateIds,
     handleConfirmGenerateIds,
     handleSaveCertId,

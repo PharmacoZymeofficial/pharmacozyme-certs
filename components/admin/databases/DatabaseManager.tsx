@@ -30,6 +30,7 @@ export default function DatabaseManager({
     selectedDatabase,
     isLoading,
     fetchedOnce,
+    generatorResumeMode,
     showCreateModal,
     showParticipantModal,
     showImportModal,
@@ -96,6 +97,7 @@ export default function DatabaseManager({
     setShowImportModal,
     setShowEmailModal,
     setShowGeneratorModal,
+    setGeneratorResumeMode,
     setNewDatabase,
     setNewParticipant,
     setBulkParticipants,
@@ -163,6 +165,7 @@ export default function DatabaseManager({
     handleSyncFromSheet,
     handlePushToSheet,
     handleFindDriveFolder,
+    refreshGenerationJob,
     handleGenerateIds,
     handleConfirmGenerateIds,
     handleSaveCertId,
@@ -481,18 +484,21 @@ export default function DatabaseManager({
                     : `Generate certificates for all ${participants.length} participants`}
                 </p>
               </div>
-              <button onClick={() => setShowGeneratorModal(false)} className="p-2 hover:bg-green-50 rounded-lg">
+              <button onClick={() => { setShowGeneratorModal(false); setGeneratorResumeMode(false); }} className="p-2 hover:bg-green-50 rounded-lg">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
             <div className="p-6">
               <CertificateGenerator
                 database={selectedDatabase}
-                participants={selectedParticipants.length > 0 
+                resumeMode={generatorResumeMode}
+                participants={selectedParticipants.length > 0
                   ? participants.filter(p => selectedParticipants.includes(p.id || ""))
                   : participants}
                 onGenerated={() => {
                   saveToHistory(participants);
+                  setGeneratorResumeMode(false);
+                  refreshGenerationJob();
                   if (selectedDatabase?.id) fetchParticipants(selectedDatabase.id!);
                   const targetCount = selectedParticipants.length > 0 ? selectedParticipants.length : participants.length;
                   fetch("/api/activity-logs", {
@@ -510,7 +516,7 @@ export default function DatabaseManager({
               />
             </div>
             <div className="p-6 border-t border-green-50 flex justify-end">
-              <button onClick={() => setShowGeneratorModal(false)} className="px-6 py-3 text-sm font-bold text-on-surface-variant hover:bg-green-50 rounded-xl">
+              <button onClick={() => { setShowGeneratorModal(false); setGeneratorResumeMode(false); }} className="px-6 py-3 text-sm font-bold text-on-surface-variant hover:bg-green-50 rounded-xl">
                 Close
               </button>
             </div>
