@@ -532,10 +532,10 @@ export default function CertificateGenerator({ database, participants, onGenerat
       ? sortedParticipants.filter(p => !p.certificateId)
       : sortedParticipants;
 
-    // Whole-run total, fixed before the resume filter narrows the list — so the job
-    // doc + operator messaging always report progress against the entire run, even
-    // when a resume is itself interrupted.
-    const jobTotal = participantsToGenerate.length;
+    // Whole-run total. Computed before the resume filter narrows the list; on resume
+    // the job doc is the authoritative record of the original run's scope, so prefer
+    // its stored total and fall back to this computed value only if it's missing.
+    let jobTotal = participantsToGenerate.length;
 
     const jobUrl = `/api/generation-jobs/${database.id}`;
     const completedIds: string[] = [];
@@ -545,6 +545,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
         const jr = await fetch(`/api/generation-jobs/${database.id}`);
         if (jr.ok) {
           const { job } = await jr.json();
+          jobTotal = (typeof job?.total === "number" && job.total > 0) ? job.total : jobTotal;
           const priorCompleted: string[] = job?.completedParticipantIds || [];
           // Accumulate on top of prior progress rather than restarting from zero.
           completedIds.push(...priorCompleted);
