@@ -1,6 +1,12 @@
+"use client";
+
 import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function Navbar() {
+  const pathname = usePathname();
+
   return (
     <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl shadow-sm shadow-green-900/5">
       <div className="flex justify-between items-center px-4 sm:px-6 lg:px-8 h-14 sm:h-16 max-w-full mx-auto">
@@ -28,13 +34,24 @@ export default function Navbar() {
 
         {/* Navigation — icons only on mobile, full text on md+ */}
         <div className="flex items-center gap-2 sm:gap-6 sm:space-x-2">
-          <a
+          <Link
             href="/verify"
-            className="flex items-center gap-1.5 font-body font-medium text-sm text-green-700 border-b-2 border-green-600 pb-1"
+            className={`flex items-center gap-1.5 font-body font-medium text-sm ${
+              pathname === "/verify" ? "text-green-700 border-b-2 border-green-600 pb-1" : "text-stone-600 hover:text-green-600"
+            } transition-colors`}
           >
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
             <span className="hidden md:inline">Verification</span>
-          </a>
+          </Link>
+          <Link
+            href="/official"
+            className={`flex items-center gap-1.5 font-body font-medium text-sm ${
+              pathname === "/official" ? "text-green-700 border-b-2 border-green-600 pb-1" : "text-stone-600 hover:text-green-600"
+            } transition-colors`}
+          >
+            <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>workspace_premium</span>
+            <span className="hidden md:inline">Official</span>
+          </Link>
           <a
             href="https://wa.me/923700199429"
             target="_blank"
