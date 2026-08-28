@@ -14,7 +14,6 @@ import ParticipantTable from "@/components/admin/databases/ParticipantTable";
 import { useDatabaseManager } from "@/components/admin/databases/useDatabaseManager";
 
 export default function DatabaseManager() {
-  const m = useDatabaseManager();
   const {
     databases,
     participants,
@@ -185,7 +184,7 @@ export default function DatabaseManager() {
     handleDeleteCertificate,
     handleDeleteCertId,
     handleDeletePdfOnly,
-  } = m;
+  } = useDatabaseManager();
 
   if (isLoading) {
     return (

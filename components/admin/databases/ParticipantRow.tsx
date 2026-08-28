@@ -66,7 +66,6 @@ export default function ParticipantRow({
 }: ParticipantRowProps): JSX.Element {
   return (
                         <tr
-                          key={participant.id || index}
                           tabIndex={0}
                           className={`hover:bg-green-50/30 outline-none focus:bg-green-50/60 cursor-pointer ${focusedRowIndex === index ? "bg-green-50/60" : ""}`}
                           onClick={(e) => {
