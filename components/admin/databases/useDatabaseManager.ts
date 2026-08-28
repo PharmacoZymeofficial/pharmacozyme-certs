@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Database, Participant } from "@/lib/types";
 import type { GenerationJob } from "@/lib/types";
 import { useToast } from "@/components/Toast";
@@ -22,6 +22,9 @@ export function useDatabaseManager(category: "General" | "Official") {
   const [fetchedOnce, setFetchedOnce] = useState(false);
   const [generationJob, setGenerationJob] = useState<GenerationJob | null>(null);
   const [generatorResumeMode, setGeneratorResumeMode] = useState(false);
+  // Guards the generation-job fetch against a cross-database race: opening DB A
+  // then quickly DB B must not let A's slower response overwrite B's job state.
+  const jobFetchSeq = useRef(0);
 
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -320,12 +323,13 @@ export function useDatabaseManager(category: "General" | "Official") {
   // already filtered, so this is a defensive guard against stale references.
   const openDatabase = useCallback((db: Database | null) => {
     if (db && db.category !== category) return;
+    const seq = ++jobFetchSeq.current;
     setSelectedDatabase(db);
     setGenerationJob(null);
     if (db?.id) {
       fetch(`/api/generation-jobs/${db.id}`)
         .then((r) => (r.ok ? r.json() : null))
-        .then((d) => setGenerationJob(d?.job ?? null))
+        .then((d) => { if (jobFetchSeq.current === seq) setGenerationJob(d?.job ?? null); })
         .catch(() => {});
     }
   }, [category]);
@@ -962,9 +966,10 @@ export function useDatabaseManager(category: "General" | "Official") {
 
   const refreshGenerationJob = () => {
     if (!selectedDatabase?.id) return;
+    const seq = ++jobFetchSeq.current;
     fetch(`/api/generation-jobs/${selectedDatabase.id}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setGenerationJob(d?.job ?? null))
+      .then((d) => { if (jobFetchSeq.current === seq) setGenerationJob(d?.job ?? null); })
       .catch(() => {});
   };
 
