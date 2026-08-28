@@ -87,8 +87,10 @@ export default function CreateDatabaseModal({
               <label className="block text-xs font-bold text-brand-grass-green uppercase mb-2">Category *</label>
               <select
                 value={newDatabase.category}
-                onChange={(e) => setNewDatabase({ ...newDatabase, category: e.target.value as "General" | "Official", subCategory: Object.keys(categoryStructure[e.target.value as keyof typeof categoryStructure])[0] })}
-                className="w-full bg-surface-container-low border border-green-100 rounded-xl p-3 text-sm outline-none"
+                disabled
+                aria-readonly="true"
+                title="Category is set by the active tab"
+                className="w-full bg-surface-container-low border border-green-100 rounded-xl p-3 text-sm outline-none opacity-70 cursor-not-allowed"
               >
                 <option value="General">General</option>
                 <option value="Official">Official</option>

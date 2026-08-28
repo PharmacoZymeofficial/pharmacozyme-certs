@@ -1,5 +1,5 @@
 import DatabaseManager from "@/components/admin/databases/DatabaseManager";
 
 export default function DatabaseManagementPage() {
-  return <DatabaseManager />;
+  return <DatabaseManager category="General" />;
 }

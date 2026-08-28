@@ -5,13 +5,15 @@ import { Database, Participant } from "@/lib/types";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ConfirmModal";
 import { sfx } from "@/lib/sfx";
-import { SENDER_IDENTITIES, subCategoryShortMap } from "@/components/admin/databases/constants";
+import { SENDER_IDENTITIES, subCategoryShortMap, categoryStructure } from "@/components/admin/databases/constants";
 
-export function useDatabaseManager() {
+export function useDatabaseManager(category: "General" | "Official") {
   const toast = useToast();
   const confirm = useConfirm();
 
-  const [databases, setDatabases] = useState<Database[]>([]);
+  const [allDatabases, setAllDatabases] = useState<Database[]>([]);
+  // The manager is scoped to a single category (driven by the active tab).
+  const databases = allDatabases.filter((d) => d.category === category);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [selectedDatabase, setSelectedDatabase] = useState<Database | null>(null);
@@ -28,8 +30,8 @@ export function useDatabaseManager() {
   // Form states
   const [newDatabase, setNewDatabase] = useState({
     name: "",
-    category: "General" as "General" | "Official",
-    subCategory: "Courses",
+    category: category as "General" | "Official",
+    subCategory: Object.keys(categoryStructure[category])[0],
     topic: "",
     description: "",
   });
@@ -276,7 +278,7 @@ export function useDatabaseManager() {
         const uniqueDatabases = (data.databases || []).filter((db: Database, index: number, self: Database[]) =>
           index === self.findIndex((d) => d.id === db.id)
         );
-        setDatabases(uniqueDatabases);
+        setAllDatabases(uniqueDatabases);
         setFetchedOnce(true);
       }
     } catch (err) {
@@ -310,6 +312,38 @@ export function useDatabaseManager() {
       fetchParticipants(selectedDatabase.id!);
     }
   }, [selectedDatabase, fetchParticipants]);
+
+  // Open a database only if it belongs to the active category. The list is
+  // already filtered, so this is a defensive guard against stale references.
+  const openDatabase = useCallback((db: Database | null) => {
+    if (db && db.category !== category) return;
+    setSelectedDatabase(db);
+  }, [category]);
+
+  // Tab switch mid-selection: drop the open database and reset filters so the
+  // new category starts from a clean list view.
+  useEffect(() => {
+    setSelectedDatabase(null);
+    setParticipants([]);
+    setFilterStatus("all");
+    setFilterEmailed("all");
+    setParticipantSearch("");
+    setSelectedParticipants([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category]);
+
+  // When the create modal opens, force the new-database category to the active
+  // tab (it is not user-editable) and reset its subcategory to a valid one.
+  useEffect(() => {
+    if (showCreateModal) {
+      setNewDatabase((prev) => ({
+        ...prev,
+        category,
+        subCategory: Object.keys(categoryStructure[category])[0],
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCreateModal, category]);
 
   const handleCreateDatabase = async () => {
     if (!newDatabase.name || !newDatabase.topic) {
@@ -365,7 +399,7 @@ export function useDatabaseManager() {
 
       if (response.ok && data.success) {
         setShowCreateModal(false);
-        setNewDatabase({ name: "", category: "General", subCategory: "Courses", topic: "", description: "" });
+        setNewDatabase({ name: "", category, subCategory: Object.keys(categoryStructure[category])[0], topic: "", description: "" });
         setLinkSheet(false);
         setSubDatabases([]);
         setExistingSheetId("");
@@ -1225,7 +1259,7 @@ export function useDatabaseManager() {
     subDatabases,
     isLoadingTabs,
     tabFetchError,
-    setSelectedDatabase,
+    setSelectedDatabase: openDatabase,
     setShowCreateModal,
     setShowParticipantModal,
     setShowImportModal,

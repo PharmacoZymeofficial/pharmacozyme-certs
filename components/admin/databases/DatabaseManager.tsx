@@ -13,7 +13,7 @@ import DatabaseDetail from "@/components/admin/databases/DatabaseDetail";
 import ParticipantTable from "@/components/admin/databases/ParticipantTable";
 import { useDatabaseManager } from "@/components/admin/databases/useDatabaseManager";
 
-export default function DatabaseManager() {
+export default function DatabaseManager({ category }: { category: "General" | "Official" }) {
   const {
     databases,
     participants,
@@ -159,7 +159,7 @@ export default function DatabaseManager() {
     handleDeleteCertificate,
     handleDeleteCertId,
     handleDeletePdfOnly,
-  } = useDatabaseManager();
+  } = useDatabaseManager(category);
 
   if (isLoading) {
     return (
