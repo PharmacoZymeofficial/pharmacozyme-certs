@@ -8,6 +8,7 @@ import { useConfirm } from "@/components/ConfirmModal";
 import { sfx } from "@/lib/sfx";
 import { tallyEmailOutcomes } from "@/lib/emailOutcome";
 import { SENDER_IDENTITIES, subCategoryShortMap, categoryStructure } from "@/components/admin/databases/constants";
+import { resolveDriveFileId } from "@/lib/driveIds";
 
 export function useDatabaseManager(category: "General" | "Official") {
   const toast = useToast();
@@ -1305,8 +1306,9 @@ export function useDatabaseManager(category: "General" | "Official") {
     if (!ok) return;
 
     try {
-      if (participant.driveFileId) {
-        const driveRes = await fetch(`/api/drive-upload?fileId=${participant.driveFileId}`, { method: "DELETE" });
+      const fid = resolveDriveFileId(participant);
+      if (fid) {
+        const driveRes = await fetch(`/api/drive-upload?fileId=${fid}`, { method: "DELETE" });
         if (!driveRes.ok) {
           const driveData = await driveRes.json().catch(() => ({}));
           console.error("Drive delete failed:", driveData.error);
