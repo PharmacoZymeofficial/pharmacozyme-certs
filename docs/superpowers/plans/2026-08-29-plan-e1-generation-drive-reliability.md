@@ -1939,7 +1939,51 @@ _(Filled in during Tasks 4 and 5.)_
 
 ### Task 4 hand-trace — `deleteRows`
 
-_(to be written)_
+**Column layout confirmed** (read `apps-script.js` `syncData` write block + `upsertRow`):
+`syncData` mode `write` builds each row as `[certificateId, name, email, certificateUrl, status, issueDate, emailSent, driveLink, createdAt]` (`rows = data.map(p => [p.certificateId||"", p.name||"", p.email||"", ...])`). `upsertRow` builds the identical `rowData` array and scans col C (`getRange(2, 3, ...)`) for the email. `syncData` mode `read` maps `row[0]→certificateId`, `row[1]→name`, `row[2]→email`. So **col A (index 0) = certificateId, col B (index 1) = name, col C (index 2) = email**, row 1 is the bold header. The brief's `getRange(2, 1, lastRow - 1, 3)` + indices `[0]`/`[1]`/`[2]` is correct — no index adjustment needed.
+
+**Case (a): 3 matches — certId hit, name+email hit, and a miss.**
+
+Sheet: header at row 1, 5 data rows (rows 2–6), `lastRow = 6`.
+
+| sheet row | i (values idx) | col A certId | col B name | col C email |
+|-----------|----------------|--------------|------------|-------------|
+| 2 | 0 | `""` | `Alice Smith` | `alice@x.com` |
+| 3 | 1 | `PZ-100` | `Bob` | `bob@x.com` |
+| 4 | 2 | `PZ-200` | `Carol` | `carol@x.com` |
+| 5 | 3 | `PZ-300` | `Dave` | `dave@x.com` |
+| 6 | 4 | `PZ-400` | `Eve` | `eve@x.com` |
+
+`payload.matches = [ { certificateId: "PZ-300" }, { name: "Alice Smith", email: "alice@x.com" }, { certificateId: "PZ-999" } ]`
+
+- Guards: `spreadsheetId`/`tabName` present; `matches.length === 3 ≠ 0` → continue.
+- `openById(...).getSheetByName(tabName)` → sheet found. `lastRow = 6`, `6 > 1` → continue.
+- `values = getRange(2, 1, 5, 3).getValues()` → the 5×3 grid above.
+- Build maps: `match[0].certificateId "PZ-300"` truthy → `certIds = { "PZ-300": true }`. `match[1]` no certificateId, has name+email → `nameEmail = { "alice smith alice@x.com": true }`. `match[2].certificateId "PZ-999"` truthy → `certIds = { "PZ-300": true, "PZ-999": true }`.
+- Reverse scan `i = 4 → 0`:
+  - `i=4`: certId `"PZ-400"`, key `"eve eve@x.com"` → neither in maps → skip.
+  - `i=3`: certId `"PZ-300"` → `certIds["PZ-300"] === true` → `rowsToDelete.push(3 + 2)` → `rowsToDelete = [5]`.
+  - `i=2`: `"PZ-200"` / `"carol carol@x.com"` → skip.
+  - `i=1`: `"PZ-100"` / `"bob bob@x.com"` → skip.
+  - `i=0`: certId `""` (not a key — `certIds[""]` undefined; the `{ certificateId: "" }`-style match is filtered out by the `if (match.certificateId)` truthy check), key `"alice smith alice@x.com"` → `nameEmail[key] === true` → `rowsToDelete.push(0 + 2)` → `rowsToDelete = [5, 2]`.
+  - `PZ-999` matched no row → silent no-op (as intended).
+- Deletion loop, in array order: `sheet.deleteRow(5)` then `sheet.deleteRow(2)`. Order is **[5, 2]** — bottom-up, so deleting row 5 does not shift row 2.
+- Return `{ success: true, deletedRows: 2 }`. **`deletedRows === 2` ✓, deletion order `[5, 2]` ✓.**
+
+**Case (b): empty `matches`.**
+
+`payload.matches` is `[]` (or absent → `payload.matches || []` yields `[]`).
+- `spreadsheetId`/`tabName` present → first guard passes.
+- `if (matches.length === 0) return { success: true, deletedRows: 0 };` → returns here.
+- `SpreadsheetApp.openById(...)` is **never reached** — the guard is above the `openById` line. No Sheet I/O. Return `{ success: true, deletedRows: 0 }`. **✓**
+
+**Case (c): header-only sheet (`lastRow <= 1`).**
+
+`payload.matches = [ { certificateId: "PZ-1" } ]` (non-empty), `spreadsheetId`/`tabName` present.
+- First guard passes; `matches.length === 1 ≠ 0` → continue.
+- `openById(...).getSheetByName(tabName)` → sheet found (only the header row).
+- `lastRow = sheet.getLastRow()` → `1` (or `0` for a truly empty tab). `if (lastRow <= 1) return { success: true, deletedRows: 0 };` → returns here.
+- `getRange(2, 1, lastRow - 1, 3)` is **never reached** (would be a zero/negative-height range) — no read, no `deleteRow`. Return `{ success: true, deletedRows: 0 }`. **✓**
 
 ### Task 5 hand-trace — `uploadPDF` folderId + `consolidateFolders`
 
