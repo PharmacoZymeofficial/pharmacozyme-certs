@@ -382,6 +382,9 @@ export default function ParticipantRow({
                                   body: JSON.stringify({
                                     emailSent: newEmailSent,
                                     status: newEmailSent ? "issued" : ((participant as any).status || "pending"),
+                                    // Toggling "not emailed" also retires any stale
+                                    // failure chip from an earlier send.
+                                    ...(newEmailSent ? {} : { emailError: "" }),
                                     databaseId: selectedDatabase?.id
                                   }),
                                 });

@@ -28,7 +28,12 @@ export async function PUT(
   if (!guard.ok) return guard.response;
   const { databaseId } = await params;
 
-  const body = await request.json();
+  let body: any;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid body" }, { status: 400 });
+  }
   const patch: Record<string, unknown> = { databaseId, updatedAt: new Date().toISOString() };
 
   if (typeof body.total === "number") patch.total = body.total;
@@ -38,6 +43,7 @@ export async function PUT(
     );
   }
   if (PHASES.includes(body.phase)) patch.phase = body.phase;
+  if (typeof body.templateId === "string") patch.templateId = body.templateId;
   if (typeof body.startedAt === "string") patch.startedAt = body.startedAt;
   patch.startedBy = guard.session.email || "unknown";
   if (!patch.startedAt) {

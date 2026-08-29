@@ -525,8 +525,11 @@ export default function TemplatesPage() {
         setSelectedFile(null);
         setFormData({ name: "", description: "", category: "General" });
         fetchTemplates();
-        alert("Template uploaded successfully!");
-        if (data.sharingFailed && data.template?.driveFileId) {
+        const needsSharingPrompt = data.sharingFailed && data.template?.driveFileId;
+        // Don't stack a success alert in front of the sharing prompt — the prompt
+        // already says the upload succeeded.
+        if (!needsSharingPrompt) alert("Template uploaded successfully!");
+        if (needsSharingPrompt) {
           if (confirm("Template uploaded, but it is not publicly shareable yet. Make it public now?")) {
             try {
               const r = await fetch("/api/drive/ensure-public", {

@@ -85,6 +85,8 @@ export interface GenerationJob {
   total: number;
   completedParticipantIds: string[];
   phase: "rendering" | "drive-upload" | "sheet-sync";
+  /** Template the run started with — a resumed run is locked to it. */
+  templateId?: string;
   startedAt: string;
   updatedAt: string;
   startedBy: string;

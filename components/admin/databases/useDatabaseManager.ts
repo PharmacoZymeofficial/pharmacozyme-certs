@@ -650,7 +650,11 @@ export function useDatabaseManager(category: "General" | "Official") {
     const CHUNK_SIZE = 30;
     let totalSent = 0;
     let totalFailed = 0;
-    const outcomes: { email: string; name: string; id?: string; ok: boolean; queued?: boolean; error?: string }[] = [];
+    // `unknown` = the chunk request itself failed (transport/HTTP), so some of its
+    // recipients may already have been delivered. Those are counted as failed but
+    // deliberately kept out of the one-click retry set.
+    const outcomes: { email: string; name: string; id?: string; ok: boolean; queued?: boolean; unknown?: boolean; error?: string }[] = [];
+    let queueErrorSeen: string | undefined;
 
     try {
       for (let i = 0; i < recipients.length; i += CHUNK_SIZE) {
@@ -679,10 +683,16 @@ export function useDatabaseManager(category: "General" | "Official") {
         try { result = await response.json(); } catch { result = {}; }
 
         if (!response.ok) {
-          // Don't abandon the remaining recipients — record this chunk as failed
-          // and move on to the next one.
+          // Don't abandon the remaining recipients — record this chunk and move on.
+          // The request can fail (e.g. a 504) *after* part of the chunk was already
+          // sent, so the status of these recipients is genuinely unknown and they
+          // must not be offered to one-click retry (it would double-send).
           for (const p of chunk) {
-            outcomes.push({ email: p.email, name: p.name, id: p.id, ok: false, error: result?.error || `HTTP ${response.status}` });
+            outcomes.push({
+              email: p.email, name: p.name, id: p.id,
+              ok: false, queued: false, unknown: true,
+              error: "Send status unknown — verify before retrying",
+            });
           }
           continue;
         }
@@ -690,15 +700,33 @@ export function useDatabaseManager(category: "General" | "Official") {
         totalSent += result.sent || 0;
         totalFailed += result.failed || 0;
 
-        // Per-recipient outcome mapping. Quota-failed recipients are auto-queued
-        // server-side and show up in neither `results` nor `errors` — a chunk
-        // recipient absent from both is treated as queued.
+        // Per-recipient outcome mapping. A chunk recipient absent from both
+        // `results` and `errors` was either auto-queued after a quota failure, or
+        // dropped (blank/malformed address), or lost because auto-queueing itself
+        // failed. `autoQueued` is a count, not a list, so index-capping against it
+        // is the best attribution available — the queued set is a derivation, not
+        // a server-provided list.
         const okEmails = new Set(((result.results || []) as { email: string; success: boolean }[]).filter(r => r.success).map(r => r.email));
         const errByEmail = new Map(((result.errors || []) as { email: string; error: string }[]).map(e => [e.email, e.error] as [string, string]));
+        if (result.autoQueueError) queueErrorSeen = String(result.autoQueueError);
+        const queueCapacity = (result.autoQueued && !result.autoQueueError) ? result.autoQueued : 0;
+        let absentSeen = 0;
+
         for (const p of chunk) {
-          const ok = okEmails.has(p.email);
-          const errored = errByEmail.has(p.email);
-          outcomes.push({ email: p.email, name: p.name, id: p.id, ok, queued: !ok && !errored, error: errByEmail.get(p.email) });
+          if (okEmails.has(p.email)) {
+            outcomes.push({ email: p.email, name: p.name, id: p.id, ok: true });
+          } else if (errByEmail.has(p.email)) {
+            outcomes.push({ email: p.email, name: p.name, id: p.id, ok: false, queued: false, error: errByEmail.get(p.email) });
+          } else if (absentSeen++ < queueCapacity) {
+            outcomes.push({ email: p.email, name: p.name, id: p.id, ok: false, queued: true });
+          } else {
+            outcomes.push({
+              email: p.email, name: p.name, id: p.id, ok: false, queued: false,
+              error: result.autoQueueError
+                ? "Could not be queued for later delivery"
+                : "No valid email address on file",
+            });
+          }
         }
 
         // Mark emailSent only for participants actually delivered; clear any
@@ -724,13 +752,23 @@ export function useDatabaseManager(category: "General" | "Official") {
         setSendProgress({ current: Math.min(i + CHUNK_SIZE, recipients.length), total: recipients.length });
       }
 
-      // Persist emailError for the recipients that failed outright (not queued).
-      const failedIds = outcomes.filter(o => !o.ok && !o.queued && o.id).map(o => o.id!);
+      // Persist emailError for the recipients that failed outright (not queued),
+      // keeping the unknown-status ones distinguishable from confirmed failures.
+      const failedIds = outcomes.filter(o => !o.ok && !o.queued && !o.unknown && o.id).map(o => o.id!);
       if (failedIds.length > 0 && selectedDatabase?.id) {
         await fetch("/api/participants/batch-update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ databaseId: selectedDatabase.id, participantIds: failedIds, fields: { emailError: "Last send failed" }, skipSheetSync: true }),
+        }).catch(() => {});
+      }
+
+      const unknownIds = outcomes.filter(o => o.unknown && o.id).map(o => o.id!);
+      if (unknownIds.length > 0 && selectedDatabase?.id) {
+        await fetch("/api/participants/batch-update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ databaseId: selectedDatabase.id, participantIds: unknownIds, fields: { emailError: "Send status unknown" }, skipSheetSync: true }),
         }).catch(() => {});
       }
 
@@ -765,13 +803,25 @@ export function useDatabaseManager(category: "General" | "Official") {
       }
 
       const tally = tallyEmailOutcomes(outcomes);
+      // Unknown-status recipients count as failed (the conservative direction) but
+      // are withheld from the retry list so retrying can't double-send them.
       setEmailResult({
         ...tally,
-        failures: outcomes.filter(o => !o.ok && !o.queued).map(o => ({ email: o.email, name: o.name, error: o.error || "Unknown error" })),
+        failures: outcomes
+          .filter(o => !o.ok && !o.queued && !o.unknown)
+          .map(o => ({ email: o.email, name: o.name, error: o.error || "Unknown error" })),
       });
 
       sfx.send();
       toast.success(`${tally.sent} sent${tally.failed ? `, ${tally.failed} failed` : ""}${tally.queued ? `, ${tally.queued} queued` : ""}.`);
+
+      const unknownCount = outcomes.filter(o => o.unknown).length;
+      if (unknownCount > 0) {
+        toast.warning(`${unknownCount} recipient(s): delivery status unknown — check the Sheet/provider before retrying.`);
+      }
+      if (queueErrorSeen) {
+        toast.warning("Some quota-blocked recipients could not be queued for later delivery — they were not sent.");
+      }
     } catch (err: any) {
       console.error("Error sending emails:", err);
       toast.error("Error sending emails: " + (err?.message || "Network error"));
@@ -1006,12 +1056,17 @@ export function useDatabaseManager(category: "General" | "Official") {
   };
 
   const resumeGeneration = () => {
+    // A stale row selection would scope the resumed run to a subset of the
+    // original batch (DatabaseManager passes the selection into the generator).
+    setSelectedParticipants([]);
     setGeneratorResumeMode(true);
     setShowGeneratorModal(true);
   };
 
   const discardGenerationJob = async () => {
     if (!selectedDatabase?.id) return;
+    // Invalidate any in-flight job GET so it can't repaint the banner after the delete.
+    jobFetchSeq.current++;
     await fetch(`/api/generation-jobs/${selectedDatabase.id}`, { method: "DELETE" }).catch(() => {});
     setGenerationJob(null);
   };

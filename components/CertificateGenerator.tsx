@@ -21,6 +21,7 @@ async function loadFontBytesViaProxy(fontName: string): Promise<Uint8Array | nul
 import { useToast } from "@/components/Toast";
 import { sfx } from "@/lib/sfx";
 import { remainingToGenerate } from "@/lib/generationResume";
+import type { GenerationJob } from "@/lib/types";
 
 
 
@@ -540,36 +541,74 @@ export default function CertificateGenerator({ database, participants, onGenerat
     const jobUrl = `/api/generation-jobs/${database.id}`;
     const completedIds: string[] = [];
 
-    if (resumeMode) {
-      try {
-        const jr = await fetch(`/api/generation-jobs/${database.id}`);
-        if (jr.ok) {
-          const { job } = await jr.json();
-          jobTotal = (typeof job?.total === "number" && job.total > 0) ? job.total : jobTotal;
-          const priorCompleted: string[] = job?.completedParticipantIds || [];
-          // Accumulate on top of prior progress rather than restarting from zero.
-          completedIds.push(...priorCompleted);
-          const remainingIds = new Set(remainingToGenerate(sortedParticipants, priorCompleted));
-          participantsToGenerate = sortedParticipants.filter((p) => p.id && remainingIds.has(p.id));
-        }
-      } catch { /* fall back to a full run */ }
-    }
+    // The template actually rendered with. React state can't change mid-run, and on
+    // resume the job doc's template wins so a batch can't end up half A, half B.
+    let effectiveTemplate = selectedTemplate;
 
     const checkpoint = async (phase: "rendering" | "drive-upload" | "sheet-sync") => {
       try {
         await fetch(jobUrl, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ total: jobTotal, completedParticipantIds: completedIds, phase }),
+          body: JSON.stringify({
+            total: jobTotal,
+            completedParticipantIds: completedIds,
+            phase,
+            templateId: effectiveTemplate,
+          }),
         });
       } catch { /* non-fatal — resume just won't be as fresh */ }
     };
 
     try {
+      if (resumeMode) {
+        // A bad job-doc read must ABORT: falling through would leave
+        // participantsToGenerate = every participant and re-issue duplicate certs.
+        let job: GenerationJob | undefined;
+        try {
+          const jr = await fetch(jobUrl);
+          if (jr.status === 404) {
+            toast.error("This resume checkpoint no longer exists — it may have been discarded. Close and reopen the database.");
+            setShowTemplateSelect(true);
+            return;
+          }
+          if (!jr.ok) throw new Error(`HTTP ${jr.status}`);
+          job = (await jr.json()).job;
+        } catch {
+          toast.error("Could not load the resume checkpoint — try again in a moment.");
+          setShowTemplateSelect(true);
+          return;
+        }
+
+        jobTotal = (typeof job?.total === "number" && job.total > 0) ? job.total : jobTotal;
+        const priorCompleted: string[] = job?.completedParticipantIds || [];
+        // Accumulate on top of prior progress rather than restarting from zero.
+        completedIds.push(...priorCompleted);
+        const remainingIds = new Set(remainingToGenerate(sortedParticipants, priorCompleted));
+        participantsToGenerate = sortedParticipants.filter((p) => p.id && remainingIds.has(p.id));
+
+        // Lock the resumed run to the template the original run used.
+        const originalTemplate = job?.templateId;
+        if (!originalTemplate) {
+          toast.info("Original template not recorded — using your current selection.");
+        } else if (
+          !["standard", "modern"].includes(originalTemplate) &&
+          !uploadedTemplates.some(t => t.id === originalTemplate)
+        ) {
+          toast.warning("The original run's template is no longer available — using your current selection.");
+        } else {
+          effectiveTemplate = originalTemplate;
+          if (originalTemplate !== selectedTemplate) {
+            const name = uploadedTemplates.find(t => t.id === originalTemplate)?.name || "Standard";
+            toast.info(`Resuming with the original run's template (${name}).`);
+          }
+        }
+      }
+
       const year = new Date().getFullYear();
 
-      const isUploadedTemplate = !["standard", "modern"].includes(selectedTemplate);
-      let templateData = uploadedTemplates.find(t => t.id === selectedTemplate);
+      const isUploadedTemplate = !["standard", "modern"].includes(effectiveTemplate);
+      let templateData = uploadedTemplates.find(t => t.id === effectiveTemplate);
 
       if (isUploadedTemplate && templateData) {
         try {
@@ -689,7 +728,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
                     issueDate,
                     verificationUrl,
                     qrCodeDataUrl,
-                    template: selectedTemplate,
+                    template: effectiveTemplate,
                     templateName: "Standard",
                   }} />
                 );
@@ -728,7 +767,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
             createdAt: new Date().toISOString(),
           }));
 
-          await fetch("/api/participants/batch-update", {
+          const buRes = await fetch("/api/participants/batch-update", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -740,13 +779,21 @@ export default function CertificateGenerator({ database, participants, onGenerat
                 verificationUrl,
                 certificateUrl: verificationUrl,
                 issueDate,
-                template: selectedTemplate,
+                template: effectiveTemplate,
                 templateName: templateData?.name || "Standard",
               })),
               certDocs,
               skipSheetSync: true,
             }),
           });
+
+          // Never checkpoint a chunk the server didn't actually write — those
+          // participants would be marked complete with no cert doc and skipped
+          // forever on resume. Throwing routes into the "interrupted" catch,
+          // which leaves the job doc in place.
+          if (!buRes.ok) {
+            throw new Error(`Chunk write failed (HTTP ${buRes.status}) after ${completedIds.length} of ${jobTotal}`);
+          }
 
           for (const r of fresh) if (r.participant.id) completedIds.push(r.participant.id);
           await checkpoint("rendering");
@@ -872,7 +919,16 @@ export default function CertificateGenerator({ database, participants, onGenerat
       }
 
       setGenerationProgress(100);
-      await fetch(jobUrl, { method: "DELETE" }).catch(() => {});
+      // Only retire the checkpoint when the whole run is accounted for. A partial
+      // run (dropped renders, a deliberately scoped subset) keeps its job doc so
+      // the rest can still be resumed.
+      const fullyCovered = completedIds.length >= jobTotal;
+      if (fullyCovered) {
+        await fetch(jobUrl, { method: "DELETE" }).catch(() => {});
+      } else {
+        await checkpoint(database.linkedSheet ? "sheet-sync" : "rendering");
+        toast.warning(`${completedIds.length} of ${jobTotal} done — reopen this database to finish the rest.`);
+      }
       setCertificates(allResults.map(r => ({
         recipientName: r.participant.name,
         uniqueCertId: r.certId,
@@ -883,12 +939,34 @@ export default function CertificateGenerator({ database, participants, onGenerat
         issueDate,
         verificationUrl: r.verificationUrl,
         qrCodeDataUrl: r.qrCodeDataUrl,
-        template: selectedTemplate,
+        template: effectiveTemplate,
         templateName: templateData?.name || "Standard",
         pdfBytes: r.pdfBytes,
       })));
       setShowDownload(true);
       onGenerated();
+
+      // A resumed run only re-renders the remainder, so certificates issued before
+      // the interruption still have no Drive PDF. Nudge the operator to backfill
+      // them the same way a failed Drive upload is handled.
+      if (resumeMode && database.linkedSheet) {
+        try {
+          const res = await fetch(`/api/participants?databaseId=${database.id}`);
+          if (res.ok) {
+            const data = await res.json();
+            const completedSet = new Set(completedIds);
+            const missingDrive = (data.participants || []).filter(
+              (p: any) => p.id && completedSet.has(p.id) && p.certificateId && !p.driveLink
+            );
+            if (missingDrive.length > 0) {
+              toast.warning(
+                `${missingDrive.length} certificate(s) from before the interruption have no Drive link. ` +
+                `Filter participants by "Missing Drive Link" and use Bulk Actions → Generate Certs → Regenerate All to backfill them — their existing certificate ID is kept.`
+              );
+            }
+          }
+        } catch { /* non-fatal — this is only a nudge */ }
+      }
 
       if (allResults.length > 0) {
         sfx.fanfare();
