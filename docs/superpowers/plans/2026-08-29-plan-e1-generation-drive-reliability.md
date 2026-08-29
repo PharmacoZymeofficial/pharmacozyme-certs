@@ -2029,13 +2029,20 @@ Call: `payload = { folderName: "Course A", canonicalFolderId: "GONE" }`.
 
 ## Live smoke test (user runs after deploy + Apps Script redeploy)
 
-_(Filled in during Task 14. Draft outline:)_
+1. **Apps Script redeploy** — In Apps Script editor: Project Settings → Manage deployments → edit the web-app deployment version → Deploy. URL must be unchanged. Paste the current `apps-script.js` into the editor first.
 
-1. **Apps Script redeploy** — editor → Manage deployments → edit the web-app deployment → new version → Deploy. URL must be unchanged. Paste the current `apps-script.js` first.
-2. **Vercel blue-dot SHA check** — Deployments tab, confirm the commit next to the live Production deployment == the pushed branch HEAD.
-3. **Fresh generation, no existing folder** — a small test DB (3–4 participants), linked Sheet, no `driveFolderId`. Generate. Expect: exactly one Drive folder created, all PDFs in it, `driveLink` populated on every participant doc *and* in the Sheet, job doc gone, no "unfinished" badge.
-4. **Interrupted + resume** — start a larger run, close the tab mid-Drive-upload. Reopen the DB: "Unfinished — Resume" badge on the card + banner in the detail view showing the real needsCert/needsPdf split. Click Resume: picker is skipped, run auto-starts, only the outstanding participants are processed, no duplicate cert ids, no duplicate `certificates` docs.
-5. **Consolidate folders** — on a DB known to have duplicate folders (from before this fix), click "Consolidate folders". Expect the toast to report moved files + trashed folders; verify in Drive that one folder remains with all PDFs.
-6. **Participant delete** — delete a participant that has a cert id. Expect the Sheet row to disappear (not just col A cleared) and the Drive PDF trashed.
-7. **PDF-only orphan delete** — a participant with a `driveLink` but no `driveFileId` (older record): delete it / its PDF. Expect the Drive file trashed (was previously orphaned).
-8. **Public page counts** — open `/verify` and `/official`; course cards show real participant counts, not 0.
+2. **Vercel Production SHA check** — In Vercel dashboard, Deployments tab: confirm the git commit SHA displayed next to the live Production deployment matches the pushed branch HEAD. A stale SHA indicates a cached/undeployed build and is a deployment failure.
+
+3. **Apps Script `moveTo` sanity** — After Apps Script redeploy: in the test DB, run `consolidateFolders` once (Admin → test database detail → Consolidate folders button). If it throws `moveTo is not a function`, the Apps Script runtime is on legacy Rhino; swap the two lines in `apps-script.js` `consolidateFolders` function (around line 672): replace `f.moveTo(canonical);` with `canonical.addFile(f); dupe.removeFile(f);`, redeploy, and retry.
+
+4. **Fresh generation, no existing folder** — Pick a small test DB (3–4 participants, linked Sheet, no `driveFolderId` yet). Click Generate. Expect: exactly one Drive folder created, all PDFs placed in it, every `participant.driveLink` and Sheet row populated with the Drive link, `generationJobs/{id}` doc deleted on completion, no "Unfinished — Resume" badge on the card.
+
+5. **Interrupted run + resume** — Start a larger generation run, then close the browser tab mid-upload (after a few Drive PDFs are created). Reopen the database detail: confirm "Unfinished — Resume" badge on the card and a banner showing the real `needsCert` / `needsPdf` / `complete` breakdown. Click Resume: picker is skipped, run auto-starts at the first unfinished participant, only outstanding participants are processed (no duplicate `certificateId`s, no duplicate `certificates` docs).
+
+6. **Consolidate duplicate folders** — On a DB known to have multiple folders with the same name (from before this fix), click "Consolidate folders". Expect: toast reports `Moved X file(s), removed Y duplicate folder(s)`; verify in Drive that only one folder remains with all PDFs, duplicates are in Trash.
+
+7. **Participant delete + Sheet cleanup** — Delete a participant that has a `certificateId`. Expect: Sheet row vanishes entirely (not just col A cleared) and the Drive PDF is trashed.
+
+8. **Orphaned PDF cleanup** — Delete a participant that has a `driveLink` but no stored `driveFileId` (an older record). Expect: the Drive file is resolved from the link and trashed (previously would have been orphaned).
+
+9. **Public page live counts** — Open `/verify` (General category) and `/official` (Official category). Confirm course cards display real participant counts from a fresh `.count()` query, not a stale stored value of 0.
