@@ -1087,6 +1087,16 @@ export function useDatabaseManager(category: "General" | "Official") {
     }
   };
 
+  // From the DB-list card badge: open the database AND drop straight into the
+  // generator in resume mode (openDatabase re-fetches the job doc; the generator
+  // re-fetches it too on its resume path).
+  const resumeDatabase = (db: Database) => {
+    openDatabase(db);
+    setSelectedParticipants([]);
+    setGeneratorResumeMode(true);
+    setShowGeneratorModal(true);
+  };
+
   const resumeGeneration = () => {
     // A stale row selection would scope the resumed run to a subset of the
     // original batch (DatabaseManager passes the selection into the generator).
@@ -1367,7 +1377,7 @@ export function useDatabaseManager(category: "General" | "Official") {
   // A DB with no linked sheet has no PDF phase — never park those at needs-pdf.
   const generationSummary = deriveGenerationSummary(participants, !!selectedDatabase?.linkedSheet);
   const generationJobStatus = generationJob
-    ? jobEffectiveStatus({ status: (generationJob as { status?: string }).status, startedAt: generationJob.startedAt })
+    ? jobEffectiveStatus({ status: generationJob.status, startedAt: generationJob.startedAt })
     : null;
   const showResumeBanner =
     !!generationJob &&
@@ -1382,7 +1392,6 @@ export function useDatabaseManager(category: "General" | "Official") {
     selectedDatabase,
     isLoading,
     fetchedOnce,
-    generationJob,
     generatorResumeMode,
     showCreateModal,
     showParticipantModal,
@@ -1526,6 +1535,7 @@ export function useDatabaseManager(category: "General" | "Official") {
     generationJobStatus,
     showResumeBanner,
     resumeGeneration,
+    resumeDatabase,
     dismissResumeBanner,
     refreshGenerationJob,
     handleGenerateIds,

@@ -174,6 +174,7 @@ export default function DatabaseManager({
     handleConsolidateFolders,
     refreshGenerationJob,
     resumeGeneration,
+    resumeDatabase,
     dismissResumeBanner,
     handleGenerateIds,
     handleConfirmGenerateIds,
@@ -349,6 +350,7 @@ export default function DatabaseManager({
           handleRenameDatabase={handleRenameDatabase}
           handleDeleteDatabase={handleDeleteDatabase}
           handleToggleLive={handleToggleLive}
+          onResumeDatabase={resumeDatabase}
         />
       )}
 
