@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
   if (!guard.ok) return guard.response;
 
   try {
-    const { pdfBytes, fileName, databaseName } = await request.json();
+    const { pdfBytes, fileName, databaseName, folderId } = await request.json();
 
     if (!pdfBytes || !fileName) {
       return NextResponse.json({ error: "Missing pdfBytes or fileName" }, { status: 400 });
@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
       pdfData: base64Data,
       fileName,
       databaseName: databaseName || "Certificates",
+      ...(folderId ? { folderId } : {}),
     });
 
     if (!result.success) {
