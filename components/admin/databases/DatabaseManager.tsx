@@ -168,6 +168,7 @@ export default function DatabaseManager({
     handleSyncFromSheet,
     handlePushToSheet,
     handleFindDriveFolder,
+    fixFolderSharing,
     refreshGenerationJob,
     resumeGeneration,
     discardGenerationJob,
@@ -369,6 +370,7 @@ export default function DatabaseManager({
           generationJob={generationJob}
           onResumeGeneration={resumeGeneration}
           onDiscardGeneration={discardGenerationJob}
+          onFixFolderSharing={fixFolderSharing}
         >
           <ParticipantTable
             participants={participants}

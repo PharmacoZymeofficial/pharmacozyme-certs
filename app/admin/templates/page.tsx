@@ -526,6 +526,21 @@ export default function TemplatesPage() {
         setFormData({ name: "", description: "", category: "General" });
         fetchTemplates();
         alert("Template uploaded successfully!");
+        if (data.sharingFailed && data.template?.driveFileId) {
+          if (confirm("Template uploaded, but it is not publicly shareable yet. Make it public now?")) {
+            try {
+              const r = await fetch("/api/drive/ensure-public", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ fileId: data.template.driveFileId }),
+              });
+              const j = await r.json().catch(() => ({}));
+              alert(j.shared ? "Template is now public." : "Could not make it public — the bridge account may block link sharing.");
+            } catch {
+              alert("Could not reach the sharing service.");
+            }
+          }
+        }
       } else {
         alert((data.error || "Failed to upload template") + (data.details ? `\n\nDetails: ${data.details}` : ""));
       }

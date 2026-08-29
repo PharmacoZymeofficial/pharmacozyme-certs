@@ -989,6 +989,22 @@ export function useDatabaseManager(category: "General" | "Official") {
     }
   };
 
+  const fixFolderSharing = async () => {
+    if (!selectedDatabase?.driveFolderId) return;
+    try {
+      const res = await fetch("/api/drive/ensure-public", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folderId: selectedDatabase.driveFolderId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.shared) toast.success("Folder is now shared with anyone who has the link.");
+      else toast.error("Could not make the folder public — the bridge account may block link sharing.");
+    } catch {
+      toast.error("Could not reach the sharing service.");
+    }
+  };
+
   const resumeGeneration = () => {
     setGeneratorResumeMode(true);
     setShowGeneratorModal(true);
@@ -1409,6 +1425,7 @@ export function useDatabaseManager(category: "General" | "Official") {
     handleSyncFromSheet,
     handlePushToSheet,
     handleFindDriveFolder,
+    fixFolderSharing,
     resumeGeneration,
     discardGenerationJob,
     refreshGenerationJob,

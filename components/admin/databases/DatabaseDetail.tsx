@@ -25,6 +25,7 @@ interface DatabaseDetailProps {
   generationJob?: GenerationJob | null;
   onResumeGeneration?: () => void;
   onDiscardGeneration?: () => void;
+  onFixFolderSharing?: () => void;
   children: ReactNode;
 }
 
@@ -47,6 +48,7 @@ export default function DatabaseDetail({
   generationJob,
   onResumeGeneration,
   onDiscardGeneration,
+  onFixFolderSharing,
   children,
 }: DatabaseDetailProps): JSX.Element {
   return (
@@ -152,6 +154,17 @@ export default function DatabaseDetail({
                             <span className={`material-symbols-outlined text-sm ${isFindingFolder ? "animate-spin" : ""}`}>{isFindingFolder ? "progress_activity" : "sync"}</span>
                             {isFindingFolder ? "Updating…" : "Update"}
                           </button>
+                          {onFixFolderSharing && (
+                            <>
+                              <div className="w-px h-4 bg-blue-200" />
+                              <button
+                                onClick={onFixFolderSharing}
+                                className="text-xs font-semibold text-blue-700 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors flex items-center gap-1"
+                              >
+                                <span className="material-symbols-outlined text-sm">public</span>Fix sharing
+                              </button>
+                            </>
+                          )}
                         </>
                       ) : (
                         <button onClick={handleFindDriveFolder} disabled={isFindingFolder} className="text-xs font-semibold text-blue-700 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1">
