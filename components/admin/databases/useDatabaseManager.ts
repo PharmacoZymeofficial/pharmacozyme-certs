@@ -1056,6 +1056,33 @@ export function useDatabaseManager(category: "General" | "Official") {
     }
   };
 
+  const handleConsolidateFolders = async () => {
+    if (!selectedDatabase?.id) return;
+    if (!(selectedDatabase as Database).driveFolderId) {
+      toast.warning("Generate certificates first — there's no main Drive folder to consolidate into yet.");
+      return;
+    }
+    try {
+      const res = await fetch("/api/drive/consolidate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ databaseId: selectedDatabase.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        toast.success(
+          data.movedFiles || data.trashedFolders
+            ? `Moved ${data.movedFiles} file(s), removed ${data.trashedFolders} duplicate folder(s).`
+            : "No duplicate folders found — nothing to consolidate."
+        );
+      } else {
+        toast.error(data.error || "Could not consolidate folders.");
+      }
+    } catch {
+      toast.error("Could not reach the consolidation service.");
+    }
+  };
+
   const resumeGeneration = () => {
     // A stale row selection would scope the resumed run to a subset of the
     // original batch (DatabaseManager passes the selection into the generator).
@@ -1483,6 +1510,7 @@ export function useDatabaseManager(category: "General" | "Official") {
     handlePushToSheet,
     handleFindDriveFolder,
     fixFolderSharing,
+    handleConsolidateFolders,
     resumeGeneration,
     discardGenerationJob,
     refreshGenerationJob,

@@ -26,6 +26,7 @@ interface DatabaseDetailProps {
   onResumeGeneration?: () => void;
   onDiscardGeneration?: () => void;
   onFixFolderSharing?: () => void;
+  onConsolidateFolders?: () => void;
   children: ReactNode;
 }
 
@@ -49,6 +50,7 @@ export default function DatabaseDetail({
   onResumeGeneration,
   onDiscardGeneration,
   onFixFolderSharing,
+  onConsolidateFolders,
   children,
 }: DatabaseDetailProps): JSX.Element {
   return (
@@ -162,6 +164,18 @@ export default function DatabaseDetail({
                                 className="text-xs font-semibold text-blue-700 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors flex items-center gap-1"
                               >
                                 <span className="material-symbols-outlined text-sm">public</span>Fix sharing
+                              </button>
+                            </>
+                          )}
+                          {onConsolidateFolders && (
+                            <>
+                              <div className="w-px h-4 bg-blue-200" />
+                              <button
+                                onClick={onConsolidateFolders}
+                                className="text-xs font-semibold text-blue-700 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors flex items-center gap-1"
+                                title="Merge duplicate Drive folders for this database into one"
+                              >
+                                <span className="material-symbols-outlined text-sm">folder_managed</span>Consolidate
                               </button>
                             </>
                           )}
