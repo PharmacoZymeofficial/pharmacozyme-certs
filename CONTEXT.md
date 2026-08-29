@@ -38,6 +38,26 @@ A prior plan file describes three bugs and their fixes. Cross-checked against cu
 2. **Verify case-sensitivity** — **fixed**: `verify/route.ts` uppercases input and also tries lower/original-case variants.
 3. **"Hex sort bug" in Sheets sync** (`parseInt` base-10 on a hex string) — the plan's diagnosis doesn't match current code: both `generate/route.ts` and `sync/route.ts` sort via `getSerial()`, a regex pulling a **trailing decimal digit run**, not a hex slice. For current hex `uniqueCertId`s (e.g. `PZ-2026-A1B2C3D4`) there's usually no trailing digit run, so `getSerial` returns `0` for most rows and the "sort" is a no-op — sheet row order likely just falls back to whatever order Firestore returned. **This one may still be an open, if differently-shaped, bug** — worth confirming what order you actually want in the Sheet.
 
+## Session log — 2026-08-28 → 29: Plans A–D via subagent-driven-development
+
+Branch `feat/general-official-split` (base `main` @ 88f0b39). Four plans executed
+with the SDD loop (fresh implementer + task review per task, whole-branch review
+at the end). **All complete, all reviewed clean. UNMERGED / UNPUSHED / UNDEPLOYED**
+— that authorization was withheld for the whole effort.
+
+- **Plan A** (Drive fixes) — complete, final review clean.
+- **Plan B** (`admin/databases/page.tsx` 3,470-line monolith → 16 focused files) — complete, final review clean.
+- **Plan C** (General/Official public-page split: `/verify` = General, `/official` = Official; admin database mgmt split into per-category tabs) — complete; "With fixes" → fix wave `cf07488` → re-review clean.
+- **Plan D** (generation-resume + email-delivery visibility + Drive-sharing UI + lint polish) — 13 tasks, complete. Whole-branch review "With fixes" (2 Critical + 5 Important, all in the resume flow / email tally) → one fix wave `1986c6b` → re-review: all addressed, no new breakage. Final HEAD **`1986c6b`**.
+  - New: `generationJobs` Firestore collection (API-only, one doc per database, no rules block — deny-by-default covers it); `GET/PUT/DELETE /api/generation-jobs/[databaseId]`; `lib/generationResume.ts`, `lib/emailOutcome.ts`; `Participant.emailError`; `GenerationJob` type incl. `templateId`.
+  - Gates green at HEAD: `npx tsc --noEmit`, `npx vitest run` 51/51, `npm run build`.
+
+**Inviolable (Plan C review):** `lib/urls.ts buildVerificationUrl` mints `/verify?certId=` for EVERY cert, Official included — every issued Official QR points at `/verify`. The category-LESS auto-verify on both public pages is what keeps those resolving. Never change auto-verify to pass the page's category.
+
+**Before this branch ships (user-owed — see the `plan-d-branch-state` memory for the full list):** P-1 prod category audit (`node scripts/category-audit.mjs`, MERGE-BLOCKING); P-2 `firestore:indexes` deploy + wait for `certificates(category,recipientName)` Enabled; P-3 Apps Script redeploy; P-4 preview click-through; P-5 post-deploy blue-dot SHA check; plus the Plan D manual passes (spec §11.2 #6-7) — test the forced-404 resume path and rows-selected resume path specifically.
+
+**Parked (latent, 1-line fix):** `CertificateGenerator.tsx` `fullyCovered = completedIds.length >= jobTotal` miscounts if a participant doc lacks an `id` (not reachable in the live data model).
+
 ## Session log — 2026-08-26 → 27
 
 Fixed three reported bugs plus a requested feature, all pushed to `main` (commits `3898d0a`, `ac2d6c8`):
