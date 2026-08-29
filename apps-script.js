@@ -96,6 +96,9 @@ function doPost(e) {
       case "deleteFolder":
         result = deleteFolder(payload);
         break;
+      case "consolidateFolders":
+        result = consolidateFolders(payload);
+        break;
       case "ensurePublic":
         result = ensurePublic(payload);
         break;
@@ -396,11 +399,21 @@ function deleteTemplate(payload) {
 // ===== DRIVE OPERATIONS =====
 
 function uploadPDF(payload) {
-  const { spreadsheetId, pdfData, fileName, databaseName } = payload;
-  
-  // Get or create folder for this database
-  const folder = getOrCreateFolder(databaseName);
-  
+  var pdfData = payload.pdfData;
+  var fileName = payload.fileName;
+  var databaseName = payload.databaseName;
+  var folderId = payload.folderId;
+
+  // folderId (resolved once per run by the caller) avoids the check-then-act
+  // race in getOrCreateFolder under 5 concurrent uploads. Fall back to a
+  // name lookup only when the caller couldn't supply an id (first upload).
+  var folder;
+  if (folderId) {
+    folder = DriveApp.getFolderById(folderId);
+  } else {
+    folder = getOrCreateFolder(databaseName);
+  }
+
   // Decode base64 PDF data
   const pdfBlob = Utilities.newBlob(
     Utilities.base64Decode(pdfData),
@@ -464,6 +477,52 @@ function getOrCreateFolder(folderName) {
   }
   
   return subFolder;
+}
+
+/**
+ * Merge duplicate per-database folders into one canonical folder.
+ *
+ * Finds every folder named `folderName` directly under the parent
+ * (DRIVE_FOLDER_ID if resolvable, else the folder named DRIVE_FOLDER_NAME).
+ * For each such folder whose id !== canonicalFolderId: move all its files into
+ * the canonical folder, then trash the now-empty duplicate. The canonical
+ * folder itself and any folder with a different name are never touched.
+ */
+function consolidateFolders(payload) {
+  var folderName = payload.folderName;
+  var canonicalFolderId = payload.canonicalFolderId;
+  if (!folderName || !canonicalFolderId) throw new Error("folderName and canonicalFolderId are required");
+
+  var parent;
+  if (DRIVE_FOLDER_ID) {
+    try { parent = DriveApp.getFolderById(DRIVE_FOLDER_ID); } catch (e) { parent = null; }
+  }
+  if (!parent) {
+    var byName = DriveApp.getFoldersByName(DRIVE_FOLDER_NAME);
+    if (!byName.hasNext()) throw new Error("Parent folder not found");
+    parent = byName.next();
+  }
+
+  var canonical = DriveApp.getFolderById(canonicalFolderId);
+  var movedFiles = 0;
+  var trashedFolders = 0;
+
+  var dupes = parent.getFoldersByName(folderName);
+  while (dupes.hasNext()) {
+    var dupe = dupes.next();
+    if (dupe.getId() === canonicalFolderId) continue;
+
+    var files = dupe.getFiles();
+    while (files.hasNext()) {
+      var f = files.next();
+      f.moveTo(canonical); // Drive v3 move; keeps the same file id
+      movedFiles++;
+    }
+    dupe.setTrashed(true);
+    trashedFolders++;
+  }
+
+  return { success: true, movedFiles: movedFiles, trashedFolders: trashedFolders };
 }
 
 function getFolder(payload) {

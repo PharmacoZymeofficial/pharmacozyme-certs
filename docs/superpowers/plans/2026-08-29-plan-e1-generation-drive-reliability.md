@@ -1987,7 +1987,43 @@ Sheet: header at row 1, 5 data rows (rows 2–6), `lastRow = 6`.
 
 ### Task 5 hand-trace — `uploadPDF` folderId + `consolidateFolders`
 
-_(to be written)_
+**Move API shipped: `f.moveTo(canonical)`** — the current DriveApp move API (V8 runtime, available since 2020). This project's Apps Script already uses modern DriveApp idioms and the user runs a live deployed web app, so there is no concrete reason to expect a pre-`moveTo` runtime. The documented fallback (`canonical.addFile(f); dupe.removeFile(f);`) was not used.
+
+**Case (a): `uploadPDF` folder resolution.**
+
+- **With `folderId`:** `payload = { pdfData, fileName, databaseName, folderId: "FID" }`.
+  - `var folderId = payload.folderId` → `"FID"` (truthy).
+  - `if (folderId)` → true → `folder = DriveApp.getFolderById("FID")`. `getOrCreateFolder` is **never called** (the `else` branch is skipped) — no `getFoldersByName` / `createFolder` / `setSharing` on the folder, so no check-then-act race under 5 concurrent uploads.
+  - `folder.createFile(pdfBlob)` → file created in FID; `shareBestEffort(file)` shares the file only.
+  - Return includes `folderId: folder.getId()` → `"FID"` (shape unchanged).
+- **Without `folderId`:** `payload = { pdfData, fileName, databaseName: "DB" }`.
+  - `var folderId = payload.folderId` → `undefined` (falsy).
+  - `if (folderId)` → false → `else` → `folder = getOrCreateFolder("DB")`. `DriveApp.getFolderById` is **not** called with a caller id; the name-lookup/create path runs (first-upload fallback).
+  - Return still includes `folderId: folder.getId()` (the resolved sub-folder id).
+
+**Case (b): `consolidateFolders` over a parent with 4 folders.**
+
+Parent (resolved: `DRIVE_FOLDER_ID` → `DriveApp.getFolderById` succeeds, so the `getFoldersByName(DRIVE_FOLDER_NAME)` fallback is skipped) contains:
+`["Course A" (canonical, id=C, 2 files), "Course A" (dupe1, id=D1, 3 files), "Course A" (dupe2, id=D2, 0 files), "Course B" (id=B, 1 file)]`.
+Call: `payload = { folderName: "Course A", canonicalFolderId: "C" }`.
+
+- Guard: both present → continue.
+- `canonical = DriveApp.getFolderById("C")` → the canonical folder. `movedFiles = 0`, `trashedFolders = 0`.
+- `dupes = parent.getFoldersByName("Course A")` → iterator over `{C, D1, D2}` (order unspecified; "Course B" is **not** in this iterator — different name, never touched).
+  - **C:** `dupe.getId() === "C"` → `continue`. Canonical is never moved into itself, never trashed.
+  - **D1:** id ≠ "C". `files = dupe.getFiles()` → 3 files. Loop: each `f.moveTo(canonical)`, `movedFiles` → 1, 2, 3. `dupe.setTrashed(true)`; `trashedFolders` → 1. D1 is now empty and trashed.
+  - **D2:** id ≠ "C". `files` → 0 files, inner `while` body never runs, `movedFiles` stays 3. `dupe.setTrashed(true)`; `trashedFolders` → 2. D2 trashed.
+- Return `{ success: true, movedFiles: 3, trashedFolders: 2 }`. ✓
+- Canonical folder ends with its original 2 + 3 moved = **5 files**. "Course B" and its 1 file are untouched. ✓ (Iteration order of C/D1/D2 does not matter: C always `continue`s, D1/D2 each contribute independently.)
+
+**Case (c): `canonicalFolderId` points at a deleted folder.**
+
+Call: `payload = { folderName: "Course A", canonicalFolderId: "GONE" }`.
+
+- Guard passes (both truthy).
+- Parent resolves fine.
+- `var canonical = DriveApp.getFolderById("GONE")` → **throws** (`No item with the given ID could be found`). This is before any file move or trash, so nothing is mutated.
+- The throw propagates out of `consolidateFolders`, is caught by `doPost`'s `try/catch`, and returned as `{ error: error.message }` with a 200 body — the Next.js route reads the `error` field and surfaces a 500 + toast. Acceptable per the brief; no partial consolidation occurred.
 
 ---
 
