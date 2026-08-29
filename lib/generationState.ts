@@ -13,9 +13,13 @@ import type { Participant } from "@/lib/types";
 export type ParticipantGenState = "needs-cert" | "needs-pdf" | "complete";
 
 export function classifyParticipant(
-  p: Pick<Participant, "certificateId" | "driveLink">
+  p: Pick<Participant, "certificateId" | "driveLink">,
+  requirePdf = true
 ): ParticipantGenState {
   if (!p.certificateId || !p.certificateId.trim()) return "needs-cert";
+  // Databases without a linked sheet never get a driveLink, so a non-empty
+  // certificateId is as "complete" as they can be — never park them at needs-pdf.
+  if (!requirePdf) return "complete";
   if (!p.driveLink || !p.driveLink.trim()) return "needs-pdf";
   return "complete";
 }
@@ -28,11 +32,12 @@ export interface GenerationSummary {
 }
 
 export function deriveGenerationSummary(
-  participants: Pick<Participant, "certificateId" | "driveLink">[]
+  participants: Pick<Participant, "certificateId" | "driveLink">[],
+  requirePdf = true
 ): GenerationSummary {
   const summary: GenerationSummary = { needsCert: 0, needsPdf: 0, complete: 0, total: participants.length };
   for (const p of participants) {
-    const state = classifyParticipant(p);
+    const state = classifyParticipant(p, requirePdf);
     if (state === "needs-cert") summary.needsCert++;
     else if (state === "needs-pdf") summary.needsPdf++;
     else summary.complete++;

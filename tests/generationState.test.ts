@@ -27,6 +27,18 @@ describe("classifyParticipant", () => {
   it("driveLink without a certificateId is still needs-cert", () => {
     expect(classifyParticipant({ driveLink: "https://drive.google.com/file/d/abc/view" })).toBe("needs-cert");
   });
+
+  describe("requirePdf = false (non-linked-sheet databases)", () => {
+    it("certificateId with no driveLink -> complete (not needs-pdf)", () => {
+      expect(classifyParticipant({ certificateId: "X" }, false)).toBe("complete");
+      expect(classifyParticipant({ certificateId: "2026-PZ-CRS-0001", driveLink: "" }, false)).toBe("complete");
+    });
+
+    it("still needs-cert when there is no certificateId", () => {
+      expect(classifyParticipant({}, false)).toBe("needs-cert");
+      expect(classifyParticipant({ certificateId: "   " }, false)).toBe("needs-cert");
+    });
+  });
 });
 
 describe("deriveGenerationSummary", () => {
@@ -43,6 +55,19 @@ describe("deriveGenerationSummary", () => {
 
   it("empty roster -> all zeroes", () => {
     expect(deriveGenerationSummary([])).toEqual({ needsCert: 0, needsPdf: 0, complete: 0, total: 0 });
+  });
+
+  it("requirePdf = false tallies a needs-pdf-looking participant as complete", () => {
+    const summary = deriveGenerationSummary(
+      [
+        {},                              // needs-cert
+        { certificateId: "X" },          // would be needs-pdf, now complete
+        { certificateId: "Y", driveLink: "" }, // would be needs-pdf, now complete
+        { certificateId: "Z", driveLink: "https://drive.google.com/file/d/z/view" }, // complete
+      ],
+      false
+    );
+    expect(summary).toEqual({ needsCert: 1, needsPdf: 0, complete: 3, total: 4 });
   });
 });
 
