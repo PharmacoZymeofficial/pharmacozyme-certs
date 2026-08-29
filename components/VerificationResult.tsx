@@ -14,6 +14,16 @@ interface VerificationResultProps {
 export default function VerificationResult({ certificate, isLoading, error, onClose }: VerificationResultProps) {
   const [revealed, setRevealed] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  // Precomputed once so the random values stay stable across re-renders (react-hooks/purity).
+  const [confetti] = useState(() =>
+    Array.from({ length: 22 }).map((_, i) => ({
+      left: 5 + Math.random() * 90,
+      fallDur: 0.7 + Math.random() * 1.3,
+      delay: Math.random() * 0.5,
+      rotate: Math.random() * 360,
+      color: ["#22c55e", "#16a34a", "#4ade80", "#fbbf24", "#60a5fa", "#f472b6", "#a78bfa"][i % 7],
+    }))
+  );
 
   useEffect(() => {
     if (certificate) {
@@ -89,16 +99,16 @@ export default function VerificationResult({ certificate, isLoading, error, onCl
       {/* Confetti burst */}
       {showConfetti && (
         <div className="absolute inset-0 pointer-events-none z-50 overflow-hidden rounded-2xl">
-          {Array.from({ length: 22 }).map((_, i) => (
+          {confetti.map((c, i) => (
             <div
               key={i}
               className="absolute w-2 h-2 rounded-sm"
               style={{
-                left: `${5 + Math.random() * 90}%`,
+                left: `${c.left}%`,
                 top: "-8px",
-                background: ["#22c55e","#16a34a","#4ade80","#fbbf24","#60a5fa","#f472b6","#a78bfa"][i % 7],
-                animation: `fall ${0.7 + Math.random() * 1.3}s ease-in ${Math.random() * 0.5}s forwards`,
-                transform: `rotate(${Math.random() * 360}deg)`,
+                background: c.color,
+                animation: `fall ${c.fallDur}s ease-in ${c.delay}s forwards`,
+                transform: `rotate(${c.rotate}deg)`,
               }}
             />
           ))}
@@ -219,7 +229,7 @@ export default function VerificationResult({ certificate, isLoading, error, onCl
       <div className="px-5 sm:px-7 pb-5 sm:pb-7">
         <div className="p-3 sm:p-4 rounded-xl bg-primary-container/30 border-l-4 border-vivid-green">
           <p className="text-[10px] sm:text-[11px] text-on-surface-variant leading-relaxed italic">
-            "This verification record is linked to our secure blockchain hash. Any unauthorized duplication or alteration is detectable by our system."
+            &quot;This verification record is linked to our secure blockchain hash. Any unauthorized duplication or alteration is detectable by our system.&quot;
           </p>
         </div>
       </div>

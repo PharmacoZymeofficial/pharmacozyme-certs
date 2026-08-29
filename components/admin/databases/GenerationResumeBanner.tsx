@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { GenerationJob } from "@/lib/types";
 
 interface GenerationResumeBannerProps {
@@ -10,7 +11,16 @@ interface GenerationResumeBannerProps {
 
 export default function GenerationResumeBanner({ job, onResume, onDiscard }: GenerationResumeBannerProps) {
   const done = job.completedParticipantIds?.length ?? 0;
-  const stale = Date.now() - new Date(job.updatedAt).getTime() > 24 * 60 * 60 * 1000;
+  const [stale, setStale] = useState(false);
+
+  // Defer the wall-clock read off the render path (react-hooks/purity). Matches the
+  // Date.now()-in-callback pattern used elsewhere (e.g. OfficialDatabaseCards count-up).
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      setStale(Date.now() - new Date(job.updatedAt).getTime() > 24 * 60 * 60 * 1000);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [job.updatedAt]);
 
   return (
     <div
