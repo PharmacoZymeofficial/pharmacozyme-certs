@@ -528,14 +528,19 @@ export default function CertificateGenerator({ database, participants, onGenerat
       sortedParticipants.filter((p) => classifyParticipant(p, !!database.linkedSheet) === "needs-cert" && p.id).map((p) => p.id as string)
     );
 
+    const jobUrl = `/api/generation-jobs/${database.id}`;
+
     if (runList.length === 0) {
-      toast.info("Nothing to generate — every participant already has a certificate and a PDF.");
       setIsGenerating(false);
       setShowTemplateSelect(true);
+      if (resumeMode) {
+        // The interrupted run's remainder is already done — retire the phantom job doc.
+        await fetch(jobUrl, { method: "DELETE" }).catch(() => {});
+      }
+      toast.info("Nothing to generate — every participant already has a certificate and a PDF.");
       return;
     }
 
-    const jobUrl = `/api/generation-jobs/${database.id}`;
     let effectiveTemplate = selectedTemplate;
 
     // Bare run marker — written once on start, deleted on clean finish, left in
