@@ -9,6 +9,7 @@ import { sfx } from "@/lib/sfx";
 import { tallyEmailOutcomes } from "@/lib/emailOutcome";
 import { SENDER_IDENTITIES, subCategoryShortMap, categoryStructure } from "@/components/admin/databases/constants";
 import { resolveDriveFileId } from "@/lib/driveIds";
+import { deriveGenerationSummary, jobEffectiveStatus } from "@/lib/generationState";
 
 export function useDatabaseManager(category: "General" | "Official") {
   const toast = useToast();
@@ -24,6 +25,7 @@ export function useDatabaseManager(category: "General" | "Official") {
   const [fetchedOnce, setFetchedOnce] = useState(false);
   const [generationJob, setGenerationJob] = useState<GenerationJob | null>(null);
   const [generatorResumeMode, setGeneratorResumeMode] = useState(false);
+  const [resumeBannerDismissed, setResumeBannerDismissed] = useState(false);
   // Guards the generation-job fetch against a cross-database race: opening DB A
   // then quickly DB B must not let A's slower response overwrite B's job state.
   const jobFetchSeq = useRef(0);
@@ -329,6 +331,7 @@ export function useDatabaseManager(category: "General" | "Official") {
     const seq = ++jobFetchSeq.current;
     setSelectedDatabase(db);
     setGenerationJob(null);
+    setResumeBannerDismissed(false);
     if (db?.id) {
       fetch(`/api/generation-jobs/${db.id}`)
         .then((r) => (r.ok ? r.json() : null))
@@ -347,6 +350,7 @@ export function useDatabaseManager(category: "General" | "Official") {
     setParticipantSearch("");
     setSelectedParticipants([]);
     setGenerationJob(null);
+    setResumeBannerDismissed(false);
     setGeneratorResumeMode(false);
   }, [category]);
 
@@ -1091,13 +1095,10 @@ export function useDatabaseManager(category: "General" | "Official") {
     setShowGeneratorModal(true);
   };
 
-  const discardGenerationJob = async () => {
-    if (!selectedDatabase?.id) return;
-    // Invalidate any in-flight job GET so it can't repaint the banner after the delete.
-    jobFetchSeq.current++;
-    await fetch(`/api/generation-jobs/${selectedDatabase.id}`, { method: "DELETE" }).catch(() => {});
-    setGenerationJob(null);
-  };
+  // Flag-only: the job-doc lifecycle is the generator's responsibility now (it
+  // deletes on clean/no-op finish, keeps on interrupt). Dismissing just hides the
+  // banner locally — derived participant state is the truth.
+  const dismissResumeBanner = () => setResumeBannerDismissed(true);
 
   const refreshGenerationJob = () => {
     if (!selectedDatabase?.id) return;
@@ -1363,6 +1364,16 @@ export function useDatabaseManager(category: "General" | "Official") {
     }
   };
 
+  // A DB with no linked sheet has no PDF phase — never park those at needs-pdf.
+  const generationSummary = deriveGenerationSummary(participants, !!selectedDatabase?.linkedSheet);
+  const generationJobStatus = generationJob
+    ? jobEffectiveStatus({ status: (generationJob as { status?: string }).status, startedAt: generationJob.startedAt })
+    : null;
+  const showResumeBanner =
+    !!generationJob &&
+    !resumeBannerDismissed &&
+    generationSummary.needsCert + generationSummary.needsPdf > 0;
+
   return {
     databases,
     allDatabases,
@@ -1511,8 +1522,11 @@ export function useDatabaseManager(category: "General" | "Official") {
     handleFindDriveFolder,
     fixFolderSharing,
     handleConsolidateFolders,
+    generationSummary,
+    generationJobStatus,
+    showResumeBanner,
     resumeGeneration,
-    discardGenerationJob,
+    dismissResumeBanner,
     refreshGenerationJob,
     handleGenerateIds,
     handleConfirmGenerateIds,

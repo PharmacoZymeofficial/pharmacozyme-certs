@@ -1,56 +1,46 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { GenerationJob } from "@/lib/types";
+import type { GenerationSummary } from "@/lib/generationState";
 
 interface GenerationResumeBannerProps {
-  job: GenerationJob;
+  status: "running" | "interrupted";
+  summary: GenerationSummary;
   onResume: () => void;
-  onDiscard: () => void;
+  onDismiss: () => void;
 }
 
-export default function GenerationResumeBanner({ job, onResume, onDiscard }: GenerationResumeBannerProps) {
-  const done = job.completedParticipantIds?.length ?? 0;
-  const [stale, setStale] = useState(false);
+export default function GenerationResumeBanner({ status, summary, onResume, onDismiss }: GenerationResumeBannerProps) {
+  const left = summary.needsCert + summary.needsPdf;
+  if (left === 0) return null; // nothing outstanding — derived truth wins over the job doc
 
-  // Defer the wall-clock read off the render path (react-hooks/purity). Matches the
-  // Date.now()-in-callback pattern used elsewhere (e.g. OfficialDatabaseCards count-up).
-  useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      setStale(Date.now() - new Date(job.updatedAt).getTime() > 24 * 60 * 60 * 1000);
-    });
-    return () => cancelAnimationFrame(id);
-  }, [job.updatedAt]);
-
+  const stale = status === "interrupted";
   return (
     <div
       className="mb-4 rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3"
-      style={{ background: stale ? "#f8fafc" : "#fffbeb", border: `1px solid ${stale ? "#e2e8f0" : "#fde68a"}` }}
+      style={{ background: stale ? "#fffbeb" : "#eff6ff", border: `1px solid ${stale ? "#fde68a" : "#bfdbfe"}` }}
     >
-      <span className="material-symbols-outlined" style={{ color: stale ? "#94a3b8" : "#d97706" }}>
-        {stale ? "history" : "warning"}
+      <span className="material-symbols-outlined" style={{ color: stale ? "#d97706" : "#2563eb" }}>
+        {stale ? "warning" : "progress_activity"}
       </span>
       <p className="text-sm flex-1" style={{ color: "#1b4332" }}>
         {stale
-          ? `An old generation job is still recorded for this database (${done} of ${job.total} done, ${new Date(job.updatedAt).toLocaleDateString()}).`
-          : `Generation was interrupted — ${done} of ${job.total} certificates done.`}
+          ? `Generation was interrupted — ${summary.needsCert} still need a cert ID, ${summary.needsPdf} need a PDF.`
+          : `Generation is running — ${summary.needsCert} need a cert ID, ${summary.needsPdf} need a PDF.`}
       </p>
       <div className="flex gap-2">
-        {!stale && (
-          <button
-            onClick={onResume}
-            className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white cursor-pointer"
-            style={{ background: "linear-gradient(135deg,#22c55e,#16a34a)" }}
-          >
-            Resume
-          </button>
-        )}
         <button
-          onClick={onDiscard}
+          onClick={onResume}
+          className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white cursor-pointer"
+          style={{ background: "linear-gradient(135deg,#22c55e,#16a34a)" }}
+        >
+          Resume
+        </button>
+        <button
+          onClick={onDismiss}
           className="px-4 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
           style={{ background: "#fff", border: "1px solid #e5ebe5", color: "#64748b" }}
         >
-          Discard
+          Dismiss
         </button>
       </div>
     </div>

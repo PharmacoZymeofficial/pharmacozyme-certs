@@ -31,7 +31,9 @@ export default function DatabaseManager({
     isLoading,
     fetchedOnce,
     generatorResumeMode,
-    generationJob,
+    generationSummary,
+    generationJobStatus,
+    showResumeBanner,
     showCreateModal,
     showParticipantModal,
     showImportModal,
@@ -172,7 +174,7 @@ export default function DatabaseManager({
     handleConsolidateFolders,
     refreshGenerationJob,
     resumeGeneration,
-    discardGenerationJob,
+    dismissResumeBanner,
     handleGenerateIds,
     handleConfirmGenerateIds,
     handleSaveCertId,
@@ -368,9 +370,11 @@ export default function DatabaseManager({
           toast={toast}
           setShowParticipantModal={setShowParticipantModal}
           setShowImportModal={setShowImportModal}
-          generationJob={generationJob}
+          showResumeBanner={showResumeBanner}
+          resumeBannerStatus={generationJobStatus}
+          generationSummary={generationSummary}
           onResumeGeneration={resumeGeneration}
-          onDiscardGeneration={discardGenerationJob}
+          onDismissResumeBanner={dismissResumeBanner}
           onFixFolderSharing={fixFolderSharing}
           onConsolidateFolders={handleConsolidateFolders}
         >
