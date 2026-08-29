@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase.admin";
 import { requireAdmin } from "@/lib/requireAdmin";
-
-const PHASES = ["rendering", "drive-upload", "sheet-sync"] as const;
+import { jobEffectiveStatus } from "@/lib/generationState";
 
 function jobRef(databaseId: string) {
   return getAdminDb().collection("generationJobs").doc(databaseId);
@@ -17,7 +16,16 @@ export async function GET(
   const { databaseId } = await params;
   const snap = await jobRef(databaseId).get();
   if (!snap.exists) return NextResponse.json({ error: "No job" }, { status: 404 });
-  return NextResponse.json({ job: { databaseId, ...snap.data() } });
+  const data = snap.data() || {};
+  return NextResponse.json({
+    job: {
+      databaseId,
+      templateId: data.templateId,
+      startedAt: data.startedAt,
+      startedBy: data.startedBy,
+      status: jobEffectiveStatus({ status: data.status, startedAt: data.startedAt }),
+    },
+  });
 }
 
 export async function PUT(
@@ -28,29 +36,25 @@ export async function PUT(
   if (!guard.ok) return guard.response;
   const { databaseId } = await params;
 
-  let body: any;
+  let body: { templateId?: unknown; startedAt?: unknown; status?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
-  const patch: Record<string, unknown> = { databaseId, updatedAt: new Date().toISOString() };
 
-  if (typeof body.total === "number") patch.total = body.total;
-  if (Array.isArray(body.completedParticipantIds)) {
-    patch.completedParticipantIds = body.completedParticipantIds.filter(
-      (x: unknown) => typeof x === "string"
-    );
-  }
-  if (PHASES.includes(body.phase)) patch.phase = body.phase;
+  const patch: Record<string, unknown> = {
+    databaseId,
+    startedBy: guard.session.email || "unknown",
+  };
   if (typeof body.templateId === "string") patch.templateId = body.templateId;
   if (typeof body.startedAt === "string") patch.startedAt = body.startedAt;
-  patch.startedBy = guard.session.email || "unknown";
+  if (body.status === "running" || body.status === "interrupted") patch.status = body.status;
   if (!patch.startedAt) {
     const existing = await jobRef(databaseId).get();
     patch.startedAt = existing.exists
-      ? existing.data()?.startedAt || patch.updatedAt
-      : patch.updatedAt;
+      ? existing.data()?.startedAt || new Date().toISOString()
+      : new Date().toISOString();
   }
 
   await jobRef(databaseId).set(patch, { merge: true });
