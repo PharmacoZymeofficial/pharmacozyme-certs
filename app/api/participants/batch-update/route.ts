@@ -24,26 +24,27 @@ export async function POST(request: NextRequest) {
 
     if (Array.isArray(body.updates) && body.updates.length > 0) {
       const updates: Array<{ id: string; [key: string]: any }> = body.updates;
-      for (let i = 0; i < updates.length; i += CHUNK) {
+      const certDocs: any[] = Array.isArray(body.certDocs) ? body.certDocs : [];
+      const certificatesRef = adminDb.collection("certificates");
+      // Participant .update()s and their cert-doc .set()s go in ONE batch per
+      // chunk, committed together — otherwise a certDocs failure after the
+      // participant commit leaves a participant with a cert ID and no cert doc,
+      // permanently unrepairable. 200 updates + up to 200 certDocs = 400 < 500.
+      const COMBINED_CHUNK = 200;
+      const chunkCount = Math.max(
+        Math.ceil(updates.length / COMBINED_CHUNK),
+        Math.ceil(certDocs.length / COMBINED_CHUNK)
+      );
+      for (let c = 0; c < chunkCount; c++) {
         const batch = adminDb.batch();
-        for (const upd of updates.slice(i, i + CHUNK)) {
+        for (const upd of updates.slice(c * COMBINED_CHUNK, (c + 1) * COMBINED_CHUNK)) {
           const { id, ...fields } = upd;
           batch.update(participantsRef.doc(id), { ...fields, updatedAt: now });
         }
-        await batch.commit();
-      }
-
-      // Bulk-create certificate docs if provided (separate batch, skips per-doc round-trips).
-      if (Array.isArray(body.certDocs) && body.certDocs.length > 0) {
-        const certDocs: any[] = body.certDocs;
-        const certificatesRef = adminDb.collection("certificates");
-        for (let i = 0; i < certDocs.length; i += CHUNK) {
-          const batch = adminDb.batch();
-          for (const certDoc of certDocs.slice(i, i + CHUNK)) {
-            batch.set(certificatesRef.doc(), certDoc);
-          }
-          await batch.commit();
+        for (const certDoc of certDocs.slice(c * COMBINED_CHUNK, (c + 1) * COMBINED_CHUNK)) {
+          batch.set(certificatesRef.doc(), certDoc);
         }
+        await batch.commit();
       }
 
       if (!skipSheetSync) await syncAllToSheet(databaseId);

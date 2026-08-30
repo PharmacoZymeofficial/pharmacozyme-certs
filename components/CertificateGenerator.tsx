@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Document, Page, Text, View, StyleSheet, PDFDownloadLink, Image, Font } from "@react-pdf/renderer";
 import QRCode from "qrcode";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
@@ -475,8 +475,6 @@ export default function CertificateGenerator({ database, participants, onGenerat
   const [currentGenerating, setCurrentGenerating] = useState("");
   const [templateSearch, setTemplateSearch] = useState("");
 
-  const participantsWithExistingPDFs = participants.filter(p => p.certificateId);
-
   const summary = deriveGenerationSummary(participants, !!database.linkedSheet);
   // Default target: everything not already complete. Checkbox adds the complete set.
   const [regenerateComplete, setRegenerateComplete] = useState(false);
@@ -533,8 +531,9 @@ export default function CertificateGenerator({ database, participants, onGenerat
     if (runList.length === 0) {
       setIsGenerating(false);
       setShowTemplateSelect(true);
-      if (resumeMode) {
+      if (resumeMode && participants.length > 0) {
         // The interrupted run's remainder is already done — retire the phantom job doc.
+        // An empty roster means "not loaded yet", never "all done".
         await fetch(jobUrl, { method: "DELETE" }).catch(() => {});
       }
       toast.info("Nothing to generate — every participant already has a certificate and a PDF.");
@@ -605,8 +604,14 @@ export default function CertificateGenerator({ database, participants, onGenerat
         const existingResponse = await fetch(`/api/participants?databaseId=${database.id}`);
         const existingData = await existingResponse.json();
         if (existingData.participants) {
-          const existingCerts = existingData.participants.filter((p: any) => p.certificateId && p.certificateId.includes(`-${year}-`));
-          serialNumber = existingCerts.length + 1;
+          const subShort = subCategoryShort[database.subCategory] || database.subCategory.slice(0, 3).toUpperCase();
+          const prefix = `${year}-PZ-${subShort}-`;
+          const maxSerial = (existingData.participants as { certificateId?: string }[]).reduce((max, p) => {
+            if (!p.certificateId || !p.certificateId.startsWith(prefix)) return max;
+            const n = parseInt(p.certificateId.slice(prefix.length), 10);
+            return Number.isFinite(n) ? Math.max(max, n) : max;
+          }, 0);
+          serialNumber = maxSerial + 1;
         }
       } catch {}
 
@@ -637,7 +642,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
       // Pre-assign cert IDs sequentially (serial numbers must be deterministic before parallelizing)
       const participantsWithCertIds = runList.map((participant, i) => ({
         participant,
-        certId: participant.certificateId || generateCertificateId(participant.name, database.subCategory, serialNumber + i),
+        certId: participant.certificateId?.trim() || generateCertificateId(participant.name, database.subCategory, serialNumber + i),
       }));
 
       // ── Phase 1: Parallel render (20 concurrent) ───────────────────────────
@@ -976,9 +981,11 @@ export default function CertificateGenerator({ database, participants, onGenerat
     }
   };
 
+  const autoStartedRef = useRef(false);
   useEffect(() => {
-    if (!resumeMode || loadingTemplates || isGenerating || showDownload) return;
+    if (!resumeMode || loadingTemplates || isGenerating || showDownload || autoStartedRef.current) return;
     // Resume skips the picker: startGeneration re-locks to job.templateId itself.
+    autoStartedRef.current = true;
     void startGeneration();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resumeMode, loadingTemplates]);
@@ -1299,17 +1306,19 @@ export default function CertificateGenerator({ database, participants, onGenerat
           </label>
         )}
 
-        <button
-          onClick={startGeneration}
-          disabled={isGenerating || participants.length === 0}
-          className="w-full py-4 vivid-gradient-cta text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <span className="material-symbols-outlined">auto_awesome</span>
-          {(() => {
-            const target = summary.needsCert + summary.needsPdf + (regenerateComplete ? summary.complete : 0);
-            return `Generate ${target} certificate${target !== 1 ? "s" : ""}`;
-          })()}
-        </button>
+        {(() => {
+          const target = summary.needsCert + summary.needsPdf + (regenerateComplete ? summary.complete : 0);
+          return (
+            <button
+              onClick={startGeneration}
+              disabled={isGenerating || participants.length === 0 || target === 0}
+              className="w-full py-4 vivid-gradient-cta text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="material-symbols-outlined">auto_awesome</span>
+              {`Generate ${target} certificate${target !== 1 ? "s" : ""}`}
+            </button>
+          );
+        })()}
 
         <p className="text-xs text-center text-on-surface-variant mt-4">
           Certificate IDs: YEAR-PZ-SUBCAT-SERIAL (e.g., 2026-PZ-CRS-0001)

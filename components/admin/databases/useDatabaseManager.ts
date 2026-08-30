@@ -931,8 +931,8 @@ export function useDatabaseManager(category: "General" | "Official") {
         const dbParticipants = participantsData.participants || [];
         // Delete Drive files in parallel
         const driveDeletes = dbParticipants
-          .filter((p: any) => p.driveFileId)
-          .map((p: any) => fetch(`/api/drive-upload?fileId=${p.driveFileId}`, { method: "DELETE" }).catch(() => {}));
+          .filter((p: any) => resolveDriveFileId(p))
+          .map((p: any) => fetch(`/api/drive-upload?fileId=${resolveDriveFileId(p)}`, { method: "DELETE" }).catch(() => {}));
         if (driveDeletes.length > 0) {
           await Promise.allSettled(driveDeletes);
         }
@@ -1090,9 +1090,13 @@ export function useDatabaseManager(category: "General" | "Official") {
   // From the DB-list card badge: open the database AND drop straight into the
   // generator in resume mode (openDatabase re-fetches the job doc; the generator
   // re-fetches it too on its resume path).
-  const resumeDatabase = (db: Database) => {
+  const resumeDatabase = async (db: Database) => {
     openDatabase(db);
     setSelectedParticipants([]);
+    // Await the roster before opening the modal — otherwise the generator mounts
+    // with participants=[] and its auto-start can race the templates fetch and
+    // delete the job doc without generating anything.
+    if (db.id) await fetchParticipants(db.id);
     setGeneratorResumeMode(true);
     setShowGeneratorModal(true);
   };
@@ -1272,8 +1276,8 @@ export function useDatabaseManager(category: "General" | "Official") {
 
     try {
       await Promise.all([
-        participant.driveFileId
-          ? fetch(`/api/drive-upload?fileId=${participant.driveFileId}`, { method: "DELETE" })
+        resolveDriveFileId(participant)
+          ? fetch(`/api/drive-upload?fileId=${resolveDriveFileId(participant)}`, { method: "DELETE" })
           : Promise.resolve(),
         participant.certificateId
           ? fetch(`/api/certificates?uniqueCertId=${encodeURIComponent(participant.certificateId)}`, { method: "DELETE" })

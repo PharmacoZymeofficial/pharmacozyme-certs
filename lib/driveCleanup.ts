@@ -8,7 +8,6 @@
  * `resolveDriveFileId` are pure functions and are unit-tested.
  */
 import { callAppsScript, appsScriptConfigured } from "@/lib/appsScript";
-import { fileIdFromLink, resolveDriveFileId } from "./driveIds";
 
 // Re-export for backward compatibility
 export { fileIdFromLink, resolveDriveFileId } from "./driveIds";

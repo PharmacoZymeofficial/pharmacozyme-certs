@@ -409,7 +409,12 @@ function uploadPDF(payload) {
   // name lookup only when the caller couldn't supply an id (first upload).
   var folder;
   if (folderId) {
-    folder = DriveApp.getFolderById(folderId);
+    try {
+      folder = DriveApp.getFolderById(folderId);
+    } catch (e) {
+      // Stale/deleted folder id -- self-heal by name lookup instead of bricking the run.
+      folder = getOrCreateFolder(databaseName);
+    }
   } else {
     folder = getOrCreateFolder(databaseName);
   }
@@ -504,12 +509,16 @@ function consolidateFolders(payload) {
   }
 
   var canonical = DriveApp.getFolderById(canonicalFolderId);
+  if (canonical.getName() !== folderName) {
+    throw new Error("Canonical folder name (" + canonical.getName() + ") does not match folderName (" + folderName + ")");
+  }
   var movedFiles = 0;
   var trashedFolders = 0;
 
   var dupes = parent.getFoldersByName(folderName);
   while (dupes.hasNext()) {
     var dupe = dupes.next();
+    if (dupe.isTrashed()) continue;
     if (dupe.getId() === canonicalFolderId) continue;
 
     var files = dupe.getFiles();
@@ -706,21 +715,29 @@ function deleteRows(payload) {
     if (match.certificateId) {
       certIds[String(match.certificateId)] = true;
     } else if (match.name || match.email) {
-      nameEmail[norm(match.name) + " " + norm(match.email)] = true;
+      nameEmail[norm(match.name) + "\u0000" + norm(match.email)] = true;
     }
   }
 
   var rowsToDelete = [];
   for (var i = values.length - 1; i >= 0; i--) {
     var rowCertId = String(values[i][0]);
-    var key = norm(values[i][1]) + " " + norm(values[i][2]);
+    var key = norm(values[i][1]) + "\u0000" + norm(values[i][2]);
     if (certIds[rowCertId] === true || nameEmail[key] === true) {
       rowsToDelete.push(i + 2); // +2: 1-indexed + skip header
     }
   }
 
-  for (var r = 0; r < rowsToDelete.length; r++) {
-    sheet.deleteRow(rowsToDelete[r]);
+  // rowsToDelete is descending; collapse consecutive rows into one deleteRows call
+  // so a 500-row purge doesn't fire 500 sequential API calls against the 6-min GAS limit.
+  var i2 = 0;
+  while (i2 < rowsToDelete.length) {
+    var end = rowsToDelete[i2];      // highest row of this run
+    var j = i2;
+    while (j + 1 < rowsToDelete.length && rowsToDelete[j + 1] === rowsToDelete[j] - 1) j++;
+    var start = rowsToDelete[j];     // lowest row of this run
+    sheet.deleteRows(start, end - start + 1);
+    i2 = j + 1;
   }
   return { success: true, deletedRows: rowsToDelete.length };
 }

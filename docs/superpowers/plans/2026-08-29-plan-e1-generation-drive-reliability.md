@@ -1967,8 +1967,9 @@ Sheet: header at row 1, 5 data rows (rows 2–6), `lastRow = 6`.
   - `i=1`: `"PZ-100"` / `"bob bob@x.com"` → skip.
   - `i=0`: certId `""` (not a key — `certIds[""]` undefined; the `{ certificateId: "" }`-style match is filtered out by the `if (match.certificateId)` truthy check), key `"alice smith alice@x.com"` → `nameEmail[key] === true` → `rowsToDelete.push(0 + 2)` → `rowsToDelete = [5, 2]`.
   - `PZ-999` matched no row → silent no-op (as intended).
-- Deletion loop, in array order: `sheet.deleteRow(5)` then `sheet.deleteRow(2)`. Order is **[5, 2]** — bottom-up, so deleting row 5 does not shift row 2.
+- Deletion loop (run-collapsing): `rowsToDelete = [5, 2]` is descending. Run 1 starts at `i2=0`, `end=5`; `rowsToDelete[1]===2 ≠ 5-1` so the run is a single row → `sheet.deleteRows(5, 1)`, `i2=1`. Run 2: `end=2` → `sheet.deleteRows(2, 1)`, `i2=2`, loop ends. Two `deleteRows` calls, bottom-up, so deleting row 5 does not shift row 2.
 - Return `{ success: true, deletedRows: 2 }`. **`deletedRows === 2` ✓, deletion order `[5, 2]` ✓.**
+- **Note:** consecutive descending rows collapse into one `sheet.deleteRows(start, howMany)` call — e.g. rows `[7, 6, 5]` become a single `deleteRows(5, 3)`. This keeps a 500-row purge well under the 6-minute Apps Script execution limit instead of firing 500 sequential `deleteRow` calls.
 
 **Case (b): empty `matches`.**
 
@@ -2024,6 +2025,14 @@ Call: `payload = { folderName: "Course A", canonicalFolderId: "GONE" }`.
 - Parent resolves fine.
 - `var canonical = DriveApp.getFolderById("GONE")` → **throws** (`No item with the given ID could be found`). This is before any file move or trash, so nothing is mutated.
 - The throw propagates out of `consolidateFolders`, is caught by `doPost`'s `try/catch`, and returned as `{ error: error.message }` with a 200 body — the Next.js route reads the `error` field and surfaces a 500 + toast. Acceptable per the brief; no partial consolidation occurred.
+
+**Case (d): canonical folder's name does not match `folderName` (guard against cross-DB folder destruction).**
+
+Setup: DB A was renamed to "Course B" (B's name) but still carries A's `driveFolderId = "AID"`, and folder `AID` is still named "Course A". Call: `payload = { folderName: "Course B", canonicalFolderId: "AID" }`.
+
+- Guard passes (both truthy). Parent resolves.
+- `canonical = DriveApp.getFolderById("AID")` → folder named `"Course A"`.
+- New guard: `canonical.getName() ("Course A") !== folderName ("Course B")` → **throws** `Canonical folder name (Course A) does not match folderName (Course B)`. This is before `parent.getFoldersByName("Course B")` is ever iterated, so B's real folder and its files are never moved or trashed. Without this guard, consolidating A would have swept every "Course B" folder's files into A's folder and trashed them. ✓
 
 ---
 
