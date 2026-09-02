@@ -336,6 +336,57 @@ fork; whether "Official" gets its own distinct visual identity). Good candidate 
 fold into the Phase 4 admin-UX session below, since it touches the exact same files
 that session is already going to be restructuring.
 
+## Session log — 2026-09-02: Sheet header mapping + editor fixes
+
+Branch `feat/sheet-header-mapping` implementing header-driven sheet model, Apps Script
+read/write rewrite, and three UI/rendering bug fixes. All tasks complete and reviewed
+clean. Committed but **requires Apps Script redeploy + live steps before ship** (see below).
+
+**What shipped:**
+
+- **Header-name sheet model** — linked Google Sheet's header row is now the source of truth.
+  Managed columns (Name, Email, Certificate ID, Certificate URL, Status, Issue Date,
+  Emailed, Drive Link, Created At, plus aliases) are matched by header name; every other
+  column is a custom field keyed by its exact header text, bound to template placeholders
+  via `sourceField`. New pure module `lib/sheetSchema.ts` with `resolveManagedField`,
+  `buildHeaderMap`, `MANAGED_LABELS`, `splitImportedRow`, `lookupBoundValue`.
+- **`apps-script.js` syncData read + write rewritten** — header-driven, row-matched by
+  name+email. Write path never clears or reorders a column it doesn't own, so custom
+  columns survive (critical: resync on future changes won't clobber user data).
+  `updateCertIds` / `upsertRow` / `clearCertIdsByEmail` / `deleteRows` made header-aware
+  via shared `managedColMap_` helper. `addHeaders` reordered to canonical order.
+- **`/api/sheets/sync`** sends `participants` (9 managed fields + custom map) instead of
+  positional rows; reads `rec.custom` from the Apps Script read.
+- **CSV/Excel import** (`ImportModal`, `app/api/participants/route.ts`) uses the same
+  `resolveManagedField` split.
+- **Bug 1 (template rendering)** — `lib/templateBytes.ts` `fetchTemplatePdf`: stored
+  `pdfBase64` → Drive public URL → Apps Script `getTemplateBytes` fallback. Rendering
+  and preview no longer depend on Drive link-sharing (avoids 403 if Workspace domain
+  blocks "anyone with link" — file still uploads but falls back to serverless fetch).
+  `pdfBase64` cached on the template doc. Sharing-failure toast downgraded to info.
+- **Bug 2 (editor zoom)** — `transform: scale()` zoom control (50–200% + Fit) on the
+  template-editor canvas; markers scale with the background; drag placement is
+  zoom-invariant.
+- **Bug 4 (preview)** — certificate-preview modal has Fit page / Actual size toggle;
+  A4-portrait certificates no longer clip.
+- **Bound-column matching case/whitespace-insensitive** — `lookupBoundValue` normalizes
+  header names when resolving participant values.
+
+**Manual steps owed at ship:**
+
+1. Apps Script web-app redeploy (edit version, URL unchanged) — `syncData` rewrite +
+   `getTemplateBytes` are inert until then.
+2. Restore "EL" tab of "Official Certificates" sheet from Google Sheets version history
+   (generation had overwritten its custom columns before this fix landed).
+3. Regenerate certificate `2026-PZ-CTM-0001` (was issued with blank bound fields before
+   the fix).
+4. Run the plan's Live smoke test checklist (9 items in
+   `docs/superpowers/plans/2026-09-02-sheet-header-mapping-and-editor-fixes.md`).
+5. Vercel blue-dot Production SHA check after deploy (verify git commit shown in
+   Deployments matches the pushed branch HEAD).
+
+**Verification at HEAD:** `npx tsc --noEmit`, `npx vitest run`, `npx next build` all pass.
+
 ## Loose ends / debug cruft
 
 - `graphify-out/graph.json` + the Graphify instructions in `AGENTS.md` imply a
