@@ -21,20 +21,12 @@ export async function POST(request: NextRequest) {
     }
     const templateData = snap.data() || {};
 
-    let templateBytes: ArrayBuffer;
-    if (templateData.driveFileId) {
-      const downloadUrl = `https://drive.google.com/uc?export=download&id=${templateData.driveFileId}`;
-      const driveRes = await fetch(downloadUrl, { redirect: "follow" });
-      if (!driveRes.ok) {
-        return NextResponse.json({ error: "Failed to fetch template from Drive" }, { status: 502 });
-      }
-      templateBytes = await driveRes.arrayBuffer();
-    } else if (templateData.pdfBase64) {
-      const buf = Buffer.from(templateData.pdfBase64, "base64");
-      templateBytes = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
-    } else {
-      return NextResponse.json({ error: "Template has no PDF data" }, { status: 404 });
-    }
+    const { fetchTemplatePdf } = await import("@/lib/templateBytes");
+    const templatePdf = await fetchTemplatePdf(templateId, templateData);
+    const templateBytes = templatePdf.buffer.slice(
+      templatePdf.byteOffset,
+      templatePdf.byteOffset + templatePdf.byteLength
+    );
 
     const pdfBytes = await renderCertificatePdf({
       templateBytes,

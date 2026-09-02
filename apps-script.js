@@ -117,6 +117,9 @@ function doPost(e) {
       case "deleteTemplate":
         result = deleteTemplate(payload);
         break;
+      case "getTemplateBytes":
+        result = getTemplateBytes(payload);
+        break;
       case "getFolder":
         result = getFolder(payload);
         break;
@@ -461,6 +464,15 @@ function uploadTemplate(payload) {
     previewUrl : "https://drive.google.com/file/d/" + file.getId() + "/preview",
     shared     : fileShared,
   };
+}
+
+// Returns the template's bytes regardless of link-sharing: this runs as the file
+// owner, so it works even when the Workspace policy blocks "anyone with the link".
+function getTemplateBytes(payload) {
+  var fileId = payload.fileId;
+  if (!fileId) throw new Error("fileId is required");
+  var blob = DriveApp.getFileById(fileId).getBlob();
+  return { success: true, base64: Utilities.base64Encode(blob.getBytes()), mimeType: blob.getContentType() };
 }
 
 function deleteTemplate(payload) {

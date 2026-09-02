@@ -525,24 +525,12 @@ export default function TemplatesPage() {
         setSelectedFile(null);
         setFormData({ name: "", description: "", category: "General" });
         fetchTemplates();
-        const needsSharingPrompt = data.sharingFailed && data.template?.driveFileId;
-        // Don't stack a success alert in front of the sharing prompt — the prompt
-        // already says the upload succeeded.
-        if (!needsSharingPrompt) alert("Template uploaded successfully!");
-        if (needsSharingPrompt) {
-          if (confirm("Template uploaded, but it is not publicly shareable yet. Make it public now?")) {
-            try {
-              const r = await fetch("/api/drive/ensure-public", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ fileId: data.template.driveFileId }),
-              });
-              const j = await r.json().catch(() => ({}));
-              alert(j.shared ? "Template is now public." : "Could not make it public — the bridge account may block link sharing.");
-            } catch {
-              alert("Could not reach the sharing service.");
-            }
-          }
+        // A failed public Drive link is no longer a problem: certificate rendering and
+        // the editor iframe fetch template bytes via the Apps Script owner fallback.
+        if (data.sharingFailed && data.template?.driveFileId) {
+          alert("Template uploaded. Couldn't set a public Drive link — that's fine, certificates still render.");
+        } else {
+          alert("Template uploaded successfully!");
         }
       } else {
         alert((data.error || "Failed to upload template") + (data.details ? `\n\nDetails: ${data.details}` : ""));

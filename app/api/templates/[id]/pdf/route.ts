@@ -24,30 +24,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       "Cache-Control": "private, max-age=3600",
     };
 
-    if (data.driveFileId) {
-      const driveRes = await fetch(
-        `https://drive.google.com/uc?export=download&id=${data.driveFileId}`,
-        { redirect: "follow" }
-      );
-      if (!driveRes.ok) {
-        return NextResponse.json(
-          {
-            error: "Failed to fetch template from Drive",
-            details:
-              `Drive returned ${driveRes.status}. If this is 403, the Workspace sharing policy may be ` +
-              `blocking "anyone with the link" on the templates folder.`,
-          },
-          { status: 502 }
-        );
-      }
-      return new NextResponse(await driveRes.arrayBuffer(), { headers });
-    }
-
-    if (!data.pdfBase64) {
-      return NextResponse.json({ error: "No PDF data" }, { status: 404 });
-    }
-
-    return new NextResponse(Buffer.from(data.pdfBase64, "base64"), { headers });
+    const { fetchTemplatePdf } = await import("@/lib/templateBytes");
+    const pdf = await fetchTemplatePdf(id, data);
+    return new NextResponse(pdf, { headers });
   } catch (error: any) {
     console.error("Error serving template PDF:", error);
     return NextResponse.json({ error: error?.message }, { status: 500 });
