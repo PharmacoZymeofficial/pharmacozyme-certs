@@ -1187,6 +1187,70 @@ Row mapping:
 
 ---
 
+### Task 3 — `syncData({ mode: "write" })`, header-driven, no-clobber
+
+Branch replaced in full: NO `clearContent`, NO positional `row[0..8]` writes. Every write is a targeted `sheet.getRange(row, managedCol[field]).setValue(...)` on a column the app owns. `WRITE_FIELDS` = `["certificateId","certificateUrl","status","issueDate","emailSent","driveLink","createdAt"]` (7). `ENSURE_FIELDS` = `["name","email"].concat(WRITE_FIELDS)` (9).
+
+**Trace 1 — user's "EL" layout after Task 2 restore (blank col A, custom D–H)**
+
+Input:
+- `sheet.getLastColumn() = 8`; `headerRow = ["", "Name", "Email", "Designation/Role", "Start Date", "End Date", "Duration", "Department"]` (0-based indices 0–7).
+- existing row 2: `["", "Javeria Mustaqeem", "jvra.mstqm@gmail.com", "Sales representative", "20-July-2025", "25-August-2026", "1 year and 1 month", "Sales"]`; `sheet.getLastRow() = 2`.
+- `participants = [{ name: "Javeria Mustaqeem", email: "jvra.mstqm@gmail.com", certificateId: "2026-PZ-CTM-0001", certificateUrl: "https://…", status: "generated", issueDate: "Sep 2, 2026", emailSent: false, driveLink: "https://drive…", createdAt: "2026-09-02T…" }]`
+
+Steps:
+- `lastCol = Math.max(8, 1) = 8`. `headerRow` read over 8 cols.
+- managedCol loop: c0 `""`→null; c1 `"Name"`→`name`→`managedCol.name = 2`; c2 `"Email"`→`email`→`managedCol.email = 3`; c3–c7 (`Designation/Role`,`Start Date`,`End Date`,`Duration`,`Department`)→not in `MANAGED_ALIASES_`→null. ⇒ `managedCol = { name: 2, email: 3 }`.
+- ENSURE loop (start `lastCol = 8`): `name`,`email` already present → skipped. Then append, each `lastCol += 1` then `setValue` bold at that col:
+  | field | col | label |
+  |-------|-----|-------|
+  | certificateId | 9 | Certificate ID |
+  | certificateUrl | 10 | Certificate URL |
+  | status | 11 | Status |
+  | issueDate | 12 | Issue Date |
+  | emailSent | 13 | Emailed |
+  | driveLink | 14 | Drive Link |
+  | createdAt | 15 | Created At |
+  ⇒ `columnsAppended = 7`. Appended columns start at 9 = one past the real last column (8). Custom cols 4–8 untouched; col 1 (blank) untouched.
+- Row index: `lastRow = 2 > 1`. `nameCol = 2`, `emailCol = 3`. `keyVals = getRange(2, 1, 1, 15)` (getLastColumn now 15). r0: `nm = "javeria mustaqeem"`, `em = "jvra.mstqm@gmail.com"` ⇒ `rowByKey = { "javeria mustaqeem_jvra.mstqm@gmail.com": 2 }`.
+- Participant loop, i0: `key = "javeria mustaqeem_jvra.mstqm@gmail.com"` → `row = 2` (matched). WRITE_FIELDS loop sets ONLY:
+  - col 9 = `"2026-PZ-CTM-0001"`, col 10 = `"https://…"`, col 11 = `"generated"`, col 12 = `"Sep 2, 2026"`, col 13 = `fmt("emailSent")` = `"No"` (emailSent false), col 14 = `"https://drive…"`, col 15 = `"2026-09-02T…"`.
+  - `written = 1`. Name (col 2), Email (col 3), blank col 1, and custom cols 4–8 (Designation/Role … Department) are never written.
+- Return: `{ success: true, rowsWritten: 1, columnsAppended: 7 }`. ✅ Matches brief.
+
+**Trace 2 — standard 9-col layout, unchanged roster**
+
+Input:
+- `headerRow = ["Name","Email","Certificate ID","Certificate URL","Status","Issue Date","Emailed","Drive Link","Created At"]` (new `addHeaders` order); `getLastColumn() = 9`.
+- existing rows 2–3 = Ali Raza / Sara Khan, already fully populated; `getLastRow() = 3`.
+- `participants` = the same two people, same field values (unchanged roster).
+
+Steps:
+- `lastCol = 9`. managedCol loop resolves every column ⇒ `managedCol = { name:1, email:2, certificateId:3, certificateUrl:4, status:5, issueDate:6, emailSent:7, driveLink:8, createdAt:9 }`.
+- ENSURE loop: all 9 fields present ⇒ no `setValue` on the header row, `columnsAppended = 0`.
+- Row index: `keyVals = getRange(2, 1, 2, 9)`. `rowByKey = { "ali raza_ali@example.com": 2, "sara khan_sara@example.com": 3 }`.
+- Participant loop: Ali → row 2 matched → cols 3–9 on row 2 re-set to their existing values (net no change); Sara → row 3 matched → cols 3–9 on row 3. Name/Email (cols 1–2) never rewritten. `written = 2`.
+- No `clearContent` anywhere in the branch (grep-verified). `emailSent` still serialized `"Yes"`/`"No"` exactly as the old code. For an unchanged roster every written cell equals its prior content ⇒ resulting sheet is identical to today's output, minus the destructive clear-and-rewrite of Name/Email and any columns ≥ 10.
+- Return: `{ success: true, rowsWritten: 2, columnsAppended: 0 }`. ✅
+
+**Trace 3 — brand-new empty tab**
+
+Input: freshly `insertSheet`-ed tab, no content. `sheet.getLastColumn() = 0`, `sheet.getLastRow() = 0`.
+
+Steps:
+- `lastCol = Math.max(0, 1) = 1`. `headerRow = getRange(1,1,1,1).getValues()[0] = [""]`.
+- managedCol loop: c0 `""`→null ⇒ `managedCol = {}`.
+- ENSURE loop (start `lastCol = 1`): every field absent, so all 9 appended in ENSURE order — `lastCol += 1` first, so the first append (`name`) lands at **column 2**:
+  `name`→2 "Name", `email`→3 "Email", `certificateId`→4, `certificateUrl`→5, `status`→6, `issueDate`→7, `emailSent`→8 "Emailed", `driveLink`→9, `createdAt`→10 "Created At". `columnsAppended = 9`. Column 1 is left blank (see Concern below).
+- Row index: `lastRow = 0`, not `> 1` ⇒ `rowByKey = {}`.
+- Participant loop: every participant unmatched → `lastRow += 1` (first new row = 1), ENSURE_FIELDS loop writes name→col2, email→col3, then the 7 WRITE_FIELDS into cols 4–10. Header at row 1, data from row 2 onward — wait: `lastRow` starts at 0, first `lastRow += 1` → 1, so the first appended data row is **row 1**, colliding with the header.
+
+Correction: on a brand-new tab `getLastRow()` returns 0 only when the sheet has zero content; but the ENSURE loop has just written header cells to row 1, so at the point `getLastRow()` is called (before the participant loop, after ENSURE) it returns **1**. So `lastRow = 1`; `lastRow > 1` is false ⇒ `rowByKey = {}`; first new row = `1 + 1 = 2`. Header row 1, data from row 2. ✅ Every participant is a new appended row with Name+Email+7 fields. Return `{ success: true, rowsWritten: participants.length, columnsAppended: 9 }`.
+
+Concern: because `lastCol` is seeded to `Math.max(getLastColumn(), 1) = 1` on an empty sheet and the ENSURE loop pre-increments, the header block starts at column 2 and column A stays permanently blank (data is internally consistent — header and rows share the same offset — and the read path skips the blank column, which is exactly how the user's existing "EL" sheet already looks). Reachable when `createSheet` is called with multiple `subDatabases`: only `getSheets()[0]` gets `addHeaders`; tabs 2+ (`insertSheet` at ~line 196) reach `syncData` write with no header row. Not data-destructive, but cosmetically leaves an empty column A. Left as brief-verbatim; flagged for the brief author (Task 4 `managedColMap_` or a follow-up may want `var lastCol = sheet.getLastColumn();` with a separate `>= 1` guard only for the header read).
+
+---
+
 ## Live smoke test (run by the user after merge + Apps Script redeploy)
 
 1. Google Sheets → "Official Certificates" → File → Version history → restore the version of the "EL" tab from before generation (with Designation/Start Date/… data).

@@ -235,9 +235,9 @@ function linkSheet(payload) {
 
 function addHeaders(sheet) {
   const headers = [
-    "Certificate ID",
     "Name",
-    "Email", 
+    "Email",
+    "Certificate ID",
     "Certificate URL",
     "Status",
     "Issue Date",
@@ -306,50 +306,72 @@ function syncData(payload) {
   }
 
   if (mode === "write") {
-    // Write headers if explicitly provided
-    if (writeHeaders && headers && headers.length > 0) {
-      const headerLabels = [
-        "Certificate ID",
-        "Name",
-        "Email",
-        "Certificate URL",
-        "Status",
-        "Issue Date",
-        "Emailed",
-        "Drive Link",
-        "Created At"
-      ];
-      sheet.getRange(1, 1, 1, headerLabels.length).setValues([headerLabels]);
-      sheet.getRange(1, 1, 1, headerLabels.length).setFontWeight("bold");
-      sheet.autoResizeColumns(1, headerLabels.length);
+    var participants = payload.participants || [];
+    var WRITE_FIELDS = ["certificateId", "certificateUrl", "status", "issueDate", "emailSent", "driveLink", "createdAt"];
+    var ENSURE_FIELDS = ["name", "email"].concat(WRITE_FIELDS);
+
+    var lastCol = Math.max(sheet.getLastColumn(), 1);
+    var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+
+    // header -> col index (1-based), managed only
+    var managedCol = {};
+    for (var c = 0; c < headerRow.length; c++) {
+      var mf = resolveManagedField_(headerRow[c]);
+      if (mf && managedCol[mf] === undefined) managedCol[mf] = c + 1;
     }
 
-    // Write data to Sheet
-    const rows = data.map(p => [
-      p.certificateId || "",
-      p.name || "",
-      p.email || "",
-      p.certificateUrl || "",
-      p.status || "pending",
-      p.issueDate || "",
-      p.emailSent ? "Yes" : "No",
-      p.driveLink || "",
-      p.createdAt || ""
-    ]);
+    // Ensure a column exists for every field we may write.
+    var columnsAppended = 0;
+    for (var f = 0; f < ENSURE_FIELDS.length; f++) {
+      var field = ENSURE_FIELDS[f];
+      if (managedCol[field] === undefined) {
+        lastCol += 1;
+        sheet.getRange(1, lastCol).setValue(MANAGED_LABELS_[field]).setFontWeight("bold");
+        managedCol[field] = lastCol;
+        columnsAppended += 1;
+      }
+    }
 
-    // Clear existing data (keep headers)
-    const lastRow = sheet.getLastRow();
+    // Index existing rows by name+email.
+    var lastRow = sheet.getLastRow();
+    var rowByKey = {};
     if (lastRow > 1) {
-      sheet.getRange(2, 1, lastRow - 1, 9).clearContent();
+      var nameCol = managedCol.name, emailCol = managedCol.email;
+      var keyVals = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+      for (var r = 0; r < keyVals.length; r++) {
+        var nm = String(keyVals[r][nameCol - 1] || "").toLowerCase().replace(/^\s+|\s+$/g, "");
+        var em = String(keyVals[r][emailCol - 1] || "").toLowerCase().replace(/^\s+|\s+$/g, "");
+        if (nm || em) rowByKey[nm + "_" + em] = r + 2;
+      }
     }
 
-    // Write new data
-    if (rows.length > 0) {
-      sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
+    function fmt(field, p) {
+      if (field === "emailSent") return p.emailSent ? "Yes" : "No";
+      return p[field] == null ? "" : p[field];
     }
 
-    return { success: true, rowsWritten: rows.length };
-    
+    var written = 0;
+    for (var i = 0; i < participants.length; i++) {
+      var p = participants[i];
+      var key = String(p.name || "").toLowerCase().replace(/^\s+|\s+$/g, "") + "_" +
+                String(p.email || "").toLowerCase().replace(/^\s+|\s+$/g, "");
+      var row = rowByKey[key];
+      if (row) {
+        for (var w = 0; w < WRITE_FIELDS.length; w++) {
+          sheet.getRange(row, managedCol[WRITE_FIELDS[w]]).setValue(fmt(WRITE_FIELDS[w], p));
+        }
+      } else {
+        lastRow += 1;
+        row = lastRow;
+        for (var e = 0; e < ENSURE_FIELDS.length; e++) {
+          sheet.getRange(row, managedCol[ENSURE_FIELDS[e]]).setValue(fmt(ENSURE_FIELDS[e], p));
+        }
+        rowByKey[key] = row;
+      }
+      written += 1;
+    }
+
+    return { success: true, rowsWritten: written, columnsAppended: columnsAppended };
   } else if (mode === "read") {
     var lastRow = sheet.getLastRow();
     var lastCol = sheet.getLastColumn();
