@@ -295,6 +295,21 @@ function formatCell_(cell) {
     : cell;
 }
 
+// sheet -> { managedField: 1-basedColNum | null } from the header row.
+function managedColMap_(sheet) {
+  var lastCol = Math.max(sheet.getLastColumn(), 1);
+  var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var map = {
+    name: null, email: null, certificateId: null, certificateUrl: null, status: null,
+    issueDate: null, emailSent: null, driveLink: null, createdAt: null
+  };
+  for (var c = 0; c < headerRow.length; c++) {
+    var mf = resolveManagedField_(headerRow[c]);
+    if (mf && map[mf] === null) map[mf] = c + 1;
+  }
+  return map;
+}
+
 function syncData(payload) {
   const { spreadsheetId, tabName, data, mode, writeHeaders, headers } = payload;
 
@@ -727,8 +742,8 @@ function shareBestEffort(fileOrFolder) {
   }
 }
 
-// Fast targeted update: only writes column A (Certificate ID) matched by email.
-// 3 batch API calls regardless of row count — no full-sheet rewrite needed.
+// Fast targeted update: only writes the header-resolved Certificate ID column,
+// matched on the header-resolved Email column. Batch reads/writes; no full-sheet rewrite.
 function updateCertIds(payload) {
   const { spreadsheetId, tabName, updates } = payload;
   if (!updates || updates.length === 0) return { success: true, updated: 0 };
@@ -742,34 +757,36 @@ function updateCertIds(payload) {
 
   const rowCount = lastRow - 1;
 
-  // Batch read: column A (cert IDs) and column C (emails)
-  const certIdCol = sheet.getRange(2, 1, rowCount, 1).getValues();
-  const emailCol  = sheet.getRange(2, 3, rowCount, 1).getValues();
+  var cols = managedColMap_(sheet);
+  if (!cols.email) return { success: false, error: "Sheet has no Email column" };
 
-  // Build email → certId map from the incoming updates
-  const emailToCertId = {};
-  updates.forEach(function(upd) {
-    const email = (upd.email || "").toLowerCase().trim();
+  // Ensure a Certificate ID column exists.
+  var certCol = cols.certificateId;
+  if (!certCol) {
+    certCol = sheet.getLastColumn() + 1;
+    sheet.getRange(1, certCol).setValue("Certificate ID").setFontWeight("bold");
+  }
+
+  var emailCol = sheet.getRange(2, cols.email, rowCount, 1).getValues();
+  var certIdCol = sheet.getRange(2, certCol, rowCount, 1).getValues();
+
+  var emailToCertId = {};
+  updates.forEach(function (upd) {
+    var email = (upd.email || "").toLowerCase().trim();
     if (email) emailToCertId[email] = upd.certificateId;
   });
 
-  // Apply updates to the certId column array
   var updated = 0;
   for (var i = 0; i < rowCount; i++) {
-    const email = (emailCol[i][0] || "").toLowerCase().trim();
-    if (emailToCertId[email] !== undefined) {
-      certIdCol[i][0] = emailToCertId[email];
-      updated++;
-    }
+    var email = (emailCol[i][0] || "").toLowerCase().trim();
+    if (emailToCertId[email] !== undefined) { certIdCol[i][0] = emailToCertId[email]; updated++; }
   }
-
-  // Batch write: one call for the whole column
-  sheet.getRange(2, 1, rowCount, 1).setValues(certIdCol);
-
+  sheet.getRange(2, certCol, rowCount, 1).setValues(certIdCol);
   return { success: true, updated: updated };
 }
 
-// Find row by email (col C) and update all fields; append if not found.
+// Find row by name+email on the header-resolved columns; write only the managed
+// cells (never the custom columns). Appends a full managed row if not found.
 function upsertRow(payload) {
   const { spreadsheetId, tabName, row } = payload;
 
@@ -777,39 +794,38 @@ function upsertRow(payload) {
   const sheet = spreadsheet.getSheetByName(tabName);
   if (!sheet) throw new Error("Sheet tab not found: " + tabName);
 
-  const email = (row.email || "").toLowerCase().trim();
-  const lastRow = sheet.getLastRow();
+  var cols = managedColMap_(sheet);
+  // Ensure name/email + the write fields have columns.
+  var ENSURE = ["name", "email", "certificateId", "certificateUrl", "status", "issueDate", "emailSent", "driveLink", "createdAt"];
+  var LABELS = { name: "Name", email: "Email", certificateId: "Certificate ID", certificateUrl: "Certificate URL",
+    status: "Status", issueDate: "Issue Date", emailSent: "Emailed", driveLink: "Drive Link", createdAt: "Created At" };
+  var lc = sheet.getLastColumn();
+  for (var f = 0; f < ENSURE.length; f++) {
+    if (!cols[ENSURE[f]]) { lc += 1; sheet.getRange(1, lc).setValue(LABELS[ENSURE[f]]).setFontWeight("bold"); cols[ENSURE[f]] = lc; }
+  }
 
-  // Scan col C for matching email
+  var name = (row.name || "").toLowerCase().trim();
+  var email = (row.email || "").toLowerCase().trim();
+  var lastRow = sheet.getLastRow();
   var targetRow = -1;
-  if (email && lastRow > 1) {
-    const emails = sheet.getRange(2, 3, lastRow - 1, 1).getValues();
-    for (var i = 0; i < emails.length; i++) {
-      if ((emails[i][0] || "").toLowerCase().trim() === email) {
-        targetRow = i + 2;
-        break;
-      }
+  if (lastRow > 1) {
+    var scan = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+    for (var i = 0; i < scan.length; i++) {
+      var n = String(scan[i][cols.name - 1] || "").toLowerCase().trim();
+      var e = String(scan[i][cols.email - 1] || "").toLowerCase().trim();
+      if (n === name && e === email) { targetRow = i + 2; break; }
     }
   }
 
-  const rowData = [
-    row.certificateId || "",
-    row.name || "",
-    row.email || "",
-    row.certificateUrl || "",
-    row.status || "pending",
-    row.issueDate || "",
-    row.emailSent ? "Yes" : "No",
-    row.driveLink || "",
-    row.createdAt || ""
-  ];
-
+  function put(field, val) { sheet.getRange(targetRow, cols[field]).setValue(val); }
+  var WRITE = ["certificateId", "certificateUrl", "status", "issueDate", "emailSent", "driveLink", "createdAt"];
   if (targetRow > 0) {
-    sheet.getRange(targetRow, 1, 1, rowData.length).setValues([rowData]);
+    for (var w = 0; w < WRITE.length; w++) put(WRITE[w], WRITE[w] === "emailSent" ? (row.emailSent ? "Yes" : "No") : (row[WRITE[w]] || ""));
     return { success: true, action: "updated", row: targetRow };
   } else {
-    sheet.appendRow(rowData);
-    return { success: true, action: "appended" };
+    targetRow = sheet.getLastRow() + 1;
+    for (var a = 0; a < ENSURE.length; a++) put(ENSURE[a], ENSURE[a] === "emailSent" ? (row.emailSent ? "Yes" : "No") : (row[ENSURE[a]] || ""));
+    return { success: true, action: "appended", row: targetRow };
   }
 }
 
@@ -817,10 +833,12 @@ function upsertRow(payload) {
  * Delete Sheet rows matching a list of participant identifiers.
  *
  * matches: [{ certificateId?, name?, email? }, ...]
- *   - certificateId present -> delete the row whose col A === certificateId exactly
- *   - else                  -> delete the row whose Name (col B) AND Email (col C)
+ *   - certificateId present -> delete the row whose resolved Certificate ID column
+ *                              === certificateId exactly
+ *   - else                  -> delete the row whose resolved Name AND Email columns
  *                              both match, case-insensitive and trimmed
- * Header row (row 1) is never touched. A match with no hit is a silent no-op.
+ * Columns are resolved from the header row; a sheet with no header falls back to
+ * cols 1/2/3. Header row (row 1) is never touched. A match with no hit is a silent no-op.
  * All target rows are collected first, then deleted bottom-up in one pass.
  */
 function deleteRows(payload) {
@@ -833,10 +851,16 @@ function deleteRows(payload) {
   var sheet = SpreadsheetApp.openById(spreadsheetId).getSheetByName(tabName);
   if (!sheet) throw new Error("Sheet tab not found: " + tabName);
 
+  var cols = managedColMap_(sheet);
+
   var lastRow = sheet.getLastRow();
   if (lastRow <= 1) return { success: true, deletedRows: 0 };
 
-  var values = sheet.getRange(2, 1, lastRow - 1, 3).getValues(); // cols A,B,C for data rows
+  // Fall back to cols 1/2/3 only when the header lacks that managed column
+  // (keeps a headerless sheet working exactly as before).
+  var aCol = cols.certificateId || 1, bCol = cols.name || 2, cCol = cols.email || 3;
+  var maxCol = Math.max(aCol, bCol, cCol);
+  var values = sheet.getRange(2, 1, lastRow - 1, maxCol).getValues();
 
   var norm = function (v) { return String(v == null ? "" : v).trim().toLowerCase(); };
   var certIds = {};
@@ -852,8 +876,8 @@ function deleteRows(payload) {
 
   var rowsToDelete = [];
   for (var i = values.length - 1; i >= 0; i--) {
-    var rowCertId = String(values[i][0]);
-    var key = norm(values[i][1]) + "\u0000" + norm(values[i][2]);
+    var rowCertId = String(values[i][aCol - 1]);
+    var key = norm(values[i][bCol - 1]) + "\u0000" + norm(values[i][cCol - 1]);
     if (certIds[rowCertId] === true || nameEmail[key] === true) {
       rowsToDelete.push(i + 2); // +2: 1-indexed + skip header
     }
@@ -873,9 +897,9 @@ function deleteRows(payload) {
   return { success: true, deletedRows: rowsToDelete.length };
 }
 
-// Clear col A (cert ID) for rows matched by email in col C -- never deletes rows.
+// Clear the header-resolved Certificate ID column for rows matched on the
+// header-resolved Email column -- never deletes rows.
 // Preserves all other columns (original form data, names, emails, etc.).
-// 3 batch API calls total regardless of row count.
 function clearCertIdsByEmail(payload) {
   const { spreadsheetId, tabName, emails } = payload;
   if (!emails || emails.length === 0) return { success: true, cleared: 0 };
@@ -890,20 +914,16 @@ function clearCertIdsByEmail(payload) {
   const rowCount = lastRow - 1;
   const emailSet = new Set(emails.map(function(e) { return (e || "").toLowerCase().trim(); }).filter(Boolean));
 
-  // Batch read col A and col C
-  const certIdCol = sheet.getRange(2, 1, rowCount, 1).getValues();
-  const emailCol  = sheet.getRange(2, 3, rowCount, 1).getValues();
+  var cols = managedColMap_(sheet);
+  if (!cols.email || !cols.certificateId) return { success: true, cleared: 0 };
+
+  var emailCol = sheet.getRange(2, cols.email, rowCount, 1).getValues();
+  var certIdCol = sheet.getRange(2, cols.certificateId, rowCount, 1).getValues();
 
   var cleared = 0;
   for (var i = 0; i < rowCount; i++) {
-    if (emailSet.has((emailCol[i][0] || "").toLowerCase().trim())) {
-      certIdCol[i][0] = "";
-      cleared++;
-    }
+    if (emailSet.has((emailCol[i][0] || "").toLowerCase().trim())) { certIdCol[i][0] = ""; cleared++; }
   }
-
-  // Batch write col A only
-  sheet.getRange(2, 1, rowCount, 1).setValues(certIdCol);
-
+  sheet.getRange(2, cols.certificateId, rowCount, 1).setValues(certIdCol);
   return { success: true, cleared: cleared };
 }

@@ -1251,6 +1251,45 @@ Concern: because `lastCol` is seeded to `Math.max(getLastColumn(), 1) = 1` on an
 
 ---
 
+### Task 4 — `upsertRow`, header-aware, against the "EL" layout
+
+**Trace — user's "EL" custom layout, editing Javeria's existing row**
+
+Input:
+- `sheet.getLastColumn() = 8`; `headerRow = ["", "Name", "Email", "Designation/Role", "Start Date", "End Date", "Duration", "Department"]` (0-based indices 0–7 → 1-based cols 1–8).
+- existing row 2: `["", "Javeria Mustaqeem", "jvra.mstqm@gmail.com", "Sales representative", "20-July-2025", "25-August-2026", "1 year and 1 month", "Sales"]`; `sheet.getLastRow() = 2`.
+- `row = { name: "Javeria Mustaqeem", email: "jvra.mstqm@gmail.com", certificateId: "2026-PZ-CTM-0001", certificateUrl: "https://…verify/2026-PZ-CTM-0001", status: "generated", issueDate: "Sep 2, 2026", emailSent: false, driveLink: "https://drive…", createdAt: "2026-09-02T…" }`
+
+Steps:
+- `cols = managedColMap_(sheet)`: `lastCol = max(8,1) = 8`; header loop — c0 `""`→`null`; c1 `"Name"`→`normalizeHeader_`→`"name"`→`name`, `map.name = 2`; c2 `"Email"`→`email`, `map.email = 3`; c3 `"Designation/Role"`→`"designation/role"`→not in `MANAGED_ALIASES_`→`null`; c4–c7 (`Start Date`,`End Date`,`Duration`,`Department`)→`null`. ⇒ `cols = { name:2, email:3, certificateId:null, certificateUrl:null, status:null, issueDate:null, emailSent:null, driveLink:null, createdAt:null }`.
+- ENSURE loop, `lc = sheet.getLastColumn() = 8`. `ENSURE = [name, email, certificateId, certificateUrl, status, issueDate, emailSent, driveLink, createdAt]`.
+  - `name` → `cols.name` truthy → skip. `email` → `cols.email` truthy → skip.
+  - `certificateId`: falsy → `lc = 9`; `setRange(1,9).setValue("Certificate ID").bold`; `cols.certificateId = 9`.
+  - `certificateUrl`: `lc = 10` → "Certificate URL"; `cols.certificateUrl = 10`.
+  - `status`: `lc = 11` → "Status"; `cols.status = 11`.
+  - `issueDate`: `lc = 12` → "Issue Date"; `cols.issueDate = 12`.
+  - `emailSent`: `lc = 13` → "Emailed"; `cols.emailSent = 13`.
+  - `driveLink`: `lc = 14` → "Drive Link"; `cols.driveLink = 14`.
+  - `createdAt`: `lc = 15` → "Created At"; `cols.createdAt = 15`.
+  ⇒ appended `Certificate ID`..`Created At` at cols **9–15**, one past the real last column (8). Blank col 1 and custom cols 4–8 untouched.
+- `name = "javeria mustaqeem"`, `email = "jvra.mstqm@gmail.com"`. `lastRow = sheet.getLastRow() = 2 > 1`:
+  - `scan = getRange(2, 1, 1, sheet.getLastColumn()=15).getValues()` → one row; `scan[0]` is the 15-wide row (cols 9–15 currently blank).
+  - i0: `n = String(scan[0][cols.name-1] = scan[0][1] = "Javeria Mustaqeem").toLowerCase().trim() = "javeria mustaqeem"`; `e = scan[0][2] = "jvra.mstqm@gmail.com"`. `n === name && e === email` → `targetRow = 0 + 2 = 2`. break.
+- `targetRow = 2 > 0` → update branch. `WRITE = [certificateId, certificateUrl, status, issueDate, emailSent, driveLink, createdAt]`. `put(field, val)` = `getRange(2, cols[field]).setValue(val)`:
+  - `put("certificateId", "2026-PZ-CTM-0001")` → cell (2,9)
+  - `put("certificateUrl", "https://…verify/2026-PZ-CTM-0001")` → (2,10)
+  - `put("status", "generated")` → (2,11)
+  - `put("issueDate", "Sep 2, 2026")` → (2,12)
+  - `put("emailSent", "No")` (field === "emailSent" → `row.emailSent ? "Yes" : "No"` → `false` → `"No"`) → (2,13)
+  - `put("driveLink", "https://drive…")` → (2,14)
+  - `put("createdAt", "2026-09-02T…")` → (2,15)
+  - Return `{ success: true, action: "updated", row: 2 }`.
+- Cells written on row 2: **only cols 9–15**. Col 1 (blank), col 2 (Name), col 3 (Email), and custom cols **4–8** (Designation/Role, Start Date, End Date, Duration, Department) are never touched. ✅ Matches the brief expectation (appends `Certificate ID`..`Created At` at cols 9–15, writes only those on row 2, leaves D–H intact).
+
+**Empty-tab cursor note:** `lc` is seeded from `sheet.getLastColumn()` (not `Math.max(…, 1)`), so on a genuinely empty tab the first ENSURE field (`name`) lands at `0 + 1 = 1` (column A), not column B. The append branch then sets `targetRow = sheet.getLastRow() + 1` — after the ENSURE loop wrote row 1 headers, `getLastRow() = 1` → first data row = 2. The same `getLastColumn()`-seeded cursor is used in `updateCertIds` / `clearCertIdsByEmail` (both via `sheet.getLastColumn() + 1` for the appended Certificate ID column).
+
+---
+
 ## Live smoke test (run by the user after merge + Apps Script redeploy)
 
 1. Google Sheets → "Official Certificates" → File → Version history → restore the version of the "EL" tab from before generation (with Designation/Start Date/… data).
