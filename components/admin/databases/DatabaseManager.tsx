@@ -172,6 +172,7 @@ export default function DatabaseManager({
     handleFindDriveFolder,
     fixFolderSharing,
     handleConsolidateFolders,
+    handlePruneDuplicates,
     refreshGenerationJob,
     resumeGeneration,
     resumeDatabase,
@@ -379,6 +380,7 @@ export default function DatabaseManager({
           onDismissResumeBanner={dismissResumeBanner}
           onFixFolderSharing={fixFolderSharing}
           onConsolidateFolders={handleConsolidateFolders}
+          onPruneDuplicates={handlePruneDuplicates}
         >
           <ParticipantTable
             participants={participants}

@@ -1087,6 +1087,53 @@ export function useDatabaseManager(category: "General" | "Official") {
     }
   };
 
+  const handlePruneDuplicates = async () => {
+    if (!selectedDatabase?.id) return;
+    if (!(selectedDatabase as Database).driveFolderId) {
+      toast.warning("Generate certificates first — there's no Drive folder to clean up yet.");
+      return;
+    }
+    try {
+      // Step 1: scan only — nothing is trashed yet.
+      const scanRes = await fetch("/api/drive/prune-duplicates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ databaseId: selectedDatabase.id, dryRun: true }),
+      });
+      const scan = await scanRes.json().catch(() => ({}));
+      if (!scanRes.ok) {
+        toast.error(scan.details || scan.error || "Could not scan the folder.");
+        return;
+      }
+      if (!scan.candidateCount) {
+        toast.success("No duplicate files found — the folder is already clean.");
+        return;
+      }
+      const ok = await confirm({
+        title: "Remove duplicate files",
+        message:
+          `${scan.keptCount} certificate file(s) will be kept.\n` +
+          `${scan.candidateCount} other file(s) in this folder will be moved to Trash ` +
+          `(recoverable for 30 days).`,
+        danger: true,
+        confirmText: "Move to Trash",
+      });
+      if (!ok) return;
+
+      // Step 2: actually trash them.
+      const runRes = await fetch("/api/drive/prune-duplicates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ databaseId: selectedDatabase.id, dryRun: false }),
+      });
+      const run = await runRes.json().catch(() => ({}));
+      if (runRes.ok) toast.success(`Moved ${run.trashedCount} file(s) to Trash.`);
+      else toast.error(run.details || run.error || "Could not remove duplicates.");
+    } catch {
+      toast.error("Could not reach the cleanup service.");
+    }
+  };
+
   // From the DB-list card badge: open the database AND drop straight into the
   // generator in resume mode (openDatabase re-fetches the job doc; the generator
   // re-fetches it too on its resume path).
@@ -1535,6 +1582,7 @@ export function useDatabaseManager(category: "General" | "Official") {
     handleFindDriveFolder,
     fixFolderSharing,
     handleConsolidateFolders,
+    handlePruneDuplicates,
     generationSummary,
     generationJobStatus,
     showResumeBanner,

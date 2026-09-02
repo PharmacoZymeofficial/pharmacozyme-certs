@@ -828,17 +828,24 @@ export default function CertificateGenerator({ database, participants, onGenerat
                 });
                 if (res.ok) {
                   const data = await res.json();
-                  if (!runFolderId && !driveFolderUpdated && data.folderId) {
-                    driveFolderUpdated = true;
-                    fetch("/api/databases", {
-                      method: "PUT",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        id: database.id,
-                        driveFolderId: data.folderId,
-                        driveFolderUrl: data.folderUrl || `https://drive.google.com/drive/folders/${data.folderId}`,
-                      }),
-                    }).catch(() => {});
+                  // If the script used a different folder than we asked for (a
+                  // stale or trashed folder id it had to self-heal around), adopt
+                  // it for the rest of this run and persist it so the next run
+                  // targets the right folder instead of repeating the fallback.
+                  if (data.folderId && data.folderId !== runFolderId) {
+                    runFolderId = data.folderId;
+                    if (!driveFolderUpdated) {
+                      driveFolderUpdated = true;
+                      fetch("/api/databases", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          id: database.id,
+                          driveFolderId: data.folderId,
+                          driveFolderUrl: data.folderUrl || `https://drive.google.com/drive/folders/${data.folderId}`,
+                        }),
+                      }).catch(() => {});
+                    }
                   }
                   return {
                     participantId: participant.id,

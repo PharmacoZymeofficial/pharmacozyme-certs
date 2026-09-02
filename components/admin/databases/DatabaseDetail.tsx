@@ -29,6 +29,7 @@ interface DatabaseDetailProps {
   onDismissResumeBanner?: () => void;
   onFixFolderSharing?: () => void;
   onConsolidateFolders?: () => void;
+  onPruneDuplicates?: () => void;
   children: ReactNode;
 }
 
@@ -55,6 +56,7 @@ export default function DatabaseDetail({
   onDismissResumeBanner,
   onFixFolderSharing,
   onConsolidateFolders,
+  onPruneDuplicates,
   children,
 }: DatabaseDetailProps): JSX.Element {
   return (
@@ -180,6 +182,18 @@ export default function DatabaseDetail({
                                 title="Merge duplicate Drive folders for this database into one"
                               >
                                 <span className="material-symbols-outlined text-sm">folder_managed</span>Consolidate
+                              </button>
+                            </>
+                          )}
+                          {onPruneDuplicates && (
+                            <>
+                              <div className="w-px h-4 bg-blue-200" />
+                              <button
+                                onClick={onPruneDuplicates}
+                                className="text-xs font-semibold text-blue-700 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors flex items-center gap-1"
+                                title="Move stale, orphaned, and duplicate certificate PDFs in this folder to Trash"
+                              >
+                                <span className="material-symbols-outlined text-sm">cleaning_services</span>Remove duplicates
                               </button>
                             </>
                           )}

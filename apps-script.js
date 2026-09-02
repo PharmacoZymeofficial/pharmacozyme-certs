@@ -99,6 +99,9 @@ function doPost(e) {
       case "consolidateFolders":
         result = consolidateFolders(payload);
         break;
+      case "pruneFolderDuplicates":
+        result = pruneFolderDuplicates(payload);
+        break;
       case "ensurePublic":
         result = ensurePublic(payload);
         break;
@@ -411,6 +414,9 @@ function uploadPDF(payload) {
   if (folderId) {
     try {
       folder = DriveApp.getFolderById(folderId);
+      // A trashed folder still resolves by id, and createFile() on it drops the
+      // file into the bin. Treat trashed the same as a stale id -- self-heal.
+      if (folder.isTrashed()) folder = getOrCreateFolder(databaseName);
     } catch (e) {
       // Stale/deleted folder id -- self-heal by name lookup instead of bricking the run.
       folder = getOrCreateFolder(databaseName);
@@ -453,6 +459,9 @@ function getOrCreateFolder(folderName) {
   if (DRIVE_FOLDER_ID) {
     try {
       parentFolder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+      // If the hard-coded parent was trashed, fall back to name lookup / recreate
+      // rather than nesting new subfolders inside the bin.
+      if (parentFolder && parentFolder.isTrashed()) parentFolder = null;
     } catch (e) {
       console.log("Could not get folder by ID, trying by name");
       parentFolder = null;
@@ -509,6 +518,9 @@ function consolidateFolders(payload) {
   }
 
   var canonical = DriveApp.getFolderById(canonicalFolderId);
+  if (canonical.isTrashed()) {
+    throw new Error("Canonical folder (" + canonicalFolderId + ") is in the trash -- restore it or relink the database's Drive folder first");
+  }
   if (canonical.getName() !== folderName) {
     throw new Error("Canonical folder name (" + canonical.getName() + ") does not match folderName (" + folderName + ")");
   }
@@ -532,6 +544,66 @@ function consolidateFolders(payload) {
   }
 
   return { success: true, movedFiles: movedFiles, trashedFolders: trashedFolders };
+}
+
+/**
+ * Trash every PDF directly inside `folderId` whose id is NOT in `keepFileIds`.
+ *
+ * keepFileIds = the Drive file id of each participant's current certificate PDF
+ * (built from Firestore by the caller). Everything else loose in the folder is a
+ * stale re-generated copy, an orphan, or a same-name duplicate -> trash it
+ * (recoverable for 30 days). Subfolders and non-PDF files are never touched.
+ *
+ * dryRun: true -> return the candidate list, trash nothing.
+ * Refuses when keepFileIds is empty (that means the database's links are broken
+ * and pruning would wipe the whole folder).
+ */
+function pruneFolderDuplicates(payload) {
+  var folderId = payload.folderId;
+  var keepFileIds = payload.keepFileIds || [];
+  var dryRun = payload.dryRun === true || payload.dryRun === "true";
+
+  if (!folderId) throw new Error("folderId is required");
+  if (!keepFileIds.length) {
+    throw new Error("keepFileIds is empty -- refusing to prune (the database has no linked certificate files)");
+  }
+
+  var folder = DriveApp.getFolderById(folderId);
+  if (folder.isTrashed()) {
+    throw new Error("Folder (" + folderId + ") is in the trash");
+  }
+
+  var keep = {};
+  for (var i = 0; i < keepFileIds.length; i++) keep[keepFileIds[i]] = true;
+
+  var candidates = [];
+  var files = folder.getFiles();
+  while (files.hasNext()) {
+    var f = files.next();
+    if (f.isTrashed()) continue;
+    if (keep[f.getId()]) continue;
+    if (f.getMimeType() !== "application/pdf") continue;
+    candidates.push({ id: f.getId(), name: f.getName() });
+  }
+
+  if (dryRun) {
+    return {
+      success: true,
+      dryRun: true,
+      keptCount: keepFileIds.length,
+      candidateCount: candidates.length,
+      candidates: candidates.slice(0, 50),
+    };
+  }
+
+  var trashed = 0;
+  for (var j = 0; j < candidates.length; j++) {
+    try {
+      DriveApp.getFileById(candidates[j].id).setTrashed(true);
+      trashed++;
+    } catch (e) { /* already gone -- ignore */ }
+  }
+  return { success: true, dryRun: false, keptCount: keepFileIds.length, trashedCount: trashed };
 }
 
 function getFolder(payload) {
