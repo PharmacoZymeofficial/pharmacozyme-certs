@@ -34,6 +34,11 @@ export async function POST(request: NextRequest) {
       fileName: result.fileName,
       webViewLink: result.webViewLink,
       webContentLink: result.webContentLink,
+      // The folder the script actually used — differs from the requested folderId
+      // when uploadPDF had to self-heal (stale or trashed id). The generator saves
+      // this back to the database so the next run targets the right folder.
+      folderId: result.folderId,
+      folderUrl: result.folderUrl,
       sharingFailed: result.shared === false,
     });
   } catch (error: any) {
