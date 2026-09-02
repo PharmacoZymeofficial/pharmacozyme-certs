@@ -336,7 +336,7 @@ export default function TemplatesPage() {
 
     if (activeResize && resizeStartRef.current) {
       const { clientX: startX, clientY: startY, startSize } = resizeStartRef.current;
-      const delta = ((e.clientX - startX) + (e.clientY - startY)) / 2;
+      const delta = (((e.clientX - startX) + (e.clientY - startY)) / 2) / zoom;
       if (activeResize === 'qr') {
         const s = Math.max(1, Math.min(25, Math.round(startSize + delta * 0.08)));
         updatePositions(prev => ({ ...prev, qr: { ...prev.qr, size: s } }));
@@ -1078,7 +1078,7 @@ export default function TemplatesPage() {
                     aspectRatio: `${templateDimensions.width} / ${templateDimensions.height}`,
                     cursor: activeDrag ? 'grabbing' : 'default',
                     transform: `scale(${zoom})`,
-                    transformOrigin: 'top center',
+                    transformOrigin: 'top left',
                   }}
                   ref={previewRef}
                   onMouseDown={handleMouseDown}

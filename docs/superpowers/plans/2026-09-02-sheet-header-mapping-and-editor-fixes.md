@@ -1243,9 +1243,8 @@ Steps:
 - ENSURE loop (start `lastCol = 1`): every field absent, so all 9 appended in ENSURE order — `lastCol += 1` first, so the first append (`name`) lands at **column 2**:
   `name`→2 "Name", `email`→3 "Email", `certificateId`→4, `certificateUrl`→5, `status`→6, `issueDate`→7, `emailSent`→8 "Emailed", `driveLink`→9, `createdAt`→10 "Created At". `columnsAppended = 9`. Column 1 is left blank (see Concern below).
 - Row index: `lastRow = 0`, not `> 1` ⇒ `rowByKey = {}`.
-- Participant loop: every participant unmatched → `lastRow += 1` (first new row = 1), ENSURE_FIELDS loop writes name→col2, email→col3, then the 7 WRITE_FIELDS into cols 4–10. Header at row 1, data from row 2 onward — wait: `lastRow` starts at 0, first `lastRow += 1` → 1, so the first appended data row is **row 1**, colliding with the header.
-
-Correction: on a brand-new tab `getLastRow()` returns 0 only when the sheet has zero content; but the ENSURE loop has just written header cells to row 1, so at the point `getLastRow()` is called (before the participant loop, after ENSURE) it returns **1**. So `lastRow = 1`; `lastRow > 1` is false ⇒ `rowByKey = {}`; first new row = `1 + 1 = 2`. Header row 1, data from row 2. ✅ Every participant is a new appended row with Name+Email+7 fields. Return `{ success: true, rowsWritten: participants.length, columnsAppended: 9 }`.
+- Row index: the ENSURE loop has just written header cells to row 1, so `sheet.getLastRow()` returns **1** at the point it is called (after ENSURE, before the participant loop). `lastRow = 1`; `lastRow > 1` is false ⇒ `rowByKey = {}`.
+- Participant loop: every participant is unmatched → `lastRow += 1` → first new data row = `1 + 1 = 2`. ENSURE_FIELDS loop writes name→col2, email→col3, then the 7 WRITE_FIELDS into cols 4–10. Header stays on row 1, data from row 2. ✅ Every participant is a new appended row with Name+Email+7 fields. Return `{ success: true, rowsWritten: participants.length, columnsAppended: 9 }`.
 
 Concern: because `lastCol` is seeded to `Math.max(getLastColumn(), 1) = 1` on an empty sheet and the ENSURE loop pre-increments, the header block starts at column 2 and column A stays permanently blank (data is internally consistent — header and rows share the same offset — and the read path skips the blank column, which is exactly how the user's existing "EL" sheet already looks). Reachable when `createSheet` is called with multiple `subDatabases`: only `getSheets()[0]` gets `addHeaders`; tabs 2+ (`insertSheet` at ~line 196) reach `syncData` write with no header row. Not data-destructive, but cosmetically leaves an empty column A. Left as brief-verbatim; flagged for the brief author (Task 4 `managedColMap_` or a follow-up may want `var lastCol = sheet.getLastColumn();` with a separate `>= 1` guard only for the header read).
 
@@ -1290,17 +1289,19 @@ Steps:
 
 ---
 
-## Live smoke test (run by the user after merge + Apps Script redeploy)
+## Live smoke test (run by the user — redeploy Apps Script FIRST, then merge + deploy Vercel)
 
-1. Google Sheets → "Official Certificates" → File → Version history → restore the version of the "EL" tab from before generation (with Designation/Start Date/… data).
-2. Redeploy the Apps Script web app (edit version, URL unchanged).
-3. In the app, open the database linked to that sheet → sync **from** the sheet → confirm the participant now shows Designation/Role, Start Date, etc. (check the participant table or re-open the generator warning — it should NOT warn about missing bound fields).
-4. Generate one certificate. Confirm: the PDF prints Designation/Role, Start Date, End Date, Duration, Department in their bound positions; QR + cert ID + name still correct.
-5. Open the sheet. Confirm: the D–H custom columns are still there with their original values; `Certificate ID`, `Certificate URL`, `Status`, `Drive Link`, etc. are filled into existing or newly-appended columns; no column was wiped.
-6. Regenerate the earlier bad `2026-PZ-CTM-0001` so its bound fields are populated.
-7. Template editor: open a template, zoom to 150–200%, confirm markers track the background; drop a marker and confirm it lands where expected.
-8. Preview a portrait template: confirm "Fit page" shows the whole page and "Actual size" scrolls.
-9. Upload a template from an account whose Drive blocks link sharing: confirm the toast is informational (not a red error) and the editor still renders the PDF.
+1. Redeploy the Apps Script web app (edit → new version, URL unchanged). `read` is backward-compatible either way, but `write` is not — deploying Vercel before the Apps Script redeploy makes every Firebase→Sheets sync 500 until the redeploy (the new `/api/sheets/sync` sends `{ mode:"write", participants:[...] }` with no `data`; the old deployed write branch does `data.map(...)`). Redeploy Apps Script first.
+2. Merge `feat/sheet-header-mapping` and let Vercel deploy — only after step 1.
+3. Vercel blue-dot Production SHA check: confirm the git commit shown in Deployments matches the pushed branch HEAD.
+4. Google Sheets → "Official Certificates" → File → Version history → restore the version of the "EL" tab from before generation (with Designation/Start Date/… data).
+5. In the app, open the database linked to that sheet → sync **from** the sheet → confirm the participant now shows Designation/Role, Start Date, etc. (check the participant table or re-open the generator warning — it should NOT warn about missing bound fields).
+6. Generate one certificate. Confirm: the PDF prints Designation/Role, Start Date, End Date, Duration, Department in their bound positions; QR + cert ID + name still correct.
+7. Open the sheet. Confirm: the D–H custom columns are still there with their original values; `Certificate ID`, `Certificate URL`, `Status`, `Drive Link`, etc. are filled into existing or newly-appended columns; no column was wiped.
+8. Regenerate the earlier bad `2026-PZ-CTM-0001` so its bound fields are populated.
+9. Template editor: open a template, zoom to 150–200%, confirm markers track the background; drop a marker and confirm it lands where expected.
+10. Preview a portrait template: confirm "Fit page" shows the whole page and "Actual size" scrolls.
+11. Upload a template from an account whose Drive blocks link sharing: confirm the toast is informational (not a red error) and the editor still renders the PDF.
 
 ---
 

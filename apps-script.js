@@ -291,7 +291,7 @@ function normalizeHeader_(h) {
 function resolveManagedField_(h) {
   var n = normalizeHeader_(h);
   if (!n) return null;
-  return MANAGED_ALIASES_[n] || null;
+  return Object.prototype.hasOwnProperty.call(MANAGED_ALIASES_, n) ? MANAGED_ALIASES_[n] : null;
 }
 function formatCell_(cell) {
   return Object.prototype.toString.call(cell) === "[object Date]"
@@ -315,7 +315,7 @@ function managedColMap_(sheet) {
 }
 
 function syncData(payload) {
-  const { spreadsheetId, tabName, data, mode, writeHeaders, headers } = payload;
+  const { spreadsheetId, tabName, mode } = payload;
 
   const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
   const sheet = spreadsheet.getSheetByName(tabName);
@@ -329,8 +329,8 @@ function syncData(payload) {
     var WRITE_FIELDS = ["certificateId", "certificateUrl", "status", "issueDate", "emailSent", "driveLink", "createdAt"];
     var ENSURE_FIELDS = ["name", "email"].concat(WRITE_FIELDS);
 
-    var lastCol = Math.max(sheet.getLastColumn(), 1);
-    var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var lastCol = sheet.getLastColumn();
+    var headerRow = lastCol >= 1 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
 
     // header -> col index (1-based), managed only
     var managedCol = {};

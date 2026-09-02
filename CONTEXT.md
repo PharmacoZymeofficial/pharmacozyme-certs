@@ -374,16 +374,21 @@ clean. Committed but **requires Apps Script redeploy + live steps before ship** 
 
 **Manual steps owed at ship:**
 
-1. Apps Script web-app redeploy (edit version, URL unchanged) — `syncData` rewrite +
-   `getTemplateBytes` are inert until then.
-2. Restore "EL" tab of "Official Certificates" sheet from Google Sheets version history
-   (generation had overwritten its custom columns before this fix landed).
-3. Regenerate certificate `2026-PZ-CTM-0001` (was issued with blank bound fields before
-   the fix).
-4. Run the plan's Live smoke test checklist (9 items in
-   `docs/superpowers/plans/2026-09-02-sheet-header-mapping-and-editor-fixes.md`).
-5. Vercel blue-dot Production SHA check after deploy (verify git commit shown in
+1. Apps Script web-app redeploy (edit version, URL unchanged) — **do this before deploying
+   Vercel — the write path 500s otherwise.** The new `/api/sheets/sync` sends
+   `{ mode:"write", participants:[...] }` with no `data`; the old deployed Apps Script
+   write branch does `data.map(...)`, so every Firebase→Sheets sync (incl. post-generation
+   sync) 500s in the gap. `read` is backward-compatible either way; `getTemplateBytes`
+   also needs the redeploy.
+2. Merge + deploy Vercel (only after step 1).
+3. Vercel blue-dot Production SHA check after deploy (verify git commit shown in
    Deployments matches the pushed branch HEAD).
+4. Restore "EL" tab of "Official Certificates" sheet from Google Sheets version history
+   (generation had overwritten its custom columns before this fix landed).
+5. Regenerate certificate `2026-PZ-CTM-0001` (was issued with blank bound fields before
+   the fix).
+6. Run the plan's Live smoke test checklist in
+   `docs/superpowers/plans/2026-09-02-sheet-header-mapping-and-editor-fixes.md`.
 
 **Verification at HEAD:** `npx tsc --noEmit`, `npx vitest run`, `npx next build` all pass.
 

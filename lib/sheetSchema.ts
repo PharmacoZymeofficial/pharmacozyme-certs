@@ -76,7 +76,7 @@ export function normalizeHeader(h: string): string {
 export function resolveManagedField(h: string): ManagedField | null {
   const n = normalizeHeader(h);
   if (!n) return null;
-  return ALIASES[n] ?? null;
+  return Object.prototype.hasOwnProperty.call(ALIASES, n) ? ALIASES[n] : null;
 }
 
 /**

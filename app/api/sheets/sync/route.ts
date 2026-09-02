@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
           issueDate: rec.issueDate || "",
           emailSent: !!rec.emailSent,
           driveLink: rec.driveLink || "",
-          customFields: (rec.custom && typeof rec.custom === "object") ? rec.custom : {},
+          customFields: (rec.custom && typeof rec.custom === "object" && !Array.isArray(rec.custom)) ? rec.custom : {},
         };
 
         if (existing) {
