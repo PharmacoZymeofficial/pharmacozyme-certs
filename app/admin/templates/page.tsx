@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AVAILABLE_FONTS, getGoogleFontsUrl } from "@/lib/fonts";
 
+// Discrete zoom levels for the template editor canvas. "Fit" resets to 1.
+const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
 interface PositionConfig {
   x: number;
   y: number;
@@ -88,6 +91,10 @@ export default function TemplatesPage() {
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   // Actual PDF page dimensions — drives the correct aspect ratio for the preview canvas
   const [templateDimensions, setTemplateDimensions] = useState<{ width: number; height: number }>({ width: 595, height: 842 });
+  // Canva-style canvas zoom. Scales the whole canvas wrapper (background + markers) as one
+  // unit via CSS transform, so percentage-based marker math stays zoom-invariant. Does not
+  // persist — always resets to 1 ("Fit") when a template is opened for editing.
+  const [zoom, setZoom] = useState(1);
   const previewRef = useRef<HTMLDivElement>(null);
   // Tracks the initial state when a resize drag starts (delta-based resize)
   const resizeStartRef = useRef<{ clientX: number; clientY: number; startSize: number } | null>(null);
@@ -359,6 +366,7 @@ export default function TemplatesPage() {
   // Fetch actual PDF page dimensions whenever a template is opened for editing
   useEffect(() => {
     if (!editingTemplate) return;
+    setZoom(1); // zoom never persists — every editor open starts at "Fit"
     setTemplateDimensions({ width: 595, height: 842 }); // reset to portrait default
     fetch(`/api/templates/${editingTemplate.id}/dimensions`)
       .then(r => r.json())
@@ -1011,7 +1019,39 @@ export default function TemplatesPage() {
             </div>
 
             {/* Center — canvas */}
-            <div className="flex-1 flex items-start justify-center p-6 overflow-auto">
+            <div className="relative flex-1 flex items-start justify-center p-6 overflow-auto">
+              {/* Zoom control — scales the canvas wrapper (background + markers) as one unit */}
+              <div className="absolute top-3 right-3 z-30 flex items-center gap-1 bg-white/95 border border-gray-200 rounded-lg shadow-sm px-1.5 py-1">
+                <button
+                  type="button"
+                  onClick={() => setZoom(z => ZOOM_STEPS[Math.max(0, ZOOM_STEPS.indexOf(z) - 1)] ?? 0.5)}
+                  disabled={zoom <= ZOOM_STEPS[0]}
+                  className="px-1.5 text-gray-600 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  title="Zoom out"
+                  aria-label="Zoom out"
+                >
+                  −
+                </button>
+                <span className="text-xs tabular-nums w-10 text-center text-gray-600">{Math.round(zoom * 100)}%</span>
+                <button
+                  type="button"
+                  onClick={() => setZoom(z => ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, ZOOM_STEPS.indexOf(z) + 1)] ?? 2)}
+                  disabled={zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1]}
+                  className="px-1.5 text-gray-600 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  title="Zoom in"
+                  aria-label="Zoom in"
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setZoom(1)}
+                  className="px-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                  title="Reset zoom to 100%"
+                >
+                  Fit
+                </button>
+              </div>
               <div className="w-full" style={{ maxWidth: Math.round((templateDimensions.width / templateDimensions.height) * 620) }}>
                 {previewPdfUrl && (
                   <div className="mb-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-xl flex items-center justify-between text-xs">
@@ -1027,7 +1067,12 @@ export default function TemplatesPage() {
                 )}
                 <div
                   className="relative bg-white shadow-xl overflow-hidden select-none border border-gray-300"
-                  style={{ aspectRatio: `${templateDimensions.width} / ${templateDimensions.height}`, cursor: activeDrag ? 'grabbing' : 'default' }}
+                  style={{
+                    aspectRatio: `${templateDimensions.width} / ${templateDimensions.height}`,
+                    cursor: activeDrag ? 'grabbing' : 'default',
+                    transform: `scale(${zoom})`,
+                    transformOrigin: 'top center',
+                  }}
                   ref={previewRef}
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}
