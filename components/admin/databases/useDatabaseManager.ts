@@ -8,6 +8,8 @@ import { useConfirm } from "@/components/ConfirmModal";
 import { sfx } from "@/lib/sfx";
 import { tallyEmailOutcomes } from "@/lib/emailOutcome";
 import { SENDER_IDENTITIES, subCategoryShortMap, categoryStructure } from "@/components/admin/databases/constants";
+import { resolveDriveFileId } from "@/lib/driveIds";
+import { deriveGenerationSummary, jobEffectiveStatus } from "@/lib/generationState";
 
 export function useDatabaseManager(category: "General" | "Official") {
   const toast = useToast();
@@ -23,6 +25,7 @@ export function useDatabaseManager(category: "General" | "Official") {
   const [fetchedOnce, setFetchedOnce] = useState(false);
   const [generationJob, setGenerationJob] = useState<GenerationJob | null>(null);
   const [generatorResumeMode, setGeneratorResumeMode] = useState(false);
+  const [resumeBannerDismissed, setResumeBannerDismissed] = useState(false);
   // Guards the generation-job fetch against a cross-database race: opening DB A
   // then quickly DB B must not let A's slower response overwrite B's job state.
   const jobFetchSeq = useRef(0);
@@ -328,6 +331,7 @@ export function useDatabaseManager(category: "General" | "Official") {
     const seq = ++jobFetchSeq.current;
     setSelectedDatabase(db);
     setGenerationJob(null);
+    setResumeBannerDismissed(false);
     if (db?.id) {
       fetch(`/api/generation-jobs/${db.id}`)
         .then((r) => (r.ok ? r.json() : null))
@@ -346,6 +350,7 @@ export function useDatabaseManager(category: "General" | "Official") {
     setParticipantSearch("");
     setSelectedParticipants([]);
     setGenerationJob(null);
+    setResumeBannerDismissed(false);
     setGeneratorResumeMode(false);
   }, [category]);
 
@@ -926,8 +931,8 @@ export function useDatabaseManager(category: "General" | "Official") {
         const dbParticipants = participantsData.participants || [];
         // Delete Drive files in parallel
         const driveDeletes = dbParticipants
-          .filter((p: any) => p.driveFileId)
-          .map((p: any) => fetch(`/api/drive-upload?fileId=${p.driveFileId}`, { method: "DELETE" }).catch(() => {}));
+          .filter((p: any) => resolveDriveFileId(p))
+          .map((p: any) => fetch(`/api/drive-upload?fileId=${resolveDriveFileId(p)}`, { method: "DELETE" }).catch(() => {}));
         if (driveDeletes.length > 0) {
           await Promise.allSettled(driveDeletes);
         }
@@ -1055,6 +1060,47 @@ export function useDatabaseManager(category: "General" | "Official") {
     }
   };
 
+  const handleConsolidateFolders = async () => {
+    if (!selectedDatabase?.id) return;
+    if (!(selectedDatabase as Database).driveFolderId) {
+      toast.warning("Generate certificates first — there's no main Drive folder to consolidate into yet.");
+      return;
+    }
+    try {
+      const res = await fetch("/api/drive/consolidate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ databaseId: selectedDatabase.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        toast.success(
+          data.movedFiles || data.trashedFolders
+            ? `Moved ${data.movedFiles} file(s), removed ${data.trashedFolders} duplicate folder(s).`
+            : "No duplicate folders found — nothing to consolidate."
+        );
+      } else {
+        toast.error(data.error || "Could not consolidate folders.");
+      }
+    } catch {
+      toast.error("Could not reach the consolidation service.");
+    }
+  };
+
+  // From the DB-list card badge: open the database AND drop straight into the
+  // generator in resume mode (openDatabase re-fetches the job doc; the generator
+  // re-fetches it too on its resume path).
+  const resumeDatabase = async (db: Database) => {
+    openDatabase(db);
+    setSelectedParticipants([]);
+    // Await the roster before opening the modal — otherwise the generator mounts
+    // with participants=[] and its auto-start can race the templates fetch and
+    // delete the job doc without generating anything.
+    if (db.id) await fetchParticipants(db.id);
+    setGeneratorResumeMode(true);
+    setShowGeneratorModal(true);
+  };
+
   const resumeGeneration = () => {
     // A stale row selection would scope the resumed run to a subset of the
     // original batch (DatabaseManager passes the selection into the generator).
@@ -1063,13 +1109,10 @@ export function useDatabaseManager(category: "General" | "Official") {
     setShowGeneratorModal(true);
   };
 
-  const discardGenerationJob = async () => {
-    if (!selectedDatabase?.id) return;
-    // Invalidate any in-flight job GET so it can't repaint the banner after the delete.
-    jobFetchSeq.current++;
-    await fetch(`/api/generation-jobs/${selectedDatabase.id}`, { method: "DELETE" }).catch(() => {});
-    setGenerationJob(null);
-  };
+  // Flag-only: the job-doc lifecycle is the generator's responsibility now (it
+  // deletes on clean/no-op finish, keeps on interrupt). Dismissing just hides the
+  // banner locally — derived participant state is the truth.
+  const dismissResumeBanner = () => setResumeBannerDismissed(true);
 
   const refreshGenerationJob = () => {
     if (!selectedDatabase?.id) return;
@@ -1233,8 +1276,8 @@ export function useDatabaseManager(category: "General" | "Official") {
 
     try {
       await Promise.all([
-        participant.driveFileId
-          ? fetch(`/api/drive-upload?fileId=${participant.driveFileId}`, { method: "DELETE" })
+        resolveDriveFileId(participant)
+          ? fetch(`/api/drive-upload?fileId=${resolveDriveFileId(participant)}`, { method: "DELETE" })
           : Promise.resolve(),
         participant.certificateId
           ? fetch(`/api/certificates?uniqueCertId=${encodeURIComponent(participant.certificateId)}`, { method: "DELETE" })
@@ -1305,8 +1348,9 @@ export function useDatabaseManager(category: "General" | "Official") {
     if (!ok) return;
 
     try {
-      if (participant.driveFileId) {
-        const driveRes = await fetch(`/api/drive-upload?fileId=${participant.driveFileId}`, { method: "DELETE" });
+      const fid = resolveDriveFileId(participant);
+      if (fid) {
+        const driveRes = await fetch(`/api/drive-upload?fileId=${fid}`, { method: "DELETE" });
         if (!driveRes.ok) {
           const driveData = await driveRes.json().catch(() => ({}));
           console.error("Drive delete failed:", driveData.error);
@@ -1334,6 +1378,16 @@ export function useDatabaseManager(category: "General" | "Official") {
     }
   };
 
+  // A DB with no linked sheet has no PDF phase — never park those at needs-pdf.
+  const generationSummary = deriveGenerationSummary(participants, !!selectedDatabase?.linkedSheet);
+  const generationJobStatus = generationJob
+    ? jobEffectiveStatus({ status: generationJob.status, startedAt: generationJob.startedAt })
+    : null;
+  const showResumeBanner =
+    !!generationJob &&
+    !resumeBannerDismissed &&
+    generationSummary.needsCert + generationSummary.needsPdf > 0;
+
   return {
     databases,
     allDatabases,
@@ -1342,7 +1396,6 @@ export function useDatabaseManager(category: "General" | "Official") {
     selectedDatabase,
     isLoading,
     fetchedOnce,
-    generationJob,
     generatorResumeMode,
     showCreateModal,
     showParticipantModal,
@@ -1481,8 +1534,13 @@ export function useDatabaseManager(category: "General" | "Official") {
     handlePushToSheet,
     handleFindDriveFolder,
     fixFolderSharing,
+    handleConsolidateFolders,
+    generationSummary,
+    generationJobStatus,
+    showResumeBanner,
     resumeGeneration,
-    discardGenerationJob,
+    resumeDatabase,
+    dismissResumeBanner,
     refreshGenerationJob,
     handleGenerateIds,
     handleConfirmGenerateIds,

@@ -31,7 +31,9 @@ export default function DatabaseManager({
     isLoading,
     fetchedOnce,
     generatorResumeMode,
-    generationJob,
+    generationSummary,
+    generationJobStatus,
+    showResumeBanner,
     showCreateModal,
     showParticipantModal,
     showImportModal,
@@ -169,9 +171,11 @@ export default function DatabaseManager({
     handlePushToSheet,
     handleFindDriveFolder,
     fixFolderSharing,
+    handleConsolidateFolders,
     refreshGenerationJob,
     resumeGeneration,
-    discardGenerationJob,
+    resumeDatabase,
+    dismissResumeBanner,
     handleGenerateIds,
     handleConfirmGenerateIds,
     handleSaveCertId,
@@ -346,6 +350,7 @@ export default function DatabaseManager({
           handleRenameDatabase={handleRenameDatabase}
           handleDeleteDatabase={handleDeleteDatabase}
           handleToggleLive={handleToggleLive}
+          onResumeDatabase={resumeDatabase}
         />
       )}
 
@@ -367,10 +372,13 @@ export default function DatabaseManager({
           toast={toast}
           setShowParticipantModal={setShowParticipantModal}
           setShowImportModal={setShowImportModal}
-          generationJob={generationJob}
+          showResumeBanner={showResumeBanner}
+          resumeBannerStatus={generationJobStatus}
+          generationSummary={generationSummary}
           onResumeGeneration={resumeGeneration}
-          onDiscardGeneration={discardGenerationJob}
+          onDismissResumeBanner={dismissResumeBanner}
           onFixFolderSharing={fixFolderSharing}
+          onConsolidateFolders={handleConsolidateFolders}
         >
           <ParticipantTable
             participants={participants}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase.admin";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { callAppsScript, appsScriptConfigured } from "@/lib/appsScript";
-import { deleteDriveFile, fileIdFromLink } from "@/lib/driveCleanup";
+import { deleteDriveFile, resolveDriveFileId } from "@/lib/driveCleanup";
 import { deleteCertificateCascade } from "@/lib/certCascade";
 
 async function getSheetInfo(databaseId: string) {
@@ -108,24 +108,25 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     // Delete the participant's own Drive file — but only when the cert cascade above
     // did NOT already handle it (a cert'd participant's file is deleted by the cascade).
     if (!keepPdf && !(participantData?.certificateId && !keepCert)) {
-      const fileId =
-        participantData?.driveFileId || fileIdFromLink(participantData?.driveLink);
+      const fileId = resolveDriveFileId(participantData || {});
       if (fileId) await deleteDriveFile(fileId);
     }
 
     await participantRef.delete();
 
-    // Sync: clear only col A (cert ID) for this participant, never delete the row.
-    // Preserves pre-existing sheet data (Google Form responses etc.)
+    // Remove the participant's Sheet row entirely (cert id if we have one, else
+    // name+email). Best-effort — a redeploy of apps-script.js enables deleteRows.
     if (appsScriptConfigured()) {
       try {
         const sheet = await getSheetInfo(databaseId);
-        const email = participantData?.email;
-        if (sheet && email) {
-          await callAppsScript("clearCertIdsByEmail", { ...sheet, emails: [email] });
+        if (sheet && participantData) {
+          const match = participantData.certificateId
+            ? { certificateId: participantData.certificateId }
+            : { name: participantData.name || "", email: participantData.email || "" };
+          await callAppsScript("deleteRows", { ...sheet, matches: [match] });
         }
       } catch (syncErr) {
-        console.error("Sheet clear failed after participant deletion:", syncErr);
+        console.error("Sheet row delete failed after participant deletion:", syncErr);
       }
     }
 

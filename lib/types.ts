@@ -82,12 +82,9 @@ export interface Category {
 
 export interface GenerationJob {
   databaseId: string;
-  total: number;
-  completedParticipantIds: string[];
-  phase: "rendering" | "drive-upload" | "sheet-sync";
-  /** Template the run started with — a resumed run is locked to it. */
+  /** Template the run started with — a resumed run re-locks to it. */
   templateId?: string;
   startedAt: string;
-  updatedAt: string;
+  status: "running" | "interrupted";
   startedBy: string;
 }

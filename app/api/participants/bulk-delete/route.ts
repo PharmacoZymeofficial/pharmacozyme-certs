@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase.admin";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { callAppsScript, appsScriptConfigured } from "@/lib/appsScript";
-import { deleteDriveFile, fileIdFromLink } from "@/lib/driveCleanup";
+import { deleteDriveFile, resolveDriveFileId } from "@/lib/driveCleanup";
 import { deleteCertificateCascade } from "@/lib/certCascade";
 
 const MAX_IDS = 500;
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     const dbData = dbSnap.exists ? dbSnap.data() || {} : {};
 
     const errors: string[] = [];
-    const deletedEmails: string[] = [];
+    const rowMatches: Array<{ certificateId?: string; name?: string; email?: string }> = [];
 
     type Result = { deleted: number; certDocs: number; driveFiles: number };
 
@@ -59,13 +59,15 @@ export async function POST(request: NextRequest) {
         }
 
         if (deletePdfs && !(data?.certificateId && deleteCerts)) {
-          const fileId = data?.driveFileId || fileIdFromLink(data?.driveLink);
+          const fileId = resolveDriveFileId(data || {});
           if (fileId && (await deleteDriveFile(fileId))) res.driveFiles++;
         }
 
         await col.doc(pid).delete();
         res.deleted++;
-        if (data?.email) deletedEmails.push(data.email);
+        if (data?.certificateId) rowMatches.push({ certificateId: data.certificateId });
+        else if (data?.name || data?.email)
+          rowMatches.push({ name: data?.name || "", email: data?.email || "" });
       } catch (err) {
         errors.push(`${pid}: ${err instanceof Error ? err.message : String(err)}`);
       }
@@ -83,14 +85,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // One batched sheet clear for every deleted participant (per-item cascade ran
-    // with clearParticipant:false, so the sheet clear must happen once here).
-    if (deletedEmails.length > 0 && dbData.sheetId && appsScriptConfigured()) {
-      await callAppsScript("clearCertIdsByEmail", {
+    // One batched Sheet row delete for every participant removed above.
+    if (rowMatches.length > 0 && dbData.sheetId && appsScriptConfigured()) {
+      await callAppsScript("deleteRows", {
         spreadsheetId: dbData.sheetId,
         tabName: dbData.sheetTabName || "Participants",
-        emails: deletedEmails,
-      }).catch((e) => console.error("Bulk-delete sheet clear failed:", e));
+        matches: rowMatches,
+      }).catch((e) => console.error("Bulk-delete sheet row delete failed:", e));
     }
 
     return NextResponse.json({

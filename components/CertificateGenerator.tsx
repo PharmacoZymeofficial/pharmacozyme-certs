@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Document, Page, Text, View, StyleSheet, PDFDownloadLink, Image, Font } from "@react-pdf/renderer";
 import QRCode from "qrcode";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
@@ -20,7 +20,7 @@ async function loadFontBytesViaProxy(fontName: string): Promise<Uint8Array | nul
 }
 import { useToast } from "@/components/Toast";
 import { sfx } from "@/lib/sfx";
-import { remainingToGenerate } from "@/lib/generationResume";
+import { classifyParticipant, deriveGenerationSummary } from "@/lib/generationState";
 import type { GenerationJob } from "@/lib/types";
 
 
@@ -473,12 +473,11 @@ export default function CertificateGenerator({ database, participants, onGenerat
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [currentGenerating, setCurrentGenerating] = useState("");
-  const [showExistingWarning, setShowExistingWarning] = useState(false);
-  const [existingCertCount, setExistingCertCount] = useState(0);
-  const [filterNewOnly, setFilterNewOnly] = useState(false);
   const [templateSearch, setTemplateSearch] = useState("");
 
-  const participantsWithExistingPDFs = participants.filter(p => p.certificateId);
+  const summary = deriveGenerationSummary(participants, !!database.linkedSheet);
+  // Default target: everything not already complete. Checkbox adds the complete set.
+  const [regenerateComplete, setRegenerateComplete] = useState(false);
 
   useEffect(() => {
     const fetchTemplates = async () => {
@@ -503,18 +502,6 @@ export default function CertificateGenerator({ database, participants, onGenerat
     fetchTemplates();
   }, []);
 
-  const generateCertificates = async () => {
-    // Check for existing certificates
-    const existingCount = participants.filter(p => p.certificateId).length;
-    if (existingCount > 0 && !resumeMode) {
-      setExistingCertCount(existingCount);
-      setShowExistingWarning(true);
-      return;
-    }
-    
-    await startGeneration();
-  };
-
   const startGeneration = async () => {
     setIsGenerating(true);
     setShowTemplateSelect(false);
@@ -529,81 +516,69 @@ export default function CertificateGenerator({ database, participants, onGenerat
       return 0;
     });
 
-    let participantsToGenerate = filterNewOnly
-      ? sortedParticipants.filter(p => !p.certificateId)
-      : sortedParticipants;
-
-    // Whole-run total. Computed before the resume filter narrows the list; on resume
-    // the job doc is the authoritative record of the original run's scope, so prefer
-    // its stored total and fall back to this computed value only if it's missing.
-    let jobTotal = participantsToGenerate.length;
+    // Derived run set: needs-cert ∪ needs-pdf, plus complete only if asked.
+    const runList = sortedParticipants.filter((p) => {
+      const state = classifyParticipant(p, !!database.linkedSheet);
+      return state !== "complete" || regenerateComplete;
+    });
+    // Which of those get a brand-new cert id (and a new certificates doc).
+    const needsCertIds = new Set(
+      sortedParticipants.filter((p) => classifyParticipant(p, !!database.linkedSheet) === "needs-cert" && p.id).map((p) => p.id as string)
+    );
 
     const jobUrl = `/api/generation-jobs/${database.id}`;
-    const completedIds: string[] = [];
 
-    // The template actually rendered with. React state can't change mid-run, and on
-    // resume the job doc's template wins so a batch can't end up half A, half B.
+    if (runList.length === 0) {
+      setIsGenerating(false);
+      setShowTemplateSelect(true);
+      if (resumeMode && participants.length > 0) {
+        // The interrupted run's remainder is already done — retire the phantom job doc.
+        // An empty roster means "not loaded yet", never "all done".
+        await fetch(jobUrl, { method: "DELETE" }).catch(() => {});
+      }
+      toast.info("Nothing to generate — every participant already has a certificate and a PDF.");
+      return;
+    }
+
     let effectiveTemplate = selectedTemplate;
 
-    const checkpoint = async (phase: "rendering" | "drive-upload" | "sheet-sync") => {
+    // Bare run marker — written once on start, deleted on clean finish, left in
+    // place on any throw (it reads "interrupted" once stale). No progress ledger.
+    const markRunning = async (templateId: string) => {
       try {
         await fetch(jobUrl, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            total: jobTotal,
-            completedParticipantIds: completedIds,
-            phase,
-            templateId: effectiveTemplate,
-          }),
+          body: JSON.stringify({ templateId, startedAt: new Date().toISOString(), status: "running" }),
         });
-      } catch { /* non-fatal — resume just won't be as fresh */ }
+      } catch { /* non-fatal */ }
     };
 
     try {
       if (resumeMode) {
-        // A bad job-doc read must ABORT: falling through would leave
-        // participantsToGenerate = every participant and re-issue duplicate certs.
         let job: GenerationJob | undefined;
         try {
           const jr = await fetch(jobUrl);
-          if (jr.status === 404) {
-            toast.error("This resume checkpoint no longer exists — it may have been discarded. Close and reopen the database.");
-            setShowTemplateSelect(true);
-            return;
-          }
-          if (!jr.ok) throw new Error(`HTTP ${jr.status}`);
-          job = (await jr.json()).job;
-        } catch {
-          toast.error("Could not load the resume checkpoint — try again in a moment.");
-          setShowTemplateSelect(true);
-          return;
-        }
+          if (jr.ok) job = (await jr.json()).job;
+        } catch { /* fall through to the picked template */ }
 
-        jobTotal = (typeof job?.total === "number" && job.total > 0) ? job.total : jobTotal;
-        const priorCompleted: string[] = job?.completedParticipantIds || [];
-        // Accumulate on top of prior progress rather than restarting from zero.
-        completedIds.push(...priorCompleted);
-        const remainingIds = new Set(remainingToGenerate(sortedParticipants, priorCompleted));
-        participantsToGenerate = sortedParticipants.filter((p) => p.id && remainingIds.has(p.id));
-
-        // Lock the resumed run to the template the original run used.
         const originalTemplate = job?.templateId;
-        if (!originalTemplate) {
-          toast.info("Original template not recorded — using your current selection.");
-        } else if (
-          !["standard", "modern"].includes(originalTemplate) &&
-          !uploadedTemplates.some(t => t.id === originalTemplate)
+        if (
+          originalTemplate &&
+          (["standard", "modern"].includes(originalTemplate) ||
+            uploadedTemplates.some((t) => t.id === originalTemplate))
         ) {
-          toast.warning("The original run's template is no longer available — using your current selection.");
-        } else {
           effectiveTemplate = originalTemplate;
           if (originalTemplate !== selectedTemplate) {
-            const name = uploadedTemplates.find(t => t.id === originalTemplate)?.name || "Standard";
+            const name = uploadedTemplates.find((t) => t.id === originalTemplate)?.name || "Standard";
             toast.info(`Resuming with the original run's template (${name}).`);
           }
+        } else if (originalTemplate) {
+          toast.warning("The original run's template is no longer available — using your current selection.");
         }
       }
+
+      await markRunning(effectiveTemplate);
 
       const year = new Date().getFullYear();
 
@@ -629,8 +604,14 @@ export default function CertificateGenerator({ database, participants, onGenerat
         const existingResponse = await fetch(`/api/participants?databaseId=${database.id}`);
         const existingData = await existingResponse.json();
         if (existingData.participants) {
-          const existingCerts = existingData.participants.filter((p: any) => p.certificateId && p.certificateId.includes(`-${year}-`));
-          serialNumber = existingCerts.length + 1;
+          const subShort = subCategoryShort[database.subCategory] || database.subCategory.slice(0, 3).toUpperCase();
+          const prefix = `${year}-PZ-${subShort}-`;
+          const maxSerial = (existingData.participants as { certificateId?: string }[]).reduce((max, p) => {
+            if (!p.certificateId || !p.certificateId.startsWith(prefix)) return max;
+            const n = parseInt(p.certificateId.slice(prefix.length), 10);
+            return Number.isFinite(n) ? Math.max(max, n) : max;
+          }, 0);
+          serialNumber = maxSerial + 1;
         }
       } catch {}
 
@@ -647,7 +628,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
         .filter((f): f is string => !!f);
       if (boundFields.length > 0) {
         const missingByField = new Map<string, number>();
-        for (const p of participantsToGenerate) {
+        for (const p of runList) {
           for (const field of boundFields) {
             if (!p.customFields?.[field]) missingByField.set(field, (missingByField.get(field) || 0) + 1);
           }
@@ -659,9 +640,9 @@ export default function CertificateGenerator({ database, participants, onGenerat
       }
 
       // Pre-assign cert IDs sequentially (serial numbers must be deterministic before parallelizing)
-      const participantsWithCertIds = participantsToGenerate.map((participant, i) => ({
+      const participantsWithCertIds = runList.map((participant, i) => ({
         participant,
-        certId: participant.certificateId || generateCertificateId(participant.name, database.subCategory, serialNumber + i),
+        certId: participant.certificateId?.trim() || generateCertificateId(participant.name, database.subCategory, serialNumber + i),
       }));
 
       // ── Phase 1: Parallel render (20 concurrent) ───────────────────────────
@@ -674,7 +655,6 @@ export default function CertificateGenerator({ database, participants, onGenerat
         pdfBytes?: Uint8Array;
       };
       const allResults: RenderResult[] = [];
-      await checkpoint("rendering");
 
       for (let i = 0; i < participantsWithCertIds.length; i += RENDER_CONCURRENCY) {
         const batchSlice = participantsWithCertIds.slice(i, i + RENDER_CONCURRENCY);
@@ -751,7 +731,9 @@ export default function CertificateGenerator({ database, participants, onGenerat
 
         if (fresh.length > 0) {
           // ── Flush this chunk: Firestore write (participants + cert docs) ────
-          const certDocs = fresh.map(({ participant, certId, verificationUrl }) => ({
+          const certDocs = fresh
+            .filter(({ participant }) => participant.id && needsCertIds.has(participant.id))
+            .map(({ participant, certId, verificationUrl }) => ({
             uniqueCertId: certId,
             recipientName: participant.name,
             recipientEmail: participant.email || "",
@@ -787,16 +769,10 @@ export default function CertificateGenerator({ database, participants, onGenerat
             }),
           });
 
-          // Never checkpoint a chunk the server didn't actually write — those
-          // participants would be marked complete with no cert doc and skipped
-          // forever on resume. Throwing routes into the "interrupted" catch,
-          // which leaves the job doc in place.
           if (!buRes.ok) {
-            throw new Error(`Chunk write failed (HTTP ${buRes.status}) after ${completedIds.length} of ${jobTotal}`);
+            throw new Error(`Chunk write failed (HTTP ${buRes.status}) — run interrupted, reopen to resume.`);
           }
-
-          for (const r of fresh) if (r.participant.id) completedIds.push(r.participant.id);
-          await checkpoint("rendering");
+          // no progress ledger — resume re-derives the remainder from participant docs
         }
 
         setGenerationProgress(Math.round(((i + RENDER_CONCURRENCY) / participantsWithCertIds.length) * 60));
@@ -806,8 +782,21 @@ export default function CertificateGenerator({ database, participants, onGenerat
       setGenerationProgress(65);
 
       // ── Phase 3: Drive uploads (5 concurrent) ──────────────────────────────
-      await checkpoint("drive-upload");
+      let driveFailedCount = 0;
       if (database.linkedSheet) {
+        // Resolve ONE canonical Drive folder id before firing concurrent uploads
+        // so Apps Script never creates a folder by name under a race.
+        let runFolderId: string | undefined = database.driveFolderId || undefined;
+        if (!runFolderId) {
+          try {
+            const fr = await fetch("/api/databases/drive-folder", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ databaseId: database.id, databaseName: database.name }),
+            });
+            if (fr.ok) runFolderId = (await fr.json()).folderId || undefined;
+          } catch { /* fall back to per-upload name lookup */ }
+        }
         const DRIVE_CONCURRENCY = 5;
         type DriveResult = { participantId: string; certId: string; driveLink: string; driveFileId: string; failed?: boolean; name?: string };
         const driveResults: DriveResult[] = [];
@@ -830,11 +819,16 @@ export default function CertificateGenerator({ database, participants, onGenerat
                 const res = await fetch("/api/drive-upload", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ pdfBytes: base64Data, fileName: driveFileName, databaseName: database.name }),
+                  body: JSON.stringify({
+                  pdfBytes: base64Data,
+                  fileName: driveFileName,
+                  databaseName: database.name,
+                  ...(runFolderId ? { folderId: runFolderId } : {}),
+                }),
                 });
                 if (res.ok) {
                   const data = await res.json();
-                  if (!driveFolderUpdated && data.folderId) {
+                  if (!runFolderId && !driveFolderUpdated && data.folderId) {
                     driveFolderUpdated = true;
                     fetch("/api/databases", {
                       method: "PUT",
@@ -868,31 +862,41 @@ export default function CertificateGenerator({ database, participants, onGenerat
 
         const driveSucceeded = driveResults.filter(r => !r.failed);
         const driveFailed = driveResults.filter(r => r.failed);
+        driveFailedCount = driveFailed.length;
 
         if (driveSucceeded.length > 0) {
           // Batch update participant Drive links (no sheet sync yet)
-          await fetch("/api/participants/batch-update", {
+          const buRes2 = await fetch("/api/participants/batch-update", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               databaseId: database.id,
-              updates: driveSucceeded.map(r => ({ id: r.participantId, driveLink: r.driveLink, driveFileId: r.driveFileId })),
+              updates: driveSucceeded.map((r) => ({ id: r.participantId, driveLink: r.driveLink, driveFileId: r.driveFileId })),
               skipSheetSync: true,
             }),
           });
+          if (!buRes2.ok) {
+            throw new Error(`Drive-link write failed (HTTP ${buRes2.status}) — run interrupted, reopen to resume.`);
+          }
 
           // Patch cert docs with Drive links (20 concurrent)
+          let certPatchFailures = 0;
           const PATCH_CONCURRENCY = 20;
           for (let i = 0; i < driveSucceeded.length; i += PATCH_CONCURRENCY) {
             await Promise.all(
-              driveSucceeded.slice(i, i + PATCH_CONCURRENCY).map(r =>
+              driveSucceeded.slice(i, i + PATCH_CONCURRENCY).map((r) =>
                 fetch("/api/certificates", {
                   method: "PATCH",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ uniqueCertId: r.certId, driveLink: r.driveLink, driveFileId: r.driveFileId, pdfUrl: r.driveLink }),
-                }).catch(() => {})
+                })
+                  .then((res) => { if (!res.ok) certPatchFailures++; })
+                  .catch(() => { certPatchFailures++; })
               )
             );
+          }
+          if (certPatchFailures > 0) {
+            toast.warning(`${certPatchFailures} certificate record(s) couldn't be updated with their Drive link. Re-run generation to retry.`);
           }
         }
 
@@ -907,7 +911,6 @@ export default function CertificateGenerator({ database, participants, onGenerat
       }
 
       // ── Phase 4: One sheet sync ─────────────────────────────────────────────
-      await checkpoint("sheet-sync");
       if (database.linkedSheet) {
         setCurrentGenerating("Syncing to sheet…");
         setGenerationProgress(92);
@@ -919,16 +922,29 @@ export default function CertificateGenerator({ database, participants, onGenerat
       }
 
       setGenerationProgress(100);
-      // Only retire the checkpoint when the whole run is accounted for. A partial
-      // run (dropped renders, a deliberately scoped subset) keeps its job doc so
-      // the rest can still be resumed.
-      const fullyCovered = completedIds.length >= jobTotal;
-      if (fullyCovered) {
+
+      // Clean finish = nothing in this run's scope still needs work. Re-derive
+      // from fresh docs rather than trusting an in-memory tally.
+      let cleanFinish = driveFailedCount === 0;
+      try {
+        const fresh = await fetch(`/api/participants?databaseId=${database.id}`);
+        if (fresh.ok) {
+          const data = await fresh.json();
+          const byId = new Map<string, { certificateId?: string; driveLink?: string }>(
+            (data.participants || []).filter((p: { id?: string }) => p.id).map((p: { id: string }) => [p.id, p])
+          );
+          cleanFinish = runList.every((p) => {
+            const doc = p.id ? byId.get(p.id) : undefined;
+            return doc ? classifyParticipant(doc, !!database.linkedSheet) === "complete" : false;
+          });
+        }
+      } catch { /* keep the driveFailed-based guess */ }
+
+      if (cleanFinish) {
         await fetch(jobUrl, { method: "DELETE" }).catch(() => {});
-      } else {
-        await checkpoint(database.linkedSheet ? "sheet-sync" : "rendering");
-        toast.warning(`${completedIds.length} of ${jobTotal} done — reopen this database to finish the rest.`);
       }
+      // else: leave the job doc — it reads "interrupted" once stale and the
+      // derived badge already reflects what's left.
       setCertificates(allResults.map(r => ({
         recipientName: r.participant.name,
         uniqueCertId: r.certId,
@@ -946,28 +962,6 @@ export default function CertificateGenerator({ database, participants, onGenerat
       setShowDownload(true);
       onGenerated();
 
-      // A resumed run only re-renders the remainder, so certificates issued before
-      // the interruption still have no Drive PDF. Nudge the operator to backfill
-      // them the same way a failed Drive upload is handled.
-      if (resumeMode && database.linkedSheet) {
-        try {
-          const res = await fetch(`/api/participants?databaseId=${database.id}`);
-          if (res.ok) {
-            const data = await res.json();
-            const completedSet = new Set(completedIds);
-            const missingDrive = (data.participants || []).filter(
-              (p: any) => p.id && completedSet.has(p.id) && p.certificateId && !p.driveLink
-            );
-            if (missingDrive.length > 0) {
-              toast.warning(
-                `${missingDrive.length} certificate(s) from before the interruption have no Drive link. ` +
-                `Filter participants by "Missing Drive Link" and use Bulk Actions → Generate Certs → Regenerate All to backfill them — their existing certificate ID is kept.`
-              );
-            }
-          }
-        } catch { /* non-fatal — this is only a nudge */ }
-      }
-
       if (allResults.length > 0) {
         sfx.fanfare();
         toast.success(`Generated ${allResults.length} certificates! Template: ${templateData?.name || "Standard"}`);
@@ -979,18 +973,22 @@ export default function CertificateGenerator({ database, participants, onGenerat
     } catch (err) {
       console.error("Error generating certificates:", err);
       sfx.error();
-      const written = completedIds.length;
-      toast.error(
-        written > 0
-          ? `Generation interrupted — ${written} of ${jobTotal} certificates written. Reopen this database to resume.`
-          : "Failed to generate certificates: " + (err as Error).message
-      );
+      toast.error("Generation interrupted — reopen this database to resume the rest. " + (err as Error).message);
     } finally {
       setIsGenerating(false);
       setCurrentGenerating("");
       setGenerationProgress(0);
     }
   };
+
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (!resumeMode || loadingTemplates || isGenerating || showDownload || autoStartedRef.current) return;
+    // Resume skips the picker: startGeneration re-locks to job.templateId itself.
+    autoStartedRef.current = true;
+    void startGeneration();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeMode, loadingTemplates]);
 
   // Custom download link component that handles blob URLs
   const DownloadButton = ({ certificate, index }: { certificate: CertificateData; index: number }) => {
@@ -1049,63 +1047,6 @@ export default function CertificateGenerator({ database, participants, onGenerat
       </a>
     );
   };
-
-  if (showExistingWarning) {
-    return (
-      <div className="bg-white rounded-xl border border-yellow-200 shadow-sm p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center">
-            <span className="material-symbols-outlined text-yellow-600 text-2xl">warning</span>
-          </div>
-          <div>
-            <h3 className="text-xl font-headline font-bold text-brand-dark-green">
-              Existing Certificates Found
-            </h3>
-            <p className="text-sm text-on-surface-variant">
-              {existingCertCount} of {participants.length} participants already have certificates
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-yellow-50 rounded-xl p-4 mb-6">
-          <p className="text-sm text-yellow-800">
-            Do you want to regenerate certificates for participants who already have them?
-          </p>
-        </div>
-
-        <div className="flex gap-3">
-          <button
-            onClick={() => {
-              setShowExistingWarning(false);
-              startGeneration();
-            }}
-            className="flex-1 px-4 py-3 bg-yellow-500 text-white rounded-xl font-bold hover:bg-yellow-600 transition-colors"
-          >
-            Regenerate All ({participants.length})
-          </button>
-          <button
-            onClick={() => {
-              setShowExistingWarning(false);
-              setFilterNewOnly(true);
-              startGeneration();
-            }}
-            className="flex-1 px-4 py-3 bg-brand-vivid-green text-white rounded-xl font-bold hover:bg-green-700 transition-colors"
-          >
-            Skip Existing ({participants.length - existingCertCount} new)
-          </button>
-          <button
-            onClick={() => {
-              setShowExistingWarning(false);
-              setShowTemplateSelect(true);
-            }}
-            className="px-4 py-3 border border-green-200 text-brand-grass-green rounded-xl font-bold hover:bg-green-50 transition-colors"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   if (certificates.length > 0 && showDownload) {
     return (
@@ -1214,7 +1155,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
               Select Certificate Template
             </h3>
             <p className="text-sm text-on-surface-variant">
-              Choose a template for {participants.length} certificate{participants.length !== 1 ? "s" : ""}
+              {summary.needsCert} need a cert ID · {summary.needsPdf} have an ID, no PDF · {summary.complete} complete
             </p>
           </div>
         </div>
@@ -1354,14 +1295,30 @@ export default function CertificateGenerator({ database, participants, onGenerat
           </div>
         </div>
 
-        <button
-          onClick={generateCertificates}
-          disabled={isGenerating || participants.length === 0}
-          className="w-full py-4 vivid-gradient-cta text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <span className="material-symbols-outlined">auto_awesome</span>
-          Generate {participants.length} Certificates
-        </button>
+        {summary.complete > 0 && (
+          <label className="flex items-center gap-2 text-sm text-on-surface-variant mb-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={regenerateComplete}
+              onChange={(e) => setRegenerateComplete(e.target.checked)}
+            />
+            Regenerate the {summary.complete} complete certificate{summary.complete !== 1 ? "s" : ""} too
+          </label>
+        )}
+
+        {(() => {
+          const target = summary.needsCert + summary.needsPdf + (regenerateComplete ? summary.complete : 0);
+          return (
+            <button
+              onClick={startGeneration}
+              disabled={isGenerating || participants.length === 0 || target === 0}
+              className="w-full py-4 vivid-gradient-cta text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="material-symbols-outlined">auto_awesome</span>
+              {`Generate ${target} certificate${target !== 1 ? "s" : ""}`}
+            </button>
+          );
+        })()}
 
         <p className="text-xs text-center text-on-surface-variant mt-4">
           Certificate IDs: YEAR-PZ-SUBCAT-SERIAL (e.g., 2026-PZ-CRS-0001)

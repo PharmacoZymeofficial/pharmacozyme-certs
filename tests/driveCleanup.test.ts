@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fileIdFromLink } from "@/lib/driveCleanup";
+import { fileIdFromLink, resolveDriveFileId } from "@/lib/driveCleanup";
 
 describe("fileIdFromLink", () => {
   it("parses the /file/d/<id>/ share link shape", () => {
@@ -29,5 +29,31 @@ describe("fileIdFromLink", () => {
     expect(fileIdFromLink(null)).toBeNull();
     expect(fileIdFromLink(undefined)).toBeNull();
     expect(fileIdFromLink("https://example.com/nope")).toBeNull();
+  });
+});
+
+describe("resolveDriveFileId", () => {
+  it("prefers the stored driveFileId over the link", () => {
+    expect(
+      resolveDriveFileId({ driveFileId: "STORED_ID", driveLink: "https://drive.google.com/file/d/LINK_ID/view" })
+    ).toBe("STORED_ID");
+  });
+
+  it("falls back to parsing the /file/d/<id>/view link", () => {
+    expect(
+      resolveDriveFileId({ driveLink: "https://drive.google.com/file/d/1Abc-DEF_ghi/view?usp=drivesdk" })
+    ).toBe("1Abc-DEF_ghi");
+  });
+
+  it("falls back to parsing the ?id=<id> link", () => {
+    expect(
+      resolveDriveFileId({ driveLink: "https://drive.google.com/uc?id=1Abc-DEF_ghi&export=download" })
+    ).toBe("1Abc-DEF_ghi");
+  });
+
+  it("returns null when there is nothing usable", () => {
+    expect(resolveDriveFileId({})).toBeNull();
+    expect(resolveDriveFileId({ driveFileId: "", driveLink: "" })).toBeNull();
+    expect(resolveDriveFileId({ driveLink: "https://drive.google.com/drive/folders/1Xyz" })).toBeNull();
   });
 });

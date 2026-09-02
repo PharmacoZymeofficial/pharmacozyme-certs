@@ -4,20 +4,13 @@
  * Deletion must never block or reverse a Firestore write — every network call
  * here logs and swallows its own errors. `deleteDriveFile` / `deleteDriveFolder`
  * return the bridge's `success` flag (`false` on any failure) so callers can
- * report an accurate result instead of "a fileId existed". `fileIdFromLink` is
- * the one pure function and is unit-tested.
+ * report an accurate result instead of "a fileId existed". `fileIdFromLink` and
+ * `resolveDriveFileId` are pure functions and are unit-tested.
  */
 import { callAppsScript, appsScriptConfigured } from "@/lib/appsScript";
 
-/** Pull a Drive file id out of the two link shapes the app stores. */
-export function fileIdFromLink(link?: string | null): string | null {
-  if (!link) return null;
-  const byPath = link.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-  if (byPath) return byPath[1];
-  const byQuery = link.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-  if (byQuery) return byQuery[1];
-  return null;
-}
+// Re-export for backward compatibility
+export { fileIdFromLink, resolveDriveFileId } from "./driveIds";
 
 /** @returns true only when the bridge reported the delete succeeded. */
 export async function deleteDriveFile(fileId: string): Promise<boolean> {

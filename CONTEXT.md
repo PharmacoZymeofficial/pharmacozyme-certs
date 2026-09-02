@@ -58,6 +58,22 @@ at the end). **All complete, all reviewed clean. UNMERGED / UNPUSHED / UNDEPLOYE
 
 **Parked (latent, 1-line fix):** `CertificateGenerator.tsx` `fullyCovered = completedIds.length >= jobTotal` miscounts if a participant doc lacks an `id` (not reachable in the live data model).
 
+## Session log — 2026-08-29 → 30: Plan E1 (generation / Drive / Sheet reliability)
+
+Branch `feat/plan-e1-generation-drive-reliability` off `main` @ `bd3886f`, 14 tasks via subagent-driven-development, then a whole-branch final-review fix wave (C-1, C-2, I-1..I-7 + minors — see `.superpowers/sdd/2026-08-29-plan-e1-generation-drive-reliability/final-fix-wave-report.md`). HEAD is now this fix-wave commit's SHA (see `git log`).
+
+**What shipped:** Generation state is now derived from participant docs (`lib/generationState.ts` — `classifyParticipant`/`deriveGenerationSummary`/`jobEffectiveStatus`), not the old `generationJobs.completedParticipantIds` ledger. `generationJobs/{id}` doc slimmed to `{ templateId, startedAt, status, startedBy }`. `CertificateGenerator` run set = needs-cert ∪ needs-pdf (∪ complete via checkbox); needs-pdf re-renders the same cert id, no 2nd cert doc; resume auto-starts on `job.templateId`; Phase-3 driveLink batch-update now throws on `!ok` (was silent); cert-doc PATCH failures counted + toasted; one canonical Drive folder id resolved before the concurrent upload loop and passed to every `uploadPDF`. Apps-script.js: new `deleteRows` (match by cert id else name+email), new `consolidateFolders`, `uploadPDF` accepts `folderId`; dead `deleteRowsByCertIds`/`deleteRowsByEmail` removed. `clearCertIdsByEmail` kept (cert-only delete path). New route `POST /api/drive/consolidate`; participant DELETE + bulk-delete now call `deleteRows` (Sheet row removed, not just col A cleared) + use `resolveDriveFileId` so a driveLink-only participant's PDF isn't orphaned. Public `/api/databases/public` computes live `.count()` participant counts. Admin `/api/databases` GET tags each DB `hasUnfinishedJob` → "Unfinished — Resume" card badge. Deleted `lib/generationResume.ts` + its test.
+
+**Gate at HEAD:** `npx tsc --noEmit` clean, `npx vitest run` 64 passed (64), `npx next build` exit 0. Grep sweep: zero hits on `completedParticipantIds|remainingToGenerate|generationResume|deleteRowsByCertIds|deleteRowsByEmail|filterNewOnly|showExistingWarning|participantsToGenerate|jobTotal` across `app/`, `components/`, `lib/`, `tests/`.
+
+**USER-OWED before / at ship** (list, verbatim intent):
+- (1) Apps Script web-app redeploy (edit-version, URL unchanged) — `deleteRows` / `consolidateFolders` / `uploadPDF` folderId are inert until then; the delete routes stay best-effort/swallowed in the meantime.
+- (2) After push: Vercel blue-dot Production SHA must match the pushed branch HEAD (2 real stale-deploy incidents in this repo).
+- (3) Run the plan's "Live smoke test" checklist (9 items: Apps Script redeploy, blue-dot check, `moveTo` sanity, fresh generation, interrupted+resume, consolidate duplicates, participant delete, orphan delete, public page counts).
+- (4) STILL owed (pre-existing, NOT E1): the `participants.certificateId` collection-group single-field index exemption — a mistyped cert ID on /verify 500s instead of 404. Out of E1 scope.
+
+**Note:** no new env vars, no firestore.rules changes, no new indexes.
+
 ## Session log — 2026-08-26 → 27
 
 Fixed three reported bugs plus a requested feature, all pushed to `main` (commits `3898d0a`, `ac2d6c8`):

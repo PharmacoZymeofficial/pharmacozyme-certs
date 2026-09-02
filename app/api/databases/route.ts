@@ -118,6 +118,12 @@ export async function GET(request: NextRequest) {
         return dateB - dateA;
       });
 
+    // A generationJobs/{id} doc exists ONLY while a run is running or interrupted
+    // (the generator deletes it on clean finish and on a no-op resume), so its
+    // mere presence is the "this DB has an unfinished job" signal.
+    const jobsSnap = await adminDb.collection("generationJobs").get();
+    const unfinished = new Set<string>(jobsSnap.docs.map((j) => j.id));
+
     const databases = await Promise.all(
       allDocs.map(async (dbDoc) => {
         try {
@@ -127,9 +133,13 @@ export async function GET(request: NextRequest) {
             .collection("participants")
             .count()
             .get();
-          return { ...dbDoc, participantCount: countSnap.data().count || 0 };
+          return {
+            ...dbDoc,
+            participantCount: countSnap.data().count || 0,
+            hasUnfinishedJob: unfinished.has(dbDoc.id),
+          };
         } catch {
-          return { ...dbDoc, participantCount: 0 };
+          return { ...dbDoc, participantCount: 0, hasUnfinishedJob: unfinished.has(dbDoc.id) };
         }
       })
     );

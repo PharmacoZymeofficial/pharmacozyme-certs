@@ -2,7 +2,7 @@
 
 import type { JSX, ReactNode } from "react";
 import { Database } from "@/lib/types";
-import type { GenerationJob } from "@/lib/types";
+import type { GenerationSummary } from "@/lib/generationState";
 import type { useToast } from "@/components/Toast";
 import GenerationResumeBanner from "@/components/admin/databases/GenerationResumeBanner";
 
@@ -22,10 +22,13 @@ interface DatabaseDetailProps {
   toast: ReturnType<typeof useToast>;
   setShowParticipantModal: (v: boolean) => void;
   setShowImportModal: (v: boolean) => void;
-  generationJob?: GenerationJob | null;
+  showResumeBanner?: boolean;
+  resumeBannerStatus?: "running" | "interrupted" | null;
+  generationSummary?: GenerationSummary;
   onResumeGeneration?: () => void;
-  onDiscardGeneration?: () => void;
+  onDismissResumeBanner?: () => void;
   onFixFolderSharing?: () => void;
+  onConsolidateFolders?: () => void;
   children: ReactNode;
 }
 
@@ -45,10 +48,13 @@ export default function DatabaseDetail({
   toast,
   setShowParticipantModal,
   setShowImportModal,
-  generationJob,
+  showResumeBanner,
+  resumeBannerStatus,
+  generationSummary,
   onResumeGeneration,
-  onDiscardGeneration,
+  onDismissResumeBanner,
   onFixFolderSharing,
+  onConsolidateFolders,
   children,
 }: DatabaseDetailProps): JSX.Element {
   return (
@@ -165,6 +171,18 @@ export default function DatabaseDetail({
                               </button>
                             </>
                           )}
+                          {onConsolidateFolders && (
+                            <>
+                              <div className="w-px h-4 bg-blue-200" />
+                              <button
+                                onClick={onConsolidateFolders}
+                                className="text-xs font-semibold text-blue-700 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors flex items-center gap-1"
+                                title="Merge duplicate Drive folders for this database into one"
+                              >
+                                <span className="material-symbols-outlined text-sm">folder_managed</span>Consolidate
+                              </button>
+                            </>
+                          )}
                         </>
                       ) : (
                         <button onClick={handleFindDriveFolder} disabled={isFindingFolder} className="text-xs font-semibold text-blue-700 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1">
@@ -196,12 +214,13 @@ export default function DatabaseDetail({
               </div>
             </div>
 
-        {generationJob && onResumeGeneration && onDiscardGeneration && (
+        {showResumeBanner && resumeBannerStatus && generationSummary && onResumeGeneration && onDismissResumeBanner && (
           <div className="px-6 pt-4">
             <GenerationResumeBanner
-              job={generationJob}
+              status={resumeBannerStatus}
+              summary={generationSummary}
               onResume={onResumeGeneration}
-              onDiscard={onDiscardGeneration}
+              onDismiss={onDismissResumeBanner}
             />
           </div>
         )}

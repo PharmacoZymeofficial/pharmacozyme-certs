@@ -18,6 +18,7 @@ interface DatabaseListProps {
   handleRenameDatabase: (dbId: string, newName: string) => void;
   handleDeleteDatabase: (db: Database) => void;
   handleToggleLive: (db: Database, e: MouseEvent) => void;
+  onResumeDatabase: (db: Database) => void;
 }
 
 export default function DatabaseList({
@@ -35,6 +36,7 @@ export default function DatabaseList({
   handleRenameDatabase,
   handleDeleteDatabase,
   handleToggleLive,
+  onResumeDatabase,
 }: DatabaseListProps): JSX.Element {
   return (
     <>
@@ -104,6 +106,16 @@ export default function DatabaseList({
                 <h3 className="text-lg font-headline font-bold text-brand-dark-green mb-1">{db.name}</h3>
               )}
               <p className="text-sm text-on-surface-variant mb-4">{db.subCategory} • {db.topic}</p>
+              {(db as { hasUnfinishedJob?: boolean }).hasUnfinishedJob && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onResumeDatabase(db); }}
+                  className="mb-3 inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold"
+                  style={{ background: "#fffbeb", color: "#d97706", border: "1px solid #fde68a" }}
+                >
+                  <span className="material-symbols-outlined text-sm">progress_activity</span>
+                  Unfinished — Resume
+                </button>
+              )}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs text-on-surface-variant">
                   <span className="material-symbols-outlined text-sm">people</span>

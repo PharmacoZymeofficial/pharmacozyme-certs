@@ -96,14 +96,17 @@ function doPost(e) {
       case "deleteFolder":
         result = deleteFolder(payload);
         break;
+      case "consolidateFolders":
+        result = consolidateFolders(payload);
+        break;
       case "ensurePublic":
         result = ensurePublic(payload);
         break;
       case "getTabs":
         result = getSheetTabs(payload);
         break;
-      case "deleteRowsByCertIds":
-        result = deleteRowsByCertIds(payload);
+      case "deleteRows":
+        result = deleteRows(payload);
         break;
       case "uploadTemplate":
         result = uploadTemplate(payload);
@@ -119,9 +122,6 @@ function doPost(e) {
         break;
       case "upsertRow":
         result = upsertRow(payload);
-        break;
-      case "deleteRowsByEmail":
-        result = deleteRowsByEmail(payload);
         break;
       case "clearCertIdsByEmail":
         result = clearCertIdsByEmail(payload);
@@ -362,35 +362,6 @@ function syncData(payload) {
   return { success: false, error: "Invalid mode" };
 }
 
-function deleteRowsByCertIds(payload) {
-  const { spreadsheetId, tabName, certIds } = payload;
-  if (!certIds || certIds.length === 0) return { success: true, deletedRows: 0 };
-
-  const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
-  const sheet = spreadsheet.getSheetByName(tabName);
-  if (!sheet) throw new Error("Sheet tab not found: " + tabName);
-
-  const lastRow = sheet.getLastRow();
-  if (lastRow <= 1) return { success: true, deletedRows: 0 };
-
-  const certIdSet = new Set(certIds.map(String));
-  const data = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-
-  // Collect row indices to delete (bottom-up to preserve indices)
-  const rowsToDelete = [];
-  for (let i = data.length - 1; i >= 0; i--) {
-    if (certIdSet.has(String(data[i][0]))) {
-      rowsToDelete.push(i + 2); // +2: 1-indexed + skip header
-    }
-  }
-
-  for (const rowIndex of rowsToDelete) {
-    sheet.deleteRow(rowIndex);
-  }
-
-  return { success: true, deletedRows: rowsToDelete.length };
-}
-
 // ===== TEMPLATE OPERATIONS =====
 
 function uploadTemplate(payload) {
@@ -428,11 +399,26 @@ function deleteTemplate(payload) {
 // ===== DRIVE OPERATIONS =====
 
 function uploadPDF(payload) {
-  const { spreadsheetId, pdfData, fileName, databaseName } = payload;
-  
-  // Get or create folder for this database
-  const folder = getOrCreateFolder(databaseName);
-  
+  var pdfData = payload.pdfData;
+  var fileName = payload.fileName;
+  var databaseName = payload.databaseName;
+  var folderId = payload.folderId;
+
+  // folderId (resolved once per run by the caller) avoids the check-then-act
+  // race in getOrCreateFolder under 5 concurrent uploads. Fall back to a
+  // name lookup only when the caller couldn't supply an id (first upload).
+  var folder;
+  if (folderId) {
+    try {
+      folder = DriveApp.getFolderById(folderId);
+    } catch (e) {
+      // Stale/deleted folder id -- self-heal by name lookup instead of bricking the run.
+      folder = getOrCreateFolder(databaseName);
+    }
+  } else {
+    folder = getOrCreateFolder(databaseName);
+  }
+
   // Decode base64 PDF data
   const pdfBlob = Utilities.newBlob(
     Utilities.base64Decode(pdfData),
@@ -496,6 +482,56 @@ function getOrCreateFolder(folderName) {
   }
   
   return subFolder;
+}
+
+/**
+ * Merge duplicate per-database folders into one canonical folder.
+ *
+ * Finds every folder named `folderName` directly under the parent
+ * (DRIVE_FOLDER_ID if resolvable, else the folder named DRIVE_FOLDER_NAME).
+ * For each such folder whose id !== canonicalFolderId: move all its files into
+ * the canonical folder, then trash the now-empty duplicate. The canonical
+ * folder itself and any folder with a different name are never touched.
+ */
+function consolidateFolders(payload) {
+  var folderName = payload.folderName;
+  var canonicalFolderId = payload.canonicalFolderId;
+  if (!folderName || !canonicalFolderId) throw new Error("folderName and canonicalFolderId are required");
+
+  var parent;
+  if (DRIVE_FOLDER_ID) {
+    try { parent = DriveApp.getFolderById(DRIVE_FOLDER_ID); } catch (e) { parent = null; }
+  }
+  if (!parent) {
+    var byName = DriveApp.getFoldersByName(DRIVE_FOLDER_NAME);
+    if (!byName.hasNext()) throw new Error("Parent folder not found");
+    parent = byName.next();
+  }
+
+  var canonical = DriveApp.getFolderById(canonicalFolderId);
+  if (canonical.getName() !== folderName) {
+    throw new Error("Canonical folder name (" + canonical.getName() + ") does not match folderName (" + folderName + ")");
+  }
+  var movedFiles = 0;
+  var trashedFolders = 0;
+
+  var dupes = parent.getFoldersByName(folderName);
+  while (dupes.hasNext()) {
+    var dupe = dupes.next();
+    if (dupe.isTrashed()) continue;
+    if (dupe.getId() === canonicalFolderId) continue;
+
+    var files = dupe.getFiles();
+    while (files.hasNext()) {
+      var f = files.next();
+      f.moveTo(canonical); // Drive v3 move; keeps the same file id
+      movedFiles++;
+    }
+    dupe.setTrashed(true);
+    trashedFolders++;
+  }
+
+  return { success: true, movedFiles: movedFiles, trashedFolders: trashedFolders };
 }
 
 function getFolder(payload) {
@@ -646,33 +682,63 @@ function upsertRow(payload) {
   }
 }
 
-// Delete rows whose col-C email matches any email in the provided list.
-function deleteRowsByEmail(payload) {
-  const { spreadsheetId, tabName, emails } = payload;
-  if (!emails || emails.length === 0) return { success: true, deletedRows: 0 };
+/**
+ * Delete Sheet rows matching a list of participant identifiers.
+ *
+ * matches: [{ certificateId?, name?, email? }, ...]
+ *   - certificateId present -> delete the row whose col A === certificateId exactly
+ *   - else                  -> delete the row whose Name (col B) AND Email (col C)
+ *                              both match, case-insensitive and trimmed
+ * Header row (row 1) is never touched. A match with no hit is a silent no-op.
+ * All target rows are collected first, then deleted bottom-up in one pass.
+ */
+function deleteRows(payload) {
+  var spreadsheetId = payload.spreadsheetId;
+  var tabName = payload.tabName;
+  var matches = payload.matches || [];
+  if (!spreadsheetId || !tabName) throw new Error("spreadsheetId and tabName are required");
+  if (matches.length === 0) return { success: true, deletedRows: 0 };
 
-  const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
-  const sheet = spreadsheet.getSheetByName(tabName);
+  var sheet = SpreadsheetApp.openById(spreadsheetId).getSheetByName(tabName);
   if (!sheet) throw new Error("Sheet tab not found: " + tabName);
 
-  const lastRow = sheet.getLastRow();
+  var lastRow = sheet.getLastRow();
   if (lastRow <= 1) return { success: true, deletedRows: 0 };
 
-  const emailSet = new Set(emails.map(function(e) { return (e || "").toLowerCase().trim(); }).filter(Boolean));
-  const sheetEmails = sheet.getRange(2, 3, lastRow - 1, 1).getValues();
+  var values = sheet.getRange(2, 1, lastRow - 1, 3).getValues(); // cols A,B,C for data rows
 
-  // Collect bottom-up so row indices stay valid after each deletion
-  const rowsToDelete = [];
-  for (var i = sheetEmails.length - 1; i >= 0; i--) {
-    if (emailSet.has((sheetEmails[i][0] || "").toLowerCase().trim())) {
-      rowsToDelete.push(i + 2);
+  var norm = function (v) { return String(v == null ? "" : v).trim().toLowerCase(); };
+  var certIds = {};
+  var nameEmail = {};
+  for (var m = 0; m < matches.length; m++) {
+    var match = matches[m];
+    if (match.certificateId) {
+      certIds[String(match.certificateId)] = true;
+    } else if (match.name || match.email) {
+      nameEmail[norm(match.name) + "\u0000" + norm(match.email)] = true;
     }
   }
 
-  for (var j = 0; j < rowsToDelete.length; j++) {
-    sheet.deleteRow(rowsToDelete[j]);
+  var rowsToDelete = [];
+  for (var i = values.length - 1; i >= 0; i--) {
+    var rowCertId = String(values[i][0]);
+    var key = norm(values[i][1]) + "\u0000" + norm(values[i][2]);
+    if (certIds[rowCertId] === true || nameEmail[key] === true) {
+      rowsToDelete.push(i + 2); // +2: 1-indexed + skip header
+    }
   }
 
+  // rowsToDelete is descending; collapse consecutive rows into one deleteRows call
+  // so a 500-row purge doesn't fire 500 sequential API calls against the 6-min GAS limit.
+  var i2 = 0;
+  while (i2 < rowsToDelete.length) {
+    var end = rowsToDelete[i2];      // highest row of this run
+    var j = i2;
+    while (j + 1 < rowsToDelete.length && rowsToDelete[j + 1] === rowsToDelete[j] - 1) j++;
+    var start = rowsToDelete[j];     // lowest row of this run
+    sheet.deleteRows(start, end - start + 1);
+    i2 = j + 1;
+  }
   return { success: true, deletedRows: rowsToDelete.length };
 }
 
