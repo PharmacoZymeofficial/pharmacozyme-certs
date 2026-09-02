@@ -266,13 +266,14 @@ function getSheetTabs(payload) {
 // Hand-kept port of lib/sheetSchema.ts — keep the alias table identical.
 var MANAGED_ALIASES_ = {
   "name": "name", "recipient name": "name", "recipient": "name", "full name": "name",
-  "email": "email", "email address": "email", "e-mail": "email",
-  "certificate id": "certificateId", "cert id": "certificateId",
+  "email": "email", "email address": "email", "active email address": "email",
+  "e-mail": "email", "mail": "email",
+  "certificate id": "certificateId", "certificateid": "certificateId", "cert id": "certificateId",
   "certificate no": "certificateId", "certificate number": "certificateId",
   "certificate url": "certificateUrl", "certificate link": "certificateUrl",
   "verification url": "certificateUrl", "verify url": "certificateUrl",
   "status": "status",
-  "issue date": "issueDate", "issued": "issueDate", "date issued": "issueDate", "issued on": "issueDate",
+  "issue date": "issueDate", "issuedate": "issueDate", "issued": "issueDate", "date issued": "issueDate", "issued on": "issueDate",
   "emailed": "emailSent", "email sent": "emailSent", "email status": "emailSent",
   "drive link": "driveLink", "drive url": "driveLink", "pdf link": "driveLink", "certificate pdf": "driveLink",
   "created at": "createdAt", "created": "createdAt", "date created": "createdAt"

@@ -4,6 +4,7 @@ import type { JSX } from "react";
 import * as XLSX from "xlsx";
 import type { useToast } from "@/components/Toast";
 import { sfx } from "@/lib/sfx";
+import { splitImportedRow } from "@/lib/sheetSchema";
 
 interface ImportModalProps {
   open: boolean;
@@ -71,49 +72,22 @@ export default function ImportModal({
           return;
         }
 
-        // Map to participants - use exact column names from the user's Excel file
-        const mappedParticipants = jsonData.map((row, idx) => {
-          // Find keys case-insensitively
-          const getValue = (row: any, possibleNames: string[]) => {
-            const rowKeys = Object.keys(row);
-            for (const name of possibleNames) {
-              const foundKey = rowKeys.find(k => k.trim().toLowerCase() === name.toLowerCase());
-              if (foundKey && row[foundKey]) {
-                return String(row[foundKey]).trim();
-              }
-            }
-            return "";
-          };
-
-          // Exact column names from user's file
-          const name = getValue(row, ["Name", "name", "NAME", "Full Name", "full name"]);
-          const email = getValue(row, ["Active Email Address", "Email", "email", "E-mail", "Mail"]);
-          const certId = getValue(row, ["Certificate ID", "CertificateId", "Cert ID"]);
-          const issueDate = getValue(row, ["Issue Date", "IssueDate", "Date"]);
-          const status = getValue(row, ["Status", "status"]);
-
-          // Import status logic: always set to "pending" on import
-          // Certificate will show as generated only after PDF is created
-          const importStatus = "pending";
-
-          // Any other columns (e.g. "Designation", "Start Date") become custom
-          // fields a template can bind a placeholder to at generation time.
-          const KNOWN_COLUMNS = new Set(["name", "full name", "active email address", "email", "e-mail", "mail", "certificate id", "certificateid", "cert id", "issue date", "issuedate", "date", "status"]);
-          const customFields: Record<string, string> = {};
-          for (const key of Object.keys(row)) {
-            if (KNOWN_COLUMNS.has(key.trim().toLowerCase())) continue;
-            const val = row[key];
-            if (val !== undefined && val !== null && String(val).trim() !== "") {
-              customFields[key.trim()] = String(val).trim();
-            }
-          }
+        // Map to participants. Managed vs custom columns are split by the exact
+        // same header resolution the Google Sheets sync path uses
+        // (`splitImportedRow` -> `resolveManagedField`), so a column the app
+        // doesn't recognize (e.g. "Designation", "Start Date") becomes a custom
+        // field keyed by its exact header, ready for a template placeholder.
+        const mappedParticipants = jsonData.map((row) => {
+          const { fields, customFields } = splitImportedRow(row as Record<string, unknown>);
 
           return {
-            name,
-            email,
-            certificateId: certId, // Store the imported cert ID but status is pending
-            issueDate,
-            status: importStatus,
+            name: fields.name || "",
+            email: fields.email || "",
+            certificateId: fields.certificateId || "", // stored, but status stays pending
+            issueDate: fields.issueDate || "",
+            // Import status logic: always "pending" on import. A certificate
+            // shows as generated only after its PDF is created.
+            status: "pending",
             customFields,
           };
         }).filter(p => p.name && p.email);

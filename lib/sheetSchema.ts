@@ -35,8 +35,11 @@ const ALIASES: Record<string, ManagedField> = {
   "full name": "name",
   "email": "email",
   "email address": "email",
+  "active email address": "email",
   "e-mail": "email",
+  "mail": "email",
   "certificate id": "certificateId",
+  "certificateid": "certificateId",
   "cert id": "certificateId",
   "certificate no": "certificateId",
   "certificate number": "certificateId",
@@ -46,6 +49,7 @@ const ALIASES: Record<string, ManagedField> = {
   "verify url": "certificateUrl",
   "status": "status",
   "issue date": "issueDate",
+  "issuedate": "issueDate",
   "issued": "issueDate",
   "date issued": "issueDate",
   "issued on": "issueDate",
@@ -73,6 +77,38 @@ export function resolveManagedField(h: string): ManagedField | null {
   const n = normalizeHeader(h);
   if (!n) return null;
   return ALIASES[n] ?? null;
+}
+
+/**
+ * Split one imported CSV/Excel row (header -> cell value) into managed fields and
+ * free-form custom fields, using the exact same header resolution as the Google
+ * Sheets sync path. A header the app doesn't recognize (`resolveManagedField`
+ * returns null) becomes a `customFields` entry keyed by its trimmed header text.
+ *
+ * - Managed values: first non-empty value wins (matches `buildHeaderMap` order).
+ * - Custom values: trimmed; empty cells are dropped.
+ */
+export function splitImportedRow(row: Record<string, unknown>): {
+  fields: Partial<Record<ManagedField, string>>;
+  customFields: Record<string, string>;
+} {
+  const fields: Partial<Record<ManagedField, string>> = {};
+  const customFields: Record<string, string> = {};
+
+  for (const [rawKey, rawVal] of Object.entries(row ?? {})) {
+    const header = String(rawKey ?? "").trim();
+    if (!header) continue;
+    const value = rawVal === undefined || rawVal === null ? "" : String(rawVal).trim();
+
+    const mf = resolveManagedField(header);
+    if (mf) {
+      if (!fields[mf] && value) fields[mf] = value;
+    } else if (value) {
+      customFields[header] = value;
+    }
+  }
+
+  return { fields, customFields };
 }
 
 export function buildHeaderMap(headerRow: unknown[]): {
