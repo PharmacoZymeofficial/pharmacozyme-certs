@@ -1238,15 +1238,14 @@ Steps:
 Input: freshly `insertSheet`-ed tab, no content. `sheet.getLastColumn() = 0`, `sheet.getLastRow() = 0`.
 
 Steps:
-- `lastCol = Math.max(0, 1) = 1`. `headerRow = getRange(1,1,1,1).getValues()[0] = [""]`.
-- managedCol loop: c0 `""`→null ⇒ `managedCol = {}`.
-- ENSURE loop (start `lastCol = 1`): every field absent, so all 9 appended in ENSURE order — `lastCol += 1` first, so the first append (`name`) lands at **column 2**:
-  `name`→2 "Name", `email`→3 "Email", `certificateId`→4, `certificateUrl`→5, `status`→6, `issueDate`→7, `emailSent`→8 "Emailed", `driveLink`→9, `createdAt`→10 "Created At". `columnsAppended = 9`. Column 1 is left blank (see Concern below).
-- Row index: `lastRow = 0`, not `> 1` ⇒ `rowByKey = {}`.
+- `lastCol = sheet.getLastColumn() = 0`. `headerRow = lastCol >= 1 ? getRange(...) : [] = []` (fix M5 — the `>= 1` guard avoids `getRange(1,1,1,0)` throwing).
+- managedCol loop: `headerRow` empty ⇒ loop body never runs ⇒ `managedCol = {}`.
+- ENSURE loop (start `lastCol = 0`): every field absent, so all 9 appended in ENSURE order — `lastCol += 1` first, so the first append (`name`) lands at **column 1 / A**:
+  `name`→1 "Name", `email`→2 "Email", `certificateId`→3, `certificateUrl`→4, `status`→5, `issueDate`→6, `emailSent`→7 "Emailed", `driveLink`→8, `createdAt`→9 "Created At". `columnsAppended = 9`. No blank column A.
 - Row index: the ENSURE loop has just written header cells to row 1, so `sheet.getLastRow()` returns **1** at the point it is called (after ENSURE, before the participant loop). `lastRow = 1`; `lastRow > 1` is false ⇒ `rowByKey = {}`.
-- Participant loop: every participant is unmatched → `lastRow += 1` → first new data row = `1 + 1 = 2`. ENSURE_FIELDS loop writes name→col2, email→col3, then the 7 WRITE_FIELDS into cols 4–10. Header stays on row 1, data from row 2. ✅ Every participant is a new appended row with Name+Email+7 fields. Return `{ success: true, rowsWritten: participants.length, columnsAppended: 9 }`.
+- Participant loop: every participant is unmatched → `lastRow += 1` → first new data row = `1 + 1 = 2`. ENSURE_FIELDS loop writes name→col1, email→col2, then the 7 WRITE_FIELDS into cols 3–9. Header stays on row 1, data from row 2. ✅ Every participant is a new appended row with Name+Email+7 fields. Return `{ success: true, rowsWritten: participants.length, columnsAppended: 9 }`.
 
-Concern: because `lastCol` is seeded to `Math.max(getLastColumn(), 1) = 1` on an empty sheet and the ENSURE loop pre-increments, the header block starts at column 2 and column A stays permanently blank (data is internally consistent — header and rows share the same offset — and the read path skips the blank column, which is exactly how the user's existing "EL" sheet already looks). Reachable when `createSheet` is called with multiple `subDatabases`: only `getSheets()[0]` gets `addHeaders`; tabs 2+ (`insertSheet` at ~line 196) reach `syncData` write with no header row. Not data-destructive, but cosmetically leaves an empty column A. Left as brief-verbatim; flagged for the brief author (Task 4 `managedColMap_` or a follow-up may want `var lastCol = sheet.getLastColumn();` with a separate `>= 1` guard only for the header read).
+Resolved (fix M5): the earlier draft seeded `lastCol = Math.max(getLastColumn(), 1) = 1` on an empty sheet, so the pre-incrementing ENSURE loop started the header block at column 2 and left column A permanently blank. Seeding from the raw `getLastColumn()` (0 on a fresh tab), with a `>= 1` guard on the header read, makes the first append land in column A. This path is reachable when `createSheet` runs with multiple `subDatabases` — only `getSheets()[0]` gets `addHeaders`; tabs 2+ (`insertSheet` at ~line 196) reach `syncData` write with no header row. Task 4's `managedColMap_` still uses `Math.max(getLastColumn(), 1)`, which is correct there (it only reads the header row and never appends).
 
 ---
 

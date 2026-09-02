@@ -414,8 +414,8 @@ function syncData(payload) {
     }
 
     var values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
-    // `let` (block-scoped) avoids colliding with the function-scoped `data`
-    // destructured from payload at the top of syncData.
+    // `let` (block-scoped) so this read-mode result never collides with any
+    // future function-scoped `data` in syncData.
     let data = values.map(function (row) {
       function m(field) { return managed[field] === undefined ? "" : formatCell_(row[managed[field]]); }
       var rec = {
