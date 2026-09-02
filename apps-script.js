@@ -263,6 +263,38 @@ function getSheetTabs(payload) {
 
 // ===== DATA SYNC =====
 
+// Hand-kept port of lib/sheetSchema.ts — keep the alias table identical.
+var MANAGED_ALIASES_ = {
+  "name": "name", "recipient name": "name", "recipient": "name", "full name": "name",
+  "email": "email", "email address": "email", "e-mail": "email",
+  "certificate id": "certificateId", "cert id": "certificateId",
+  "certificate no": "certificateId", "certificate number": "certificateId",
+  "certificate url": "certificateUrl", "certificate link": "certificateUrl",
+  "verification url": "certificateUrl", "verify url": "certificateUrl",
+  "status": "status",
+  "issue date": "issueDate", "issued": "issueDate", "date issued": "issueDate", "issued on": "issueDate",
+  "emailed": "emailSent", "email sent": "emailSent", "email status": "emailSent",
+  "drive link": "driveLink", "drive url": "driveLink", "pdf link": "driveLink", "certificate pdf": "driveLink",
+  "created at": "createdAt", "created": "createdAt", "date created": "createdAt"
+};
+var MANAGED_LABELS_ = {
+  name: "Name", email: "Email", certificateId: "Certificate ID", certificateUrl: "Certificate URL",
+  status: "Status", issueDate: "Issue Date", emailSent: "Emailed", driveLink: "Drive Link", createdAt: "Created At"
+};
+function normalizeHeader_(h) {
+  return String(h == null ? "" : h).replace(/\*+$/, "").replace(/^\s+|\s+$/g, "").replace(/\s+/g, " ").toLowerCase();
+}
+function resolveManagedField_(h) {
+  var n = normalizeHeader_(h);
+  if (!n) return null;
+  return MANAGED_ALIASES_[n] || null;
+}
+function formatCell_(cell) {
+  return Object.prototype.toString.call(cell) === "[object Date]"
+    ? Utilities.formatDate(cell, Session.getScriptTimeZone(), "MMM d, yyyy")
+    : cell;
+}
+
 function syncData(payload) {
   const { spreadsheetId, tabName, data, mode, writeHeaders, headers } = payload;
 
@@ -319,49 +351,54 @@ function syncData(payload) {
     return { success: true, rowsWritten: rows.length };
     
   } else if (mode === "read") {
-    // Read data from Sheet
-    const lastRow = sheet.getLastRow();
-    if (lastRow <= 1) {
+    var lastRow = sheet.getLastRow();
+    var lastCol = sheet.getLastColumn();
+    if (lastRow <= 1 || lastCol < 1) {
       return { success: true, data: [] };
     }
 
-    // Columns beyond the fixed 9 (J, K, ...) are admin-added custom fields
-    // (e.g. "Designation", "Start Date") — read by their header text so
-    // certificate templates can bind a placeholder to that column name.
-    const lastCol = sheet.getLastColumn();
-    const customHeaders = lastCol > 9 ? sheet.getRange(1, 10, 1, lastCol - 9).getValues()[0] : [];
+    var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var managed = {};   // field -> col index (0-based)
+    var customCols = []; // { header, index }
+    for (var c = 0; c < headerRow.length; c++) {
+      var header = String(headerRow[c] == null ? "" : headerRow[c]).replace(/^\s+|\s+$/g, "");
+      if (!header) continue;
+      var mf = resolveManagedField_(header);
+      if (mf) { if (managed[mf] === undefined) managed[mf] = c; }
+      else {
+        var already = false;
+        for (var k = 0; k < customCols.length; k++) if (customCols[k].header === header) already = true;
+        if (!already) customCols.push({ header: header, index: c });
+      }
+    }
 
-    const range = sheet.getRange(2, 1, lastRow - 1, lastCol);
-    const values = range.getValues();
-
-    const data = values.map(row => {
-      const rec = {
-        certificateId: row[0],
-        name: row[1],
-        email: row[2],
-        certificateUrl: row[3],
-        status: row[4],
-        issueDate: row[5],
-        emailSent: row[6] === "Yes",
-        driveLink: row[7],
-        createdAt: row[8]
+    var values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    // `let` (block-scoped) avoids colliding with the function-scoped `data`
+    // destructured from payload at the top of syncData.
+    let data = values.map(function (row) {
+      function m(field) { return managed[field] === undefined ? "" : formatCell_(row[managed[field]]); }
+      var rec = {
+        name: m("name"),
+        email: m("email"),
+        certificateId: m("certificateId"),
+        certificateUrl: m("certificateUrl"),
+        status: m("status"),
+        issueDate: m("issueDate"),
+        emailSent: m("emailSent") === "Yes" || m("emailSent") === true,
+        driveLink: m("driveLink"),
+        createdAt: m("createdAt"),
+        custom: {}
       };
-      customHeaders.forEach(function (header, i) {
-        const key = String(header || "").trim();
-        if (!key) return;
-        const cell = row[9 + i];
-        // Google Sheets returns date-formatted cells as JS Date objects — format
-        // them plainly instead of letting JSON.stringify dump a raw ISO timestamp.
-        rec[key] = Object.prototype.toString.call(cell) === "[object Date]"
-          ? Utilities.formatDate(cell, Session.getScriptTimeZone(), "MMM d, yyyy")
-          : cell;
-      });
+      for (var j = 0; j < customCols.length; j++) {
+        var v = formatCell_(row[customCols[j].index]);
+        if (v !== "" && v !== null && v !== undefined) rec.custom[customCols[j].header] = String(v);
+      }
       return rec;
     });
 
-    return { success: true, data };
+    return { success: true, data: data };
   }
-  
+
   return { success: false, error: "Invalid mode" };
 }
 

@@ -1097,7 +1097,93 @@ git commit -m "docs(context): log the sheet-header-mapping session"
 
 ## Apps Script hand-traces
 
-_(Filled in during Tasks 2 and 3.)_
+### Task 2 — `syncData({ mode: "read" })`, header-driven
+
+**Trace A — user's "EL" custom layout (blank col A, managed Name/Email, 5 custom cols)**
+
+Input:
+- `headerRow = ["", "Name", "Email", "Designation/Role", "Start Date", "End Date", "Duration", "Department"]`
+- one data row: `["", "Javeria Mustaqeem", "jvra.mstqm@gmail.com", "Sales representative", "20-July-2025", "25-August-2026", "1 year and 1 month", "Sales"]`
+- `lastRow = 2`, `lastCol = 8` → guard `lastRow <= 1 || lastCol < 1` is false.
+
+Header loop:
+| c | raw | trimmed | `resolveManagedField_` | effect |
+|---|-----|---------|------------------------|--------|
+| 0 | `""` | `""` | — | skipped (empty) |
+| 1 | `"Name"` | `"Name"` | `normalizeHeader_` → `"name"` → `"name"` | `managed.name = 1` |
+| 2 | `"Email"` | `"Email"` | → `"email"` → `"email"` | `managed.email = 2` |
+| 3 | `"Designation/Role"` | same | `"designation/role"` → not in `MANAGED_ALIASES_` → `null` | `customCols += {header:"Designation/Role", index:3}` |
+| 4 | `"Start Date"` | same | `"start date"` → `null` | `customCols += {header:"Start Date", index:4}` |
+| 5 | `"End Date"` | same | `"end date"` → `null` | `customCols += {header:"End Date", index:5}` |
+| 6 | `"Duration"` | same | `"duration"` → `null` | `customCols += {header:"Duration", index:6}` |
+| 7 | `"Department"` | same | `"department"` → `null` | `customCols += {header:"Department", index:7}` |
+
+`managed = { name: 1, email: 2 }` — all 7 other managed fields absent.
+
+Row mapping (`m(field)` returns `""` when `managed[field] === undefined`):
+- `name` → `formatCell_(row[1])` = `"Javeria Mustaqeem"` (not a Date)
+- `email` → `formatCell_(row[2])` = `"jvra.mstqm@gmail.com"`
+- `certificateId, certificateUrl, status, issueDate, driveLink, createdAt` → `""`
+- `emailSent` → `m("emailSent")` = `""`; `"" === "Yes" || "" === true` → **`false`**
+- custom loop: each cell is a non-empty string → `rec.custom[header] = String(v)`
+
+`data[0]` =
+```
+{
+  name: "Javeria Mustaqeem",
+  email: "jvra.mstqm@gmail.com",
+  certificateId: "",
+  certificateUrl: "",
+  status: "",
+  issueDate: "",
+  emailSent: false,
+  driveLink: "",
+  createdAt: "",
+  custom: {
+    "Designation/Role": "Sales representative",
+    "Start Date": "20-July-2025",
+    "End Date": "25-August-2026",
+    "Duration": "1 year and 1 month",
+    "Department": "Sales"
+  }
+}
+```
+Matches the brief's expected output. ✅
+
+**Trace B — standard 9-column layout (`addHeaders` order)**
+
+Input:
+- `headerRow = ["Certificate ID","Name","Email","Certificate URL","Status","Issue Date","Emailed","Drive Link","Created At"]`
+- one data row: `["2026-PZ-CTM-0001","Ali Raza","ali@example.com","https://pharmacozyme.example/verify/2026-PZ-CTM-0001","issued", <Date 2025-07-20>, "Yes", "https://drive.google.com/file/d/abc/view", <Date 2025-07-20>]`
+- `lastRow = 2`, `lastCol = 9`.
+
+Header loop resolves every column to a managed field:
+`managed = { certificateId:0, name:1, email:2, certificateUrl:3, status:4, issueDate:5, emailSent:6, driveLink:7, createdAt:8 }`, `customCols = []`.
+
+Row mapping:
+- `certificateId` → `"2026-PZ-CTM-0001"`, `name` → `"Ali Raza"`, `email` → `"ali@example.com"`, `certificateUrl` → `"https://pharmacozyme.example/verify/2026-PZ-CTM-0001"`, `status` → `"issued"`, `driveLink` → `"https://drive.google.com/file/d/abc/view"` — all identical to the old positional read (`row[0]`,`row[1]`,…).
+- `emailSent` → `formatCell_("Yes")` = `"Yes"`; `"Yes" === "Yes"` → `true` — same as old `row[6] === "Yes"`.
+- `issueDate` / `createdAt` → cells are `Date` objects → `formatCell_` → `Utilities.formatDate(cell, tz, "MMM d, yyyy")` → `"Jul 20, 2025"`. (Old read returned these managed date cells as raw `Date`; `formatCell_` is now applied uniformly to managed cells too — see note.)
+
+`data[0].custom` = `{}` (no custom columns). ✅
+
+`data[0]` =
+```
+{
+  name: "Ali Raza",
+  email: "ali@example.com",
+  certificateId: "2026-PZ-CTM-0001",
+  certificateUrl: "https://pharmacozyme.example/verify/2026-PZ-CTM-0001",
+  status: "issued",
+  issueDate: "Jul 20, 2025",
+  emailSent: true,
+  driveLink: "https://drive.google.com/file/d/abc/view",
+  createdAt: "Jul 20, 2025",
+  custom: {}
+}
+```
+
+**Note (behavior change):** the old code date-formatted only the extra (col ≥ 10) custom cells; managed `Issue Date` / `Created At` cells came back as raw `Date`. The new code runs `formatCell_` on every cell, so a date-typed managed cell now returns a `"MMM d, yyyy"` string instead of a `Date`. Non-date managed values are byte-for-byte identical to the old positional output. Object key order also changed (name-first) but consumers read by key name.
 
 ---
 
