@@ -89,6 +89,10 @@ export default function TemplatesPage() {
   const [generatingPreview, setGeneratingPreview] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  // Certificate Preview modal sizing: "fit" scales the page to the modal viewport
+  // (whole page visible); "actual" renders at natural pixel size in a scrollable box.
+  // Always resets to "fit" when the preview is (re)opened.
+  const [previewFit, setPreviewFit] = useState<"fit" | "actual">("fit");
   // Actual PDF page dimensions — drives the correct aspect ratio for the preview canvas
   const [templateDimensions, setTemplateDimensions] = useState<{ width: number; height: number }>({ width: 595, height: 842 });
   // Canva-style canvas zoom. Scales the whole canvas wrapper (background + markers) as one
@@ -196,6 +200,9 @@ export default function TemplatesPage() {
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         setPreviewPdfUrl(prev => { if (prev) URL.revokeObjectURL(prev); return url; });
+        // Reset the modal to whole-page view each time the preview is explicitly opened.
+        // Skipped for silent auto-refreshes so it doesn't fight a user who toggled to "actual".
+        if (!silent) setPreviewFit("fit");
       } else if (!silent) {
         alert("Failed to generate preview");
       }
@@ -1424,22 +1431,48 @@ export default function TemplatesPage() {
           <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl my-8 flex flex-col" style={{ maxHeight: '90vh' }}>
             <div className="p-4 border-b border-green-50 flex justify-between items-center flex-shrink-0">
               <h3 className="text-lg font-bold text-brand-dark-green">Certificate Preview</h3>
-              <button
-                onClick={() => {
-                  setPreviewPdfUrl(null);
-                  URL.revokeObjectURL(previewPdfUrl);
-                }}
-                className="p-2 hover:bg-green-50 rounded-lg"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPreviewFit(f => (f === "fit" ? "actual" : "fit"))}
+                  className="text-xs font-medium text-gray-600 hover:bg-gray-100 px-2 py-1 rounded-lg border border-gray-200"
+                >
+                  {previewFit === "fit" ? "Actual size" : "Fit page"}
+                </button>
+                <button
+                  onClick={() => {
+                    setPreviewPdfUrl(null);
+                    URL.revokeObjectURL(previewPdfUrl);
+                  }}
+                  className="p-2 hover:bg-green-50 rounded-lg"
+                >
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
             </div>
-            <div className="flex-1 overflow-auto p-4">
-              <iframe 
-                src={`${previewPdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
-                className="w-full h-full min-h-[600px]"
-                title="Certificate Preview"
-              />
+            <div className="flex-1 overflow-auto p-4 flex justify-center">
+              {(() => {
+                const ratio = templateDimensions.width / templateDimensions.height || 0.707;
+                const style = previewFit === "fit"
+                  ? {
+                      height: `min(78vh, calc(88vw / ${ratio}))`,
+                      width: `calc(min(78vh, calc(88vw / ${ratio})) * ${ratio})`,
+                      flexShrink: 0 as const,
+                    }
+                  : {
+                      width: templateDimensions.width,
+                      height: templateDimensions.height,
+                      maxWidth: "none" as const,
+                      flexShrink: 0 as const,
+                    };
+                return (
+                  <iframe
+                    src={`${previewPdfUrl}#toolbar=0&navpanes=0`}
+                    style={style}
+                    className="border border-gray-200 bg-white"
+                    title="Certificate Preview"
+                  />
+                );
+              })()}
             </div>
             <div className="p-4 border-t border-green-50 flex justify-end flex-shrink-0">
               <a
