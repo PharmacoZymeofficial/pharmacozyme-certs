@@ -1178,12 +1178,11 @@ export default function TemplatesPage() {
                       <div className="space-y-2">
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Bind to Column (optional)</p>
                         <input type="text" value={customEl.sourceField || ""}
-                          onChange={e => updateCustomElement(customEl.id, { sourceField: e.target.value || undefined })}
+                          onChange={e => updateCustomElement(customEl.id, { sourceField: e.target.value.trim() || undefined })}
                           placeholder="e.g. Designation"
                           className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-purple-400 font-mono" />
                         <p className="text-[10px] text-gray-400">
-                          Must exactly match a column header in the linked Sheet or import file. When set, this
-                          prints that participant's value instead of the text below.
+                          Must match a column header in your linked Google Sheet exactly (case-insensitive). e.g. "Designation/Role"
                         </p>
                       </div>
                       <div className="space-y-2">
