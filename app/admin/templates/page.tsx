@@ -1177,12 +1177,13 @@ export default function TemplatesPage() {
                       </div>
                       <div className="space-y-2">
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Bind to Column (optional)</p>
-                        <input type="text" value={customEl.sourceField || ""}
-                          onChange={e => updateCustomElement(customEl.id, { sourceField: e.target.value.trim() || undefined })}
+                        <input type="text" value={customEl.sourceField ?? ""}
+                          onChange={e => updateCustomElement(customEl.id, { sourceField: e.target.value })}
+                          onBlur={e => updateCustomElement(customEl.id, { sourceField: e.target.value.trim() || undefined })}
                           placeholder="e.g. Designation"
                           className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-purple-400 font-mono" />
                         <p className="text-[10px] text-gray-400">
-                          Must match a column header in your linked Google Sheet exactly (case-insensitive). e.g. "Designation/Role"
+                          Must match a column header in your linked Google Sheet or import file. Spelling must match; capitalization and surrounding spaces don't.
                         </p>
                       </div>
                       <div className="space-y-2">

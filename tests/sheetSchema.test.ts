@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveManagedField, buildHeaderMap, MANAGED_LABELS } from "@/lib/sheetSchema";
+import { resolveManagedField, buildHeaderMap, MANAGED_LABELS, lookupBoundValue } from "@/lib/sheetSchema";
 
 describe("resolveManagedField", () => {
   it("maps canonical labels", () => {
@@ -55,5 +55,18 @@ describe("buildHeaderMap", () => {
     expect(Object.keys(MANAGED_LABELS).sort()).toEqual(
       ["certificateId","certificateUrl","createdAt","driveLink","email","emailSent","issueDate","name","status"]
     );
+  });
+});
+
+describe("lookupBoundValue", () => {
+  it("matches a header regardless of case or surrounding whitespace", () => {
+    const v = { "Designation/Role": "Lead", "Start Date": "2025" };
+    expect(lookupBoundValue(v, "designation/role")).toBe("Lead");
+    expect(lookupBoundValue(v, "  START DATE ")).toBe("2025");
+  });
+  it("returns '' when there is no match or inputs are missing", () => {
+    expect(lookupBoundValue({ A: "x" }, "B")).toBe("");
+    expect(lookupBoundValue(undefined, "A")).toBe("");
+    expect(lookupBoundValue({ A: "x" }, undefined)).toBe("");
   });
 });

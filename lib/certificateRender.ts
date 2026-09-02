@@ -3,6 +3,7 @@ import fontkit from "@pdf-lib/fontkit";
 import QRCode from "qrcode";
 import { loadFontBytes } from "@/lib/fonts.server";
 import { buildCertificateUrl } from "@/lib/urls";
+import { lookupBoundValue } from "@/lib/sheetSchema";
 
 export interface RenderCustomElement {
   id: string;
@@ -222,7 +223,7 @@ export async function renderCertificatePdf(params: RenderCertificateParams): Pro
       } catch {
         font = await pdfDoc.embedFont(StandardFonts.Helvetica);
       }
-      const text = cel.sourceField ? (fieldValues?.[cel.sourceField] ?? "") : cel.text;
+      const text = cel.sourceField ? lookupBoundValue(fieldValues, cel.sourceField) : cel.text;
       if (!text) continue; // nothing to draw — don't print an empty box for a missing bound value
       drawCenteredText(page, text, {
         x: cel.px, y: cel.py, size: cel.size || 18, font, color: cel.rgbColor,

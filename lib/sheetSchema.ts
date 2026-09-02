@@ -129,3 +129,22 @@ export function buildHeaderMap(headerRow: unknown[]): {
   });
   return { managed, custom };
 }
+
+/**
+ * Case-insensitive, trim-tolerant lookup of a bound custom-field value.
+ * Used by the certificate renderer and the pre-generation "missing values"
+ * check so a template's sourceField matches a sheet/CSV header regardless of
+ * capitalisation or surrounding whitespace.
+ */
+export function lookupBoundValue(
+  values: Record<string, string> | undefined | null,
+  sourceField: string | undefined | null
+): string {
+  if (!values || !sourceField) return "";
+  const want = normalizeHeader(sourceField);
+  if (!want) return "";
+  for (const key of Object.keys(values)) {
+    if (normalizeHeader(key) === want) return values[key] ?? "";
+  }
+  return "";
+}
