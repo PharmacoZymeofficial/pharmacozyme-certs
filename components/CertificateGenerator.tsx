@@ -21,6 +21,7 @@ async function loadFontBytesViaProxy(fontName: string): Promise<Uint8Array | nul
 import { useToast } from "@/components/Toast";
 import { sfx } from "@/lib/sfx";
 import { classifyParticipant, deriveGenerationSummary } from "@/lib/generationState";
+import { lookupBoundValue } from "@/lib/sheetSchema";
 import type { GenerationJob } from "@/lib/types";
 
 
@@ -630,7 +631,7 @@ export default function CertificateGenerator({ database, participants, onGenerat
         const missingByField = new Map<string, number>();
         for (const p of runList) {
           for (const field of boundFields) {
-            if (!p.customFields?.[field]) missingByField.set(field, (missingByField.get(field) || 0) + 1);
+            if (!lookupBoundValue(p.customFields, field)) missingByField.set(field, (missingByField.get(field) || 0) + 1);
           }
         }
         if (missingByField.size > 0) {

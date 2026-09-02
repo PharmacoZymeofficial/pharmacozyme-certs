@@ -20,19 +20,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Template not found" }, { status: 404 });
       }
       const tData = snap.data() || {};
-      if (tData.driveFileId) {
-        const downloadUrl = `https://drive.google.com/uc?export=download&id=${tData.driveFileId}`;
-        const driveRes = await fetch(downloadUrl, { redirect: "follow" });
-        if (!driveRes.ok) {
-          return NextResponse.json({ error: "Failed to fetch template from Drive" }, { status: 502 });
-        }
-        templateBytes = await driveRes.arrayBuffer();
-      } else if (tData.pdfBase64) {
-        const buf = Buffer.from(tData.pdfBase64, "base64");
-        templateBytes = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
-      } else {
-        return NextResponse.json({ error: "Template has no PDF data" }, { status: 404 });
-      }
+      const { fetchTemplatePdf } = await import("@/lib/templateBytes");
+      const templatePdf = await fetchTemplatePdf(templateId, tData);
+      templateBytes = templatePdf.buffer.slice(
+        templatePdf.byteOffset,
+        templatePdf.byteOffset + templatePdf.byteLength
+      );
     } else if (templateUrl) {
       // Legacy: fetch from URL
       let fetchUrl = templateUrl;

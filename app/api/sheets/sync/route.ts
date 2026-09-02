@@ -3,6 +3,7 @@ import { getAdminDb } from "@/lib/firebase.admin";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { callAppsScript } from "@/lib/appsScript";
 import { sortParticipantsForSheet } from "@/lib/participantSort";
+import { MANAGED_FIELDS } from "@/lib/sheetSchema";
 
 export async function POST(request: NextRequest) {
   const guard = await requireAdmin(request);
@@ -41,25 +42,23 @@ export async function POST(request: NextRequest) {
       const participants = participantsSnap.docs.map((d) => d.data() as any);
       const sortedParticipants = sortParticipantsForSheet(participants);
 
-      const headerRow = [
-        "name",
-        "email",
-        "certificateId",
-        "certificateUrl",
-        "status",
-        "issueDate",
-        "emailSent",
-        "driveLink",
-        "createdAt",
-      ];
+      // Send only the managed fields; the Apps Script row-matches by name+email and
+      // preserves every custom column it finds. No headers/writeHeaders anymore.
+      const rows = sortedParticipants.map((p) => {
+        const row: Record<string, string | boolean> = {};
+        for (const field of MANAGED_FIELDS) {
+          if (field === "emailSent") row[field] = !!p.emailSent;
+          else if (field === "status") row[field] = p.status || "pending";
+          else row[field] = p[field] || "";
+        }
+        return row;
+      });
 
       const result = await callAppsScript("syncData", {
         spreadsheetId,
         tabName,
-        data: sortedParticipants,
         mode: "write",
-        headers: headerRow,
-        writeHeaders: true,
+        participants: rows,
       });
 
       return NextResponse.json({ success: true, mode: "firebaseToSheets", synced: result.rowsWritten });
@@ -81,45 +80,25 @@ export async function POST(request: NextRequest) {
       }
 
       let synced = 0;
-      // Fixed columns the app already understands; anything else (e.g. "Designation",
-      // "Start Date") becomes a per-participant custom field for templates to bind to.
-      const KNOWN_KEYS = new Set([
-        "name",
-        "email",
-        "certificateId",
-        "certificateUrl",
-        "status",
-        "issueDate",
-        "emailSent",
-        "driveLink",
-        "createdAt",
-      ]);
 
-      for (const p of result.data) {
-        if (!p.name) continue;
+      for (const rec of result.data as any[]) {
+        if (!rec.name) continue;
 
-        const nameKey = (p.name || "").toLowerCase().trim();
-        const emailKey = (p.email || "").toLowerCase().trim();
+        const nameKey = (rec.name || "").toLowerCase().trim();
+        const emailKey = (rec.email || "").toLowerCase().trim();
         const key = `${nameKey}_${emailKey}`;
         const existing = existingByKey.get(key);
 
-        const customFields: Record<string, string> = {};
-        for (const [k, v] of Object.entries(p)) {
-          if (!KNOWN_KEYS.has(k) && v !== undefined && v !== null && String(v).trim() !== "") {
-            customFields[k] = String(v);
-          }
-        }
-
         const fields = {
-          name: p.name,
-          email: p.email || "",
-          certificateId: p.certificateId || "",
-          certificateUrl: p.certificateUrl || "",
-          status: p.status || "pending",
-          issueDate: p.issueDate || "",
-          emailSent: p.emailSent || false,
-          driveLink: p.driveLink || "",
-          customFields,
+          name: rec.name,
+          email: rec.email || "",
+          certificateId: rec.certificateId || "",
+          certificateUrl: rec.certificateUrl || "",
+          status: rec.status || "pending",
+          issueDate: rec.issueDate || "",
+          emailSent: !!rec.emailSent,
+          driveLink: rec.driveLink || "",
+          customFields: (rec.custom && typeof rec.custom === "object" && !Array.isArray(rec.custom)) ? rec.custom : {},
         };
 
         if (existing) {
@@ -138,7 +117,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, updated: 0 });
       }
       const result = await callAppsScript("updateCertIds", { spreadsheetId, tabName, updates });
-      return NextResponse.json({ success: true, updated: result.updated ?? 0 });
+      return NextResponse.json({
+        success: true,
+        updated: result.updated ?? 0,
+        ...(result.error ? { error: result.error } : {}),
+      });
     } else {
       return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
     }

@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
       fileType: file.type || "application/pdf",
       fileSize: file.size,
       driveFileId: driveData.fileId,
+      ...(base64Data.length <= 920_000 ? { pdfBase64: base64Data } : {}),
       fileUrl: driveData.previewUrl,
       viewUrl: driveData.viewUrl,
       isActive: true,

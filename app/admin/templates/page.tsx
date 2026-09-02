@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AVAILABLE_FONTS, getGoogleFontsUrl } from "@/lib/fonts";
 
+// Discrete zoom levels for the template editor canvas. "Fit" resets to 1.
+const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
 interface PositionConfig {
   x: number;
   y: number;
@@ -86,8 +89,16 @@ export default function TemplatesPage() {
   const [generatingPreview, setGeneratingPreview] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  // Certificate Preview modal sizing: "fit" scales the page to the modal viewport
+  // (whole page visible); "actual" renders at natural pixel size in a scrollable box.
+  // Always resets to "fit" when the preview is (re)opened.
+  const [previewFit, setPreviewFit] = useState<"fit" | "actual">("fit");
   // Actual PDF page dimensions — drives the correct aspect ratio for the preview canvas
   const [templateDimensions, setTemplateDimensions] = useState<{ width: number; height: number }>({ width: 595, height: 842 });
+  // Canva-style canvas zoom. Scales the whole canvas wrapper (background + markers) as one
+  // unit via CSS transform, so percentage-based marker math stays zoom-invariant. Does not
+  // persist — always resets to 1 ("Fit") when a template is opened for editing.
+  const [zoom, setZoom] = useState(1);
   const previewRef = useRef<HTMLDivElement>(null);
   // Tracks the initial state when a resize drag starts (delta-based resize)
   const resizeStartRef = useRef<{ clientX: number; clientY: number; startSize: number } | null>(null);
@@ -189,6 +200,9 @@ export default function TemplatesPage() {
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         setPreviewPdfUrl(prev => { if (prev) URL.revokeObjectURL(prev); return url; });
+        // Reset the modal to whole-page view each time the preview is explicitly opened.
+        // Skipped for silent auto-refreshes so it doesn't fight a user who toggled to "actual".
+        if (!silent) setPreviewFit("fit");
       } else if (!silent) {
         alert("Failed to generate preview");
       }
@@ -322,7 +336,7 @@ export default function TemplatesPage() {
 
     if (activeResize && resizeStartRef.current) {
       const { clientX: startX, clientY: startY, startSize } = resizeStartRef.current;
-      const delta = ((e.clientX - startX) + (e.clientY - startY)) / 2;
+      const delta = (((e.clientX - startX) + (e.clientY - startY)) / 2) / zoom;
       if (activeResize === 'qr') {
         const s = Math.max(1, Math.min(25, Math.round(startSize + delta * 0.08)));
         updatePositions(prev => ({ ...prev, qr: { ...prev.qr, size: s } }));
@@ -359,6 +373,7 @@ export default function TemplatesPage() {
   // Fetch actual PDF page dimensions whenever a template is opened for editing
   useEffect(() => {
     if (!editingTemplate) return;
+    setZoom(1); // zoom never persists — every editor open starts at "Fit"
     setTemplateDimensions({ width: 595, height: 842 }); // reset to portrait default
     fetch(`/api/templates/${editingTemplate.id}/dimensions`)
       .then(r => r.json())
@@ -525,24 +540,12 @@ export default function TemplatesPage() {
         setSelectedFile(null);
         setFormData({ name: "", description: "", category: "General" });
         fetchTemplates();
-        const needsSharingPrompt = data.sharingFailed && data.template?.driveFileId;
-        // Don't stack a success alert in front of the sharing prompt — the prompt
-        // already says the upload succeeded.
-        if (!needsSharingPrompt) alert("Template uploaded successfully!");
-        if (needsSharingPrompt) {
-          if (confirm("Template uploaded, but it is not publicly shareable yet. Make it public now?")) {
-            try {
-              const r = await fetch("/api/drive/ensure-public", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ fileId: data.template.driveFileId }),
-              });
-              const j = await r.json().catch(() => ({}));
-              alert(j.shared ? "Template is now public." : "Could not make it public — the bridge account may block link sharing.");
-            } catch {
-              alert("Could not reach the sharing service.");
-            }
-          }
+        // A failed public Drive link is no longer a problem: certificate rendering and
+        // the editor iframe fetch template bytes via the Apps Script owner fallback.
+        if (data.sharingFailed && data.template?.driveFileId) {
+          alert("Template uploaded. Couldn't set a public Drive link — that's fine, certificates still render.");
+        } else {
+          alert("Template uploaded successfully!");
         }
       } else {
         alert((data.error || "Failed to upload template") + (data.details ? `\n\nDetails: ${data.details}` : ""));
@@ -1023,7 +1026,39 @@ export default function TemplatesPage() {
             </div>
 
             {/* Center — canvas */}
-            <div className="flex-1 flex items-start justify-center p-6 overflow-auto">
+            <div className="relative flex-1 flex items-start justify-center p-6 overflow-auto">
+              {/* Zoom control — scales the canvas wrapper (background + markers) as one unit */}
+              <div className="absolute top-3 right-3 z-30 flex items-center gap-1 bg-white/95 border border-gray-200 rounded-lg shadow-sm px-1.5 py-1">
+                <button
+                  type="button"
+                  onClick={() => setZoom(z => ZOOM_STEPS[Math.max(0, ZOOM_STEPS.indexOf(z) - 1)] ?? 0.5)}
+                  disabled={zoom <= ZOOM_STEPS[0]}
+                  className="px-1.5 text-gray-600 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  title="Zoom out"
+                  aria-label="Zoom out"
+                >
+                  −
+                </button>
+                <span className="text-xs tabular-nums w-10 text-center text-gray-600">{Math.round(zoom * 100)}%</span>
+                <button
+                  type="button"
+                  onClick={() => setZoom(z => ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, ZOOM_STEPS.indexOf(z) + 1)] ?? 2)}
+                  disabled={zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1]}
+                  className="px-1.5 text-gray-600 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  title="Zoom in"
+                  aria-label="Zoom in"
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setZoom(1)}
+                  className="px-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                  title="Reset zoom to 100%"
+                >
+                  Fit
+                </button>
+              </div>
               <div className="w-full" style={{ maxWidth: Math.round((templateDimensions.width / templateDimensions.height) * 620) }}>
                 {previewPdfUrl && (
                   <div className="mb-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-xl flex items-center justify-between text-xs">
@@ -1039,7 +1074,12 @@ export default function TemplatesPage() {
                 )}
                 <div
                   className="relative bg-white shadow-xl overflow-hidden select-none border border-gray-300"
-                  style={{ aspectRatio: `${templateDimensions.width} / ${templateDimensions.height}`, cursor: activeDrag ? 'grabbing' : 'default' }}
+                  style={{
+                    aspectRatio: `${templateDimensions.width} / ${templateDimensions.height}`,
+                    cursor: activeDrag ? 'grabbing' : 'default',
+                    transform: `scale(${zoom})`,
+                    transformOrigin: 'top left',
+                  }}
                   ref={previewRef}
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}
@@ -1137,13 +1177,13 @@ export default function TemplatesPage() {
                       </div>
                       <div className="space-y-2">
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Bind to Column (optional)</p>
-                        <input type="text" value={customEl.sourceField || ""}
-                          onChange={e => updateCustomElement(customEl.id, { sourceField: e.target.value || undefined })}
+                        <input type="text" value={customEl.sourceField ?? ""}
+                          onChange={e => updateCustomElement(customEl.id, { sourceField: e.target.value })}
+                          onBlur={e => updateCustomElement(customEl.id, { sourceField: e.target.value.trim() || undefined })}
                           placeholder="e.g. Designation"
                           className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-purple-400 font-mono" />
                         <p className="text-[10px] text-gray-400">
-                          Must exactly match a column header in the linked Sheet or import file. When set, this
-                          prints that participant's value instead of the text below.
+                          Must match a column header in your linked Google Sheet or import file. Spelling must match; capitalization and surrounding spaces don't.
                         </p>
                       </div>
                       <div className="space-y-2">
@@ -1391,22 +1431,48 @@ export default function TemplatesPage() {
           <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl my-8 flex flex-col" style={{ maxHeight: '90vh' }}>
             <div className="p-4 border-b border-green-50 flex justify-between items-center flex-shrink-0">
               <h3 className="text-lg font-bold text-brand-dark-green">Certificate Preview</h3>
-              <button
-                onClick={() => {
-                  setPreviewPdfUrl(null);
-                  URL.revokeObjectURL(previewPdfUrl);
-                }}
-                className="p-2 hover:bg-green-50 rounded-lg"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPreviewFit(f => (f === "fit" ? "actual" : "fit"))}
+                  className="text-xs font-medium text-gray-600 hover:bg-gray-100 px-2 py-1 rounded-lg border border-gray-200"
+                >
+                  {previewFit === "fit" ? "Actual size" : "Fit page"}
+                </button>
+                <button
+                  onClick={() => {
+                    setPreviewPdfUrl(null);
+                    URL.revokeObjectURL(previewPdfUrl);
+                  }}
+                  className="p-2 hover:bg-green-50 rounded-lg"
+                >
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
             </div>
-            <div className="flex-1 overflow-auto p-4">
-              <iframe 
-                src={`${previewPdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
-                className="w-full h-full min-h-[600px]"
-                title="Certificate Preview"
-              />
+            <div className="flex-1 overflow-auto p-4 flex justify-center">
+              {(() => {
+                const ratio = templateDimensions.width / templateDimensions.height || 0.707;
+                const style = previewFit === "fit"
+                  ? {
+                      height: `min(78vh, calc(88vw / ${ratio}))`,
+                      width: `calc(min(78vh, calc(88vw / ${ratio})) * ${ratio})`,
+                      flexShrink: 0 as const,
+                    }
+                  : {
+                      width: templateDimensions.width,
+                      height: templateDimensions.height,
+                      maxWidth: "none" as const,
+                      flexShrink: 0 as const,
+                    };
+                return (
+                  <iframe
+                    src={`${previewPdfUrl}#toolbar=0&navpanes=0`}
+                    style={style}
+                    className="border border-gray-200 bg-white"
+                    title="Certificate Preview"
+                  />
+                );
+              })()}
             </div>
             <div className="p-4 border-t border-green-50 flex justify-end flex-shrink-0">
               <a
