@@ -477,12 +477,12 @@ export default function CertificateGenerator({ database, participants, onGenerat
   const [generationProgress, setGenerationProgress] = useState(0);
   const [currentGenerating, setCurrentGenerating] = useState("");
   const [templateSearch, setTemplateSearch] = useState("");
-  // Picker expansion: default view is the 4 latest templates matching the
-  // database's category; these reveal the rest / the other category on demand.
-  const [showAllPrimary, setShowAllPrimary] = useState(false);
+  // Picker paging: show PICKER_STEP templates of the DB's category, reveal more
+  // PICKER_STEP at a time. The other category is hidden until asked for.
+  const PICKER_STEP = 6;
+  const [primaryCount, setPrimaryCount] = useState(PICKER_STEP);
   const [showOtherCategory, setShowOtherCategory] = useState(false);
-  const [showAllOther, setShowAllOther] = useState(false);
-  const PICKER_LIMIT = 4;
+  const [otherCount, setOtherCount] = useState(PICKER_STEP);
 
   const summary = deriveGenerationSummary(participants, !!database.linkedSheet);
   // Default target: everything not already complete. Checkbox adds the complete set.
@@ -1000,9 +1000,9 @@ export default function CertificateGenerator({ database, participants, onGenerat
   // Collapse the picker back to its default view every time it reopens.
   useEffect(() => {
     if (showTemplateSelect) {
-      setShowAllPrimary(false);
+      setPrimaryCount(PICKER_STEP);
       setShowOtherCategory(false);
-      setShowAllOther(false);
+      setOtherCount(PICKER_STEP);
       setTemplateSearch("");
     }
   }, [showTemplateSelect]);
@@ -1312,16 +1312,29 @@ export default function CertificateGenerator({ database, participants, onGenerat
                       </p>
                     )}
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-3">
-                      {(showAllPrimary ? primaryList : primaryList.slice(0, PICKER_LIMIT)).map(renderTemplateCard)}
+                      {primaryList.slice(0, primaryCount).map(renderTemplateCard)}
                     </div>
-                    {primaryList.length > PICKER_LIMIT && (
-                      <button
-                        onClick={() => setShowAllPrimary(v => !v)}
-                        className="text-sm font-medium text-brand-green hover:text-brand-dark-green flex items-center gap-1"
-                      >
-                        <span className="material-symbols-outlined text-base">{showAllPrimary ? "expand_less" : "expand_more"}</span>
-                        {showAllPrimary ? "Show fewer" : `Show ${primaryList.length - PICKER_LIMIT} more`}
-                      </button>
+                    {primaryList.length > PICKER_STEP && (
+                      <div className="flex items-center gap-4">
+                        {primaryCount < primaryList.length && (
+                          <button
+                            onClick={() => setPrimaryCount(c => c + PICKER_STEP)}
+                            className="text-sm font-medium text-brand-green hover:text-brand-dark-green flex items-center gap-1"
+                          >
+                            <span className="material-symbols-outlined text-base">expand_more</span>
+                            Show {Math.min(PICKER_STEP, primaryList.length - primaryCount)} more
+                          </button>
+                        )}
+                        {primaryCount > PICKER_STEP && (
+                          <button
+                            onClick={() => setPrimaryCount(PICKER_STEP)}
+                            className="text-sm font-medium text-on-surface-variant hover:text-brand-dark-green flex items-center gap-1"
+                          >
+                            <span className="material-symbols-outlined text-base">expand_less</span>
+                            Show fewer
+                          </button>
+                        )}
+                      </div>
                     )}
 
                     {!primaryFellBack && other.length > 0 && (
@@ -1338,16 +1351,29 @@ export default function CertificateGenerator({ database, participants, onGenerat
                           <>
                             <p className="text-xs font-bold text-brand-grass-green uppercase mb-3">{otherLabel} templates</p>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-3">
-                              {(showAllOther ? other : other.slice(0, PICKER_LIMIT)).map(renderTemplateCard)}
+                              {other.slice(0, otherCount).map(renderTemplateCard)}
                             </div>
-                            {other.length > PICKER_LIMIT && (
-                              <button
-                                onClick={() => setShowAllOther(v => !v)}
-                                className="text-sm font-medium text-brand-green hover:text-brand-dark-green flex items-center gap-1"
-                              >
-                                <span className="material-symbols-outlined text-base">{showAllOther ? "expand_less" : "expand_more"}</span>
-                                {showAllOther ? "Show fewer" : `Show ${other.length - PICKER_LIMIT} more`}
-                              </button>
+                            {other.length > PICKER_STEP && (
+                              <div className="flex items-center gap-4">
+                                {otherCount < other.length && (
+                                  <button
+                                    onClick={() => setOtherCount(c => c + PICKER_STEP)}
+                                    className="text-sm font-medium text-brand-green hover:text-brand-dark-green flex items-center gap-1"
+                                  >
+                                    <span className="material-symbols-outlined text-base">expand_more</span>
+                                    Show {Math.min(PICKER_STEP, other.length - otherCount)} more
+                                  </button>
+                                )}
+                                {otherCount > PICKER_STEP && (
+                                  <button
+                                    onClick={() => setOtherCount(PICKER_STEP)}
+                                    className="text-sm font-medium text-on-surface-variant hover:text-brand-dark-green flex items-center gap-1"
+                                  >
+                                    <span className="material-symbols-outlined text-base">expand_less</span>
+                                    Show fewer
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </>
                         )}
