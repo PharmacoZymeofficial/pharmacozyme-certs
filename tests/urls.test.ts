@@ -25,6 +25,13 @@ describe("certificate URLs", () => {
     process.env.NEXT_PUBLIC_BASE_URL = "https://cert.example.com";
   });
 
+  it("strips stray whitespace/newlines in the base URL env value", () => {
+    process.env.NEXT_PUBLIC_BASE_URL = "  https://cert.example.com\n";
+    expect(buildVerificationUrl("X")).toBe("https://cert.example.com/verify?certId=X");
+    expect(buildCertificateUrl("X")).toBe("https://cert.example.com/certificate?certId=X");
+    process.env.NEXT_PUBLIC_BASE_URL = "https://cert.example.com";
+  });
+
   it("builds the recipient-facing certificate URL", () => {
     expect(buildCertificateUrl("PZ-2026-A1B2C3D4")).toBe(
       "https://cert.example.com/certificate?certId=PZ-2026-A1B2C3D4"
