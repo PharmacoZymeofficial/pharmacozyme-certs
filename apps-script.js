@@ -325,7 +325,10 @@ function syncData(payload) {
   }
 
   if (mode === "write") {
-    var participants = payload.participants || [];
+    // `participants` is the current key; `data` is the pre-header-mapping key,
+    // still accepted so an un-migrated caller degrades gracefully instead of
+    // silently writing nothing.
+    var participants = payload.participants || payload.data || [];
     var WRITE_FIELDS = ["certificateId", "certificateUrl", "status", "issueDate", "emailSent", "driveLink", "createdAt"];
     var ENSURE_FIELDS = ["name", "email"].concat(WRITE_FIELDS);
 

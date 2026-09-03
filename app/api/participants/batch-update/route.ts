@@ -92,7 +92,9 @@ async function syncAllToSheet(databaseId: string) {
     await callAppsScript("syncData", {
       spreadsheetId: dbData.sheetId,
       tabName: dbData.sheetTabName || "Participants",
-      data: sorted.map((p) => ({
+      // Key must be `participants` — the header-aware syncData write reads
+      // `payload.participants` and ignores `data` (the pre-header-mapping key).
+      participants: sorted.map((p) => ({
         certificateId: p.certificateId || "",
         name: p.name || "",
         email: p.email || "",
