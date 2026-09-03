@@ -38,7 +38,11 @@ async function upsertRowToSheet(databaseId: string, participant: any) {
   }
 }
 
-/** Full sync: read all participants from Firestore and rewrite the entire sheet. */
+/**
+ * Full sync: push every Firestore participant's managed cells to the sheet.
+ * The header-aware syncData write upserts each row by name+email (it no longer
+ * clears and rewrites), so custom columns and row order are left untouched.
+ */
 async function fullSyncToSheet(databaseId: string) {
   if (!appsScriptConfigured()) return;
   const sheet = await getSheetInfo(databaseId);
@@ -55,7 +59,8 @@ async function fullSyncToSheet(databaseId: string) {
 
     await callAppsScript("syncData", {
       ...sheet,
-      data: sorted.map(toSheetRow),
+      // `participants`, not `data` — see the syncData write branch in apps-script.js.
+      participants: sorted.map(toSheetRow),
       mode: "write",
     });
   } catch (err) {
