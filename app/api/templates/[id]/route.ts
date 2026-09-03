@@ -43,6 +43,9 @@ export async function PUT(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: "Template ID is required" }, { status: 400 });
     }
+    if ("category" in updates && updates.category !== "General" && updates.category !== "Official") {
+      return NextResponse.json({ error: "category must be 'General' or 'Official'" }, { status: 400 });
+    }
 
     await getAdminDb()
       .collection("certificateTemplates")

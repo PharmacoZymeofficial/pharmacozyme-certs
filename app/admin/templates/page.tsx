@@ -67,6 +67,11 @@ export default function TemplatesPage() {
     description: "",
     category: "General",
   });
+  // List toolbar: free-text name search + category segment.
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "General" | "Official">("all");
+  // Template id currently having its category saved (disables that card's control).
+  const [recategorizingId, setRecategorizingId] = useState<string | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<CertificateTemplate | null>(null);
   const [positions, setPositions] = useState<Positions>({
     name: { x: 50, y: 45, size: 48, color: "#1b4332" },
@@ -585,6 +590,36 @@ export default function TemplatesPage() {
     }
   };
 
+  const handleCategoryChange = async (template: CertificateTemplate, category: "General" | "Official") => {
+    if (category === template.category) return;
+    setRecategorizingId(template.id);
+    // Optimistic — flip locally, roll back on failure.
+    setTemplates((prev) => prev.map((t) => (t.id === template.id ? { ...t, category } : t)));
+    try {
+      const response = await fetch(`/api/templates/${template.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: template.id, category }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to update category");
+      }
+    } catch (err) {
+      console.error("Recategorize error:", err);
+      setTemplates((prev) => prev.map((t) => (t.id === template.id ? { ...t, category: template.category } : t)));
+      alert("Couldn't change the template category. Please try again.");
+    } finally {
+      setRecategorizingId(null);
+    }
+  };
+
+  const visibleTemplates = templates.filter((t) => {
+    if (categoryFilter !== "all" && (t.category || "General") !== categoryFilter) return false;
+    const q = search.trim().toLowerCase();
+    return !q || t.name.toLowerCase().includes(q);
+  });
+
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return bytes + " B";
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
@@ -650,8 +685,55 @@ export default function TemplatesPage() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {templates.map((template) => (
+        <>
+          {/* Toolbar: search + category segment + count */}
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="relative flex-1 max-w-sm">
+              <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-base text-gray-400 pointer-events-none">search</span>
+              <input
+                type="text"
+                placeholder="Search templates…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-8 pr-3 py-2 text-sm border border-green-100 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-vivid-green/30 focus:border-brand-vivid-green/50"
+              />
+              {search && (
+                <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  <span className="material-symbols-outlined text-base">close</span>
+                </button>
+              )}
+            </div>
+            <div className="inline-flex rounded-lg border border-green-100 bg-white p-0.5 self-start">
+              {(["all", "General", "Official"] as const).map((seg) => (
+                <button
+                  key={seg}
+                  onClick={() => setCategoryFilter(seg)}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    categoryFilter === seg
+                      ? "bg-brand-vivid-green text-white"
+                      : "text-on-surface-variant hover:text-brand-dark-green"
+                  }`}
+                >
+                  {seg === "all" ? "All" : seg}
+                </button>
+              ))}
+            </div>
+            <span className="text-xs text-on-surface-variant sm:ml-auto">
+              {visibleTemplates.length} of {templates.length}
+            </span>
+          </div>
+
+          {visibleTemplates.length === 0 ? (
+            <div className="bg-white rounded-xl border border-green-100 p-10 text-center">
+              <span className="material-symbols-outlined text-4xl text-gray-300 mb-3 block">search_off</span>
+              <p className="text-on-surface-variant">
+                No {categoryFilter !== "all" ? categoryFilter + " " : ""}templates
+                {search ? <> match &quot;{search.trim()}&quot;</> : null}.
+              </p>
+            </div>
+          ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {visibleTemplates.map((template) => (
             <div
               key={template.id}
               className="bg-white rounded-xl border border-green-100 overflow-hidden hover:shadow-lg transition-all"
@@ -672,14 +754,26 @@ export default function TemplatesPage() {
 
               {/* Info */}
               <div className="p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <h3 className="text-lg font-headline font-bold text-brand-dark-green">{template.name}</h3>
-                    <span className="text-xs text-on-surface-variant">{template.category}</span>
+                <div className="flex items-start justify-between mb-2 gap-2">
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-headline font-bold text-brand-dark-green truncate">{template.name}</h3>
+                    <label className="inline-flex items-center gap-1 mt-1 text-xs">
+                      <span className={`w-1.5 h-1.5 rounded-full ${(template.category || "General") === "Official" ? "bg-brand-vivid-green" : "bg-gray-300"}`} />
+                      <select
+                        value={template.category || "General"}
+                        disabled={recategorizingId === template.id}
+                        onChange={(e) => handleCategoryChange(template, e.target.value as "General" | "Official")}
+                        className="bg-transparent text-on-surface-variant font-medium border-0 p-0 pr-4 focus:outline-none focus:ring-0 cursor-pointer disabled:opacity-50"
+                        title="Change template category"
+                      >
+                        <option value="General">General</option>
+                        <option value="Official">Official</option>
+                      </select>
+                    </label>
                   </div>
                   <button
                     onClick={() => handleDelete(template)}
-                    className="p-1.5 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition-colors"
+                    className="shrink-0 p-1.5 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition-colors"
                     title="Delete template"
                   >
                     <span className="material-symbols-outlined text-lg">delete</span>
@@ -729,7 +823,9 @@ export default function TemplatesPage() {
               </div>
             </div>
           ))}
-        </div>
+          </div>
+          )}
+        </>
       )}
 
       {/* Upload Modal */}

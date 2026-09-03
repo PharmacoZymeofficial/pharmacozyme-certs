@@ -22,6 +22,7 @@ import { useToast } from "@/components/Toast";
 import { sfx } from "@/lib/sfx";
 import { classifyParticipant, deriveGenerationSummary } from "@/lib/generationState";
 import { lookupBoundValue } from "@/lib/sheetSchema";
+import { splitByCategory, normalizeCategory } from "@/lib/templatePicker";
 import type { GenerationJob } from "@/lib/types";
 
 
@@ -448,6 +449,7 @@ interface CertificateTemplate {
   id: string;
   name: string;
   fileUrl: string;
+  category?: string;
   positions?: {
     name: { x: number; y: number; size?: number; color?: string; font?: string };
     certId: { x: number; y: number; size?: number; color?: string; font?: string };
@@ -475,6 +477,12 @@ export default function CertificateGenerator({ database, participants, onGenerat
   const [generationProgress, setGenerationProgress] = useState(0);
   const [currentGenerating, setCurrentGenerating] = useState("");
   const [templateSearch, setTemplateSearch] = useState("");
+  // Picker expansion: default view is the 4 latest templates matching the
+  // database's category; these reveal the rest / the other category on demand.
+  const [showAllPrimary, setShowAllPrimary] = useState(false);
+  const [showOtherCategory, setShowOtherCategory] = useState(false);
+  const [showAllOther, setShowAllOther] = useState(false);
+  const PICKER_LIMIT = 4;
 
   const summary = deriveGenerationSummary(participants, !!database.linkedSheet);
   // Default target: everything not already complete. Checkbox adds the complete set.
@@ -989,6 +997,16 @@ export default function CertificateGenerator({ database, participants, onGenerat
     }
   };
 
+  // Collapse the picker back to its default view every time it reopens.
+  useEffect(() => {
+    if (showTemplateSelect) {
+      setShowAllPrimary(false);
+      setShowOtherCategory(false);
+      setShowAllOther(false);
+      setTemplateSearch("");
+    }
+  }, [showTemplateSelect]);
+
   const autoStartedRef = useRef(false);
   useEffect(() => {
     if (!resumeMode || loadingTemplates || isGenerating || showDownload || autoStartedRef.current) return;
@@ -1152,6 +1170,43 @@ export default function CertificateGenerator({ database, participants, onGenerat
   }
 
   if (showTemplateSelect) {
+    const search = templateSearch.trim().toLowerCase();
+    const { primary, other, primaryLabel, otherLabel } = splitByCategory(uploadedTemplates, database.category);
+    const searchMatches = search
+      ? uploadedTemplates.filter((t) => t.name.toLowerCase().includes(search))
+      : [];
+    // With no primary-category templates, fall back to showing the other bucket.
+    const primaryList = primary.length > 0 ? primary : other;
+    const primaryListLabel = primary.length > 0 ? primaryLabel : otherLabel;
+    const primaryFellBack = primary.length === 0 && other.length > 0;
+
+    const renderTemplateCard = (template: CertificateTemplate) => (
+      <button
+        key={template.id}
+        onClick={() => setSelectedTemplate(template.id)}
+        className={`p-3 rounded-xl border-2 transition-all duration-150 text-left cursor-pointer ${
+          selectedTemplate === template.id
+            ? "border-brand-vivid-green bg-green-50 shadow-md"
+            : "border-green-100 hover:border-brand-vivid-green/60 hover:shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+        }`}
+      >
+        <div className="w-full h-24 bg-gradient-to-br from-green-50 to-green-100 rounded-lg mb-2 flex items-center justify-center overflow-hidden">
+          {template.fileUrl ? (
+            <iframe
+              src={`${template.fileUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitV`}
+              className="w-full h-full pointer-events-none"
+              title={`${template.name} preview`}
+              tabIndex={-1}
+            />
+          ) : (
+            <span className="material-symbols-outlined text-4xl text-brand-green/40">picture_as_pdf</span>
+          )}
+        </div>
+        <p className="text-sm font-medium text-brand-dark-green truncate">{template.name}</p>
+        <p className="text-xs text-on-surface-variant">{normalizeCategory(template.category)} template</p>
+      </button>
+    );
+
     return (
       <div className="bg-white rounded-xl border border-green-100 shadow-sm p-6">
         <div className="flex items-center gap-4 mb-6">
@@ -1215,16 +1270,21 @@ export default function CertificateGenerator({ database, participants, onGenerat
 
             {/* Uploaded Templates */}
             {uploadedTemplates.length > 0 && (
-              <>
+              <div className="mb-6">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-bold text-brand-grass-green uppercase">Your Templates</p>
+                  <p className="text-xs font-bold text-brand-grass-green uppercase">
+                    Your Templates
+                    {!search && (
+                      <span className="text-on-surface-variant"> · {primaryListLabel}</span>
+                    )}
+                  </p>
                 </div>
                 {/* Search */}
                 <div className="relative mb-3">
                   <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-base text-gray-400 pointer-events-none">search</span>
                   <input
                     type="text"
-                    placeholder="Search templates…"
+                    placeholder="Search all templates…"
                     value={templateSearch}
                     onChange={e => setTemplateSearch(e.target.value)}
                     className="w-full pl-8 pr-3 py-1.5 text-sm border border-green-100 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-vivid-green/30 focus:border-brand-vivid-green/50"
@@ -1235,40 +1295,67 @@ export default function CertificateGenerator({ database, participants, onGenerat
                     </button>
                   )}
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
-                  {uploadedTemplates
-                    .filter(t => t.name.toLowerCase().includes(templateSearch.toLowerCase()))
-                    .map((template) => (
-                    <button
-                      key={template.id}
-                      onClick={() => setSelectedTemplate(template.id)}
-                      className={`p-3 rounded-xl border-2 transition-all duration-150 text-left cursor-pointer ${
-                        selectedTemplate === template.id
-                          ? "border-brand-vivid-green bg-green-50 shadow-md"
-                          : "border-green-100 hover:border-brand-vivid-green/60 hover:shadow-sm hover:scale-[1.02] active:scale-[0.98]"
-                      }`}
-                    >
-                      <div className="w-full h-24 bg-gradient-to-br from-green-50 to-green-100 rounded-lg mb-2 flex items-center justify-center overflow-hidden">
-                        {template.fileUrl ? (
-                          <iframe
-                            src={`${template.fileUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitV`}
-                            className="w-full h-full pointer-events-none"
-                            title={`${template.name} preview`}
-                            tabIndex={-1}
-                          />
+
+                {search ? (
+                  /* Search overrides the category view: every name match, uncapped. */
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    {searchMatches.map(renderTemplateCard)}
+                    {searchMatches.length === 0 && (
+                      <p className="col-span-full text-sm text-on-surface-variant text-center py-4">No templates match &quot;{templateSearch.trim()}&quot;</p>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {primaryFellBack && (
+                      <p className="text-xs text-on-surface-variant mb-3">
+                        No {primaryLabel} templates yet — showing {otherLabel} templates.
+                      </p>
+                    )}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-3">
+                      {(showAllPrimary ? primaryList : primaryList.slice(0, PICKER_LIMIT)).map(renderTemplateCard)}
+                    </div>
+                    {primaryList.length > PICKER_LIMIT && (
+                      <button
+                        onClick={() => setShowAllPrimary(v => !v)}
+                        className="text-sm font-medium text-brand-green hover:text-brand-dark-green flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-base">{showAllPrimary ? "expand_less" : "expand_more"}</span>
+                        {showAllPrimary ? "Show fewer" : `Show ${primaryList.length - PICKER_LIMIT} more`}
+                      </button>
+                    )}
+
+                    {!primaryFellBack && other.length > 0 && (
+                      <div className="border-t border-green-100 mt-4 pt-4">
+                        {!showOtherCategory ? (
+                          <button
+                            onClick={() => setShowOtherCategory(true)}
+                            className="text-sm font-medium text-on-surface-variant hover:text-brand-dark-green flex items-center gap-1"
+                          >
+                            <span className="material-symbols-outlined text-base">add</span>
+                            Show {otherLabel} templates ({other.length})
+                          </button>
                         ) : (
-                          <span className="material-symbols-outlined text-4xl text-brand-green/40">picture_as_pdf</span>
+                          <>
+                            <p className="text-xs font-bold text-brand-grass-green uppercase mb-3">{otherLabel} templates</p>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-3">
+                              {(showAllOther ? other : other.slice(0, PICKER_LIMIT)).map(renderTemplateCard)}
+                            </div>
+                            {other.length > PICKER_LIMIT && (
+                              <button
+                                onClick={() => setShowAllOther(v => !v)}
+                                className="text-sm font-medium text-brand-green hover:text-brand-dark-green flex items-center gap-1"
+                              >
+                                <span className="material-symbols-outlined text-base">{showAllOther ? "expand_less" : "expand_more"}</span>
+                                {showAllOther ? "Show fewer" : `Show ${other.length - PICKER_LIMIT} more`}
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
-                      <p className="text-sm font-medium text-brand-dark-green truncate">{template.name}</p>
-                      <p className="text-xs text-on-surface-variant">Custom Template</p>
-                    </button>
-                  ))}
-                  {uploadedTemplates.filter(t => t.name.toLowerCase().includes(templateSearch.toLowerCase())).length === 0 && (
-                    <p className="col-span-full text-sm text-on-surface-variant text-center py-4">No templates match "{templateSearch}"</p>
-                  )}
-                </div>
-              </>
+                    )}
+                  </>
+                )}
+              </div>
             )}
 
             {uploadedTemplates.length === 0 && (
