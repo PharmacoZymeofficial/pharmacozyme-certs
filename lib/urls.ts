@@ -10,7 +10,12 @@
  */
 
 export function baseUrl(): string {
-  return (process.env.NEXT_PUBLIC_BASE_URL || "https://cert.pharmacozyme.com").replace(/\/+$/, "");
+  // `.trim()` first: a stray newline/space in the NEXT_PUBLIC_BASE_URL env value
+  // otherwise lands mid-URL (`https://host\n/verify?…`), breaking QR scans and
+  // the stored certificateUrl. Then strip any trailing slash.
+  return (process.env.NEXT_PUBLIC_BASE_URL || "https://cert.pharmacozyme.com")
+    .trim()
+    .replace(/\/+$/, "");
 }
 
 /** Public verification page for a certificate. This is what QR codes encode. */
