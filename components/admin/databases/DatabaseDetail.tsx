@@ -1,10 +1,13 @@
 "use client";
 
+import { useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 import { Database } from "@/lib/types";
 import type { GenerationSummary } from "@/lib/generationState";
 import type { useToast } from "@/components/Toast";
 import GenerationResumeBanner from "@/components/admin/databases/GenerationResumeBanner";
+import { coverUrl } from "@/lib/coverImage";
+import { cropToCoverBlob } from "@/lib/coverImage.client";
 
 interface DatabaseDetailProps {
   selectedDatabase: Database;
@@ -30,6 +33,7 @@ interface DatabaseDetailProps {
   onFixFolderSharing?: () => void;
   onConsolidateFolders?: () => void;
   onPruneDuplicates?: () => void;
+  onCoverChanged: () => void;
   children: ReactNode;
 }
 
@@ -57,8 +61,47 @@ export default function DatabaseDetail({
   onFixFolderSharing,
   onConsolidateFolders,
   onPruneDuplicates,
+  onCoverChanged,
   children,
 }: DatabaseDetailProps): JSX.Element {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [coverBusy, setCoverBusy] = useState(false);
+  const cover = coverUrl(selectedDatabase);
+
+  const handleCoverPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setCoverBusy(true);
+    try {
+      const blob = await cropToCoverBlob(file);
+      const body = new FormData();
+      body.append("file", new File([blob], "cover.webp", { type: "image/webp" }));
+      const res = await fetch(`/api/databases/${selectedDatabase.id}/cover`, { method: "POST", body });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || "Upload failed");
+      toast.success("Cover updated");
+      onCoverChanged();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Cover upload failed");
+    } finally {
+      setCoverBusy(false);
+    }
+  };
+
+  const handleCoverRemove = async () => {
+    setCoverBusy(true);
+    try {
+      const res = await fetch(`/api/databases/${selectedDatabase.id}/cover`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Remove failed");
+      toast.success("Cover removed");
+      onCoverChanged();
+    } catch {
+      toast.error("Could not remove the cover");
+    } finally {
+      setCoverBusy(false);
+    }
+  };
+
   return (
     <>
           <nav className="flex items-center gap-3 mb-6 -mt-2">
@@ -74,6 +117,33 @@ export default function DatabaseDetail({
           </nav>
 
       <div className="bg-white rounded-xl border border-green-100 shadow-sm overflow-clip">
+        <div className="relative w-full aspect-[16/9] bg-green-50 group">
+          {cover ? (
+            <img src={cover} alt={`${selectedDatabase.name} cover`} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <span className="material-symbols-outlined text-5xl text-green-200">image</span>
+            </div>
+          )}
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={coverBusy}
+              className="px-3 py-1.5 rounded-lg bg-white/95 text-brand-dark-green text-xs font-bold shadow disabled:opacity-50"
+            >
+              {coverBusy ? "Working…" : cover ? "Change cover" : "Add cover"}
+            </button>
+            {cover && !coverBusy && (
+              <button
+                onClick={handleCoverRemove}
+                className="px-3 py-1.5 rounded-lg bg-white/95 text-red-600 text-xs font-bold shadow"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleCoverPick} />
+        </div>
             {/* Database Header */}
             <div className="p-6 border-b border-green-50 bg-green-50/30">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

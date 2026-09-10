@@ -155,6 +155,7 @@ export default function DatabaseManager({
     undo,
     redo,
     fetchParticipants,
+    fetchDatabases,
     handleCreateDatabase,
     handleToggleLive,
     handleRenameDatabase,
@@ -406,6 +407,7 @@ export default function DatabaseManager({
           onFixFolderSharing={fixFolderSharing}
           onConsolidateFolders={handleConsolidateFolders}
           onPruneDuplicates={handlePruneDuplicates}
+          onCoverChanged={() => fetchDatabases(true)}
         >
           <ParticipantTable
             participants={participants}
