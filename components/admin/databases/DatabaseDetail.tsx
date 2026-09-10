@@ -79,6 +79,8 @@ export default function DatabaseDetail({
       body.append("file", new File([blob], "cover.webp", { type: "image/webp" }));
       const res = await fetch(`/api/databases/${selectedDatabase.id}/cover`, { method: "POST", body });
       if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || "Upload failed");
+      const data = await res.json().catch(() => ({}));
+      setSelectedDatabase({ ...selectedDatabase, coverImageId: data.coverImageId, coverUpdatedAt: data.coverUpdatedAt });
       toast.success("Cover updated");
       onCoverChanged();
     } catch (err) {
@@ -93,6 +95,7 @@ export default function DatabaseDetail({
     try {
       const res = await fetch(`/api/databases/${selectedDatabase.id}/cover`, { method: "DELETE" });
       if (!res.ok) throw new Error("Remove failed");
+      setSelectedDatabase({ ...selectedDatabase, coverImageId: undefined, coverUpdatedAt: undefined });
       toast.success("Cover removed");
       onCoverChanged();
     } catch {
