@@ -12,7 +12,8 @@ import DatabaseList from "@/components/admin/databases/DatabaseList";
 import DatabaseDetail from "@/components/admin/databases/DatabaseDetail";
 import ParticipantTable from "@/components/admin/databases/ParticipantTable";
 import { useDatabaseManager } from "@/components/admin/databases/useDatabaseManager";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { filterDatabases } from "@/lib/databaseFilter";
 import type { Database } from "@/lib/types";
 
 export default function DatabaseManager({
@@ -185,6 +186,8 @@ export default function DatabaseManager({
     handleDeletePdfOnly,
   } = useDatabaseManager(category);
 
+  const [dbSearch, setDbSearch] = useState("");
+
   useEffect(() => {
     if (fetchedOnce) onDatabasesLoaded?.(allDatabases);
   }, [fetchedOnce, allDatabases, onDatabasesLoaded]);
@@ -336,23 +339,45 @@ export default function DatabaseManager({
 
       {/* Database Cards — hidden when a database is open */}
       {!selectedDatabase && (
-        <DatabaseList
-          databases={databases}
-          setShowCreateModal={setShowCreateModal}
-          setSelectedDatabase={setSelectedDatabase}
-          setFilterStatus={setFilterStatus}
-          setFilterEmailed={setFilterEmailed}
-          setSortBy={setSortBy}
-          setSortOrder={setSortOrder}
-          renamingDbId={renamingDbId}
-          setRenamingDbId={setRenamingDbId}
-          renameValue={renameValue}
-          setRenameValue={setRenameValue}
-          handleRenameDatabase={handleRenameDatabase}
-          handleDeleteDatabase={handleDeleteDatabase}
-          handleToggleLive={handleToggleLive}
-          onResumeDatabase={resumeDatabase}
-        />
+        <>
+          <div className="mb-6 relative max-w-sm">
+            <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-base text-gray-400 pointer-events-none">search</span>
+            <input
+              type="text"
+              placeholder="Search databases…"
+              value={dbSearch}
+              onChange={(e) => setDbSearch(e.target.value)}
+              className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-green-100 text-sm focus:outline-none focus:ring-2 focus:ring-brand-vivid-green"
+            />
+            {dbSearch && (
+              <button
+                onClick={() => setDbSearch("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            )}
+          </div>
+          <DatabaseList
+            databases={filterDatabases(databases, dbSearch)}
+            query={dbSearch}
+            onClearQuery={() => setDbSearch("")}
+            setShowCreateModal={setShowCreateModal}
+            setSelectedDatabase={setSelectedDatabase}
+            setFilterStatus={setFilterStatus}
+            setFilterEmailed={setFilterEmailed}
+            setSortBy={setSortBy}
+            setSortOrder={setSortOrder}
+            renamingDbId={renamingDbId}
+            setRenamingDbId={setRenamingDbId}
+            renameValue={renameValue}
+            setRenameValue={setRenameValue}
+            handleRenameDatabase={handleRenameDatabase}
+            handleDeleteDatabase={handleDeleteDatabase}
+            handleToggleLive={handleToggleLive}
+            onResumeDatabase={resumeDatabase}
+          />
+        </>
       )}
 
       {/* Selected Database Detail View */}

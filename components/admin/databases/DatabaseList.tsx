@@ -19,6 +19,8 @@ interface DatabaseListProps {
   handleDeleteDatabase: (db: Database) => void;
   handleToggleLive: (db: Database, e: MouseEvent) => void;
   onResumeDatabase: (db: Database) => void;
+  query: string;
+  onClearQuery: () => void;
 }
 
 export default function DatabaseList({
@@ -37,18 +39,30 @@ export default function DatabaseList({
   handleDeleteDatabase,
   handleToggleLive,
   onResumeDatabase,
+  query,
+  onClearQuery,
 }: DatabaseListProps): JSX.Element {
   return (
     <>
       {databases.length === 0 ? (
-        <div className="bg-white rounded-xl border border-green-100 p-12 text-center">
-          <span className="material-symbols-outlined text-6xl text-gray-300 mb-4 block">database</span>
-          <h3 className="text-xl font-headline font-bold text-brand-dark-green mb-2">No Databases Yet</h3>
-          <p className="text-on-surface-variant mb-6">Create your first database to start issuing certificates</p>
-          <button onClick={() => setShowCreateModal(true)} className="px-6 py-3 vivid-gradient-cta text-white rounded-xl font-bold">
-            Create First Database
-          </button>
-        </div>
+        query.trim() ? (
+          <div className="bg-white rounded-xl border border-green-100 p-12 text-center">
+            <span className="material-symbols-outlined text-5xl text-gray-300 mb-3 block">search_off</span>
+            <h3 className="text-lg font-headline font-bold text-brand-dark-green mb-1">No databases match “{query.trim()}”</h3>
+            <button onClick={onClearQuery} className="mt-3 text-sm font-bold text-brand-green hover:underline">
+              Clear search
+            </button>
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-green-100 p-12 text-center">
+            <span className="material-symbols-outlined text-6xl text-gray-300 mb-4 block">database</span>
+            <h3 className="text-xl font-headline font-bold text-brand-dark-green mb-2">No Databases Yet</h3>
+            <p className="text-on-surface-variant mb-6">Create your first database to start issuing certificates</p>
+            <button onClick={() => setShowCreateModal(true)} className="px-6 py-3 vivid-gradient-cta text-white rounded-xl font-bold">
+              Create First Database
+            </button>
+          </div>
+        )
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {databases.map((db) => (
