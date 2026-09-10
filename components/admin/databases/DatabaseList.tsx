@@ -2,6 +2,7 @@
 
 import type { JSX, MouseEvent } from "react";
 import { Database } from "@/lib/types";
+import { coverUrl } from "@/lib/coverImage";
 
 interface DatabaseListProps {
   databases: Database[];
@@ -71,6 +72,11 @@ export default function DatabaseList({
               onClick={() => { setSelectedDatabase(db); setFilterStatus("all"); setFilterEmailed("all"); setSortBy("sheet"); setSortOrder("asc"); }}
               className="bg-white rounded-xl border-2 border-green-100 hover:border-brand-vivid-green/60 hover:shadow-md p-6 cursor-pointer transition-all"
             >
+              {coverUrl(db) && (
+                <div className="-m-6 mb-4 aspect-[16/9] overflow-hidden rounded-t-xl bg-green-50">
+                  <img src={coverUrl(db)!} alt="" className="w-full h-full object-cover" />
+                </div>
+              )}
               <div className="flex items-start justify-between mb-4">
                 <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
                   <span className="material-symbols-outlined text-brand-green text-2xl">folder</span>
