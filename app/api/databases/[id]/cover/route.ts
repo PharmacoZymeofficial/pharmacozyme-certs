@@ -17,8 +17,21 @@ const ALLOWED_COVER_MIME_TYPES: Record<string, string> = {
 };
 
 // Coverless / not-found / gated responses are cheap to cache — this is what keeps a
-// repeatedly-missed or gated cover from re-hitting Firestore on every request.
-const NOT_FOUND_CACHE_CONTROL = "public, max-age=300, s-maxage=3600";
+// repeatedly-missed or gated cover from re-hitting Firestore on every request. Short
+// window (not the hour-long one this started as): coverUrl's cache-busting `?v=` only
+// changes on a cover write, not on an isLive toggle or a transient Apps Script failure,
+// so a long TTL here would pin a stale 404 at the edge long after the underlying state
+// changed. All three 404 branches below (missing cover, isLive-gated, upstream failure)
+// share this one constant on purpose — giving any one of them a different header would
+// itself be a distinguishing signal between "no cover" and "cover exists but gated".
+const NOT_FOUND_CACHE_CONTROL = "public, max-age=60, s-maxage=60";
+
+// Cover images get their own rate-limit bucket (prefixed key into the same shared
+// lib/rateLimit.ts store) so an unauthenticated visitor loading a page of database cards
+// can't drain the budget /api/verify and /api/search-name also depend on, and so a page
+// with several dozen live covers doesn't 429 partway through.
+const COVER_RATE_LIMIT_MAX = 300;
+const COVER_RATE_LIMIT_WINDOW_MS = 60_000;
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -46,7 +59,9 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     const form = await request.formData();
     const file = form.get("file") as File | null;
     if (!file) return NextResponse.json({ error: "file is required" }, { status: 400 });
-    const extension = ALLOWED_COVER_MIME_TYPES[file.type];
+    const extension = Object.prototype.hasOwnProperty.call(ALLOWED_COVER_MIME_TYPES, file.type)
+      ? ALLOWED_COVER_MIME_TYPES[file.type]
+      : undefined;
     if (!extension) {
       return NextResponse.json(
         { error: "Only image/webp, image/png, or image/jpeg files are allowed" },
@@ -128,7 +143,7 @@ export async function GET(request: NextRequest, { params }: Ctx) {
   // caller can't burn the Apps Script/Drive quota that certificate generation and Sheet
   // sync also depend on.
   const ip = getClientIp(request);
-  const { ok, retryAfter } = rateLimit(ip);
+  const { ok, retryAfter } = rateLimit(`cover:${ip}`, COVER_RATE_LIMIT_MAX, COVER_RATE_LIMIT_WINDOW_MS);
   if (!ok) {
     return NextResponse.json(
       { error: "Too many requests. Please wait before retrying." },
@@ -170,7 +185,7 @@ export async function GET(request: NextRequest, { params }: Ctx) {
 
     const res = await callAppsScript("getFileBytes", { fileId: coverId });
     if (!res?.success || !res.base64) {
-      console.error("Cover GET: getFileBytes failed", { databaseId: id, coverId, res });
+      console.error("Cover GET: getFileBytes failed", { databaseId: id, coverId, error: res?.error });
       return new NextResponse(null, {
         status: 404,
         headers: { "Cache-Control": NOT_FOUND_CACHE_CONTROL },

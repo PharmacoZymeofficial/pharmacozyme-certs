@@ -15,16 +15,26 @@ function startCleanup() {
   if (typeof t === "object" && "unref" in t) (t as any).unref();
 }
 
-export function rateLimit(ip: string): { ok: boolean; retryAfter: number } {
+/**
+ * `key` is the bucket identity — pass a plain IP to share the default budget, or a
+ * prefixed key (e.g. `cover:${ip}`) to give a caller its own isolated bucket in the same
+ * shared `store` Map. `max`/`windowMs` default to the original constants so the two
+ * existing callers (app/api/verify, app/api/search-name) are unaffected by omitting them.
+ */
+export function rateLimit(
+  key: string,
+  max: number = MAX_REQUESTS,
+  windowMs: number = WINDOW_MS
+): { ok: boolean; retryAfter: number } {
   startCleanup();
   const now = Date.now();
-  const rec = store.get(ip);
+  const rec = store.get(key);
 
   if (!rec || now > rec.resetAt) {
-    store.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    store.set(key, { count: 1, resetAt: now + windowMs });
     return { ok: true, retryAfter: 0 };
   }
-  if (rec.count >= MAX_REQUESTS) {
+  if (rec.count >= max) {
     return { ok: false, retryAfter: Math.ceil((rec.resetAt - now) / 1000) };
   }
   rec.count++;
