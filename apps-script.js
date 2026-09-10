@@ -7,6 +7,13 @@ const DRIVE_FOLDER_NAME = "PZ Certificates";
 const DRIVE_FOLDER_ID = "1Bqi4XvZ3d3S0bcrSQhDazUGGGwjArqQW"; // Specific folder
 const TEMPLATES_FOLDER_ID = "1jgT-ANk6lrp1gE_OkYx2WY8tBB-arTWl"; // Certificate templates folder
 
+// Fallback folder for database cover images when the database has no Drive
+// folder of its own. Covers for databases that DO have a folder go into that
+// folder instead, so the existing folder-delete cascade removes them.
+// Leave as "" to auto-create a "PZ DB Covers" folder under the Drive root on
+// first use; paste the resulting id here afterwards to skip the name lookup.
+var DB_COVERS_FOLDER_ID = "";
+
 // ===== AUTHORIZATION =====
 // Run this ONE function manually from the Apps Script editor (select "grantPermissions"
 // in the function dropdown, click ▶ Run) any time you see "Access denied: DriveApp" or
@@ -119,6 +126,12 @@ function doPost(e) {
         break;
       case "getTemplateBytes":
         result = getTemplateBytes(payload);
+        break;
+      case "uploadDatabaseCover":
+        result = uploadDatabaseCover(payload);
+        break;
+      case "getFileBytes":
+        result = getFileBytes(payload);
         break;
       case "getFolder":
         result = getFolder(payload);
@@ -472,6 +485,53 @@ function uploadTemplate(payload) {
 // Returns the template's bytes regardless of link-sharing: this runs as the file
 // owner, so it works even when the Workspace policy blocks "anyone with the link".
 function getTemplateBytes(payload) {
+  var fileId = payload.fileId;
+  if (!fileId) throw new Error("fileId is required");
+  var blob = DriveApp.getFileById(fileId).getBlob();
+  return { success: true, base64: Utilities.base64Encode(blob.getBytes()), mimeType: blob.getContentType() };
+}
+
+// Uploads a database cover image. Into the database's own Drive folder when
+// folderId is supplied (so folder deletion also removes the cover); otherwise
+// into DB_COVERS_FOLDER_ID (auto-created if blank).
+function uploadDatabaseCover(payload) {
+  var fileName = payload.fileName;
+  var base64Data = payload.base64Data;
+  var mimeType = payload.mimeType || "image/webp";
+  if (!fileName || !base64Data) throw new Error("fileName and base64Data are required");
+
+  var folder;
+  if (payload.folderId) {
+    try {
+      folder = DriveApp.getFolderById(payload.folderId);
+      if (folder.isTrashed()) folder = coversFolder_();
+    } catch (e) {
+      folder = coversFolder_();
+    }
+  } else {
+    folder = coversFolder_();
+  }
+
+  var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, fileName);
+  var file = folder.createFile(blob);
+  shareBestEffort(file);
+  return { success: true, fileId: file.getId() };
+}
+
+// Resolves the fallback covers folder, creating it once if needed.
+function coversFolder_() {
+  if (DB_COVERS_FOLDER_ID) {
+    try { return DriveApp.getFolderById(DB_COVERS_FOLDER_ID); } catch (e) { /* fall through */ }
+  }
+  var existing = DriveApp.getFoldersByName("PZ DB Covers");
+  if (existing.hasNext()) return existing.next();
+  return DriveApp.createFolder("PZ DB Covers");
+}
+
+// Returns any Drive file's bytes as base64, running as the file owner so it
+// works even when Workspace policy blocks anyone-with-link sharing. Same
+// rationale as getTemplateBytes.
+function getFileBytes(payload) {
   var fileId = payload.fileId;
   if (!fileId) throw new Error("fileId is required");
   var blob = DriveApp.getFileById(fileId).getBlob();
