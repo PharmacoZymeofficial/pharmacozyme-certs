@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import type { JSX, MouseEvent } from "react";
 import { Database } from "@/lib/types";
+import { coverUrl } from "@/lib/coverImage";
 
 interface DatabaseListProps {
   databases: Database[];
@@ -19,6 +21,8 @@ interface DatabaseListProps {
   handleDeleteDatabase: (db: Database) => void;
   handleToggleLive: (db: Database, e: MouseEvent) => void;
   onResumeDatabase: (db: Database) => void;
+  query: string;
+  onClearQuery: () => void;
 }
 
 export default function DatabaseList({
@@ -37,18 +41,31 @@ export default function DatabaseList({
   handleDeleteDatabase,
   handleToggleLive,
   onResumeDatabase,
+  query,
+  onClearQuery,
 }: DatabaseListProps): JSX.Element {
+  const [failedCovers, setFailedCovers] = useState<Set<string>>(new Set());
   return (
     <>
       {databases.length === 0 ? (
-        <div className="bg-white rounded-xl border border-green-100 p-12 text-center">
-          <span className="material-symbols-outlined text-6xl text-gray-300 mb-4 block">database</span>
-          <h3 className="text-xl font-headline font-bold text-brand-dark-green mb-2">No Databases Yet</h3>
-          <p className="text-on-surface-variant mb-6">Create your first database to start issuing certificates</p>
-          <button onClick={() => setShowCreateModal(true)} className="px-6 py-3 vivid-gradient-cta text-white rounded-xl font-bold">
-            Create First Database
-          </button>
-        </div>
+        query.trim() ? (
+          <div className="bg-white rounded-xl border border-green-100 p-12 text-center">
+            <span className="material-symbols-outlined text-5xl text-gray-300 mb-3 block">search_off</span>
+            <h3 className="text-lg font-headline font-bold text-brand-dark-green mb-1">No databases match “{query.trim()}”</h3>
+            <button onClick={onClearQuery} className="mt-3 text-sm font-bold text-brand-green hover:underline">
+              Clear search
+            </button>
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-green-100 p-12 text-center">
+            <span className="material-symbols-outlined text-6xl text-gray-300 mb-4 block">database</span>
+            <h3 className="text-xl font-headline font-bold text-brand-dark-green mb-2">No Databases Yet</h3>
+            <p className="text-on-surface-variant mb-6">Create your first database to start issuing certificates</p>
+            <button onClick={() => setShowCreateModal(true)} className="px-6 py-3 vivid-gradient-cta text-white rounded-xl font-bold">
+              Create First Database
+            </button>
+          </div>
+        )
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {databases.map((db) => (
@@ -57,6 +74,16 @@ export default function DatabaseList({
               onClick={() => { setSelectedDatabase(db); setFilterStatus("all"); setFilterEmailed("all"); setSortBy("sheet"); setSortOrder("asc"); }}
               className="bg-white rounded-xl border-2 border-green-100 hover:border-brand-vivid-green/60 hover:shadow-md p-6 cursor-pointer transition-all"
             >
+              {coverUrl(db) && !failedCovers.has(db.id!) && (
+                <div className="-m-6 mb-4 aspect-[16/9] overflow-hidden rounded-t-xl bg-green-50">
+                  <img
+                    src={coverUrl(db)!}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onError={() => setFailedCovers((prev) => new Set(prev).add(db.id!))}
+                  />
+                </div>
+              )}
               <div className="flex items-start justify-between mb-4">
                 <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
                   <span className="material-symbols-outlined text-brand-green text-2xl">folder</span>

@@ -15,6 +15,10 @@ export interface Database {
   sheetTabName?: string;
   driveFolderId?: string;
   driveFolderUrl?: string;
+  /** Google Drive file id of the database's 16:9 cover image, if one was uploaded. */
+  coverImageId?: string;
+  /** ISO timestamp of the last cover write — used to cache-bust the serving proxy. */
+  coverUpdatedAt?: string;
 }
 
 export interface Participant {

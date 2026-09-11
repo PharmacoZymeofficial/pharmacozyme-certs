@@ -6,6 +6,7 @@ import ResultCard, { SearchResult } from "@/components/verify/shared/ResultCard"
 import SkeletonCard from "@/components/verify/shared/SkeletonCard";
 import IdlePlaceholder from "@/components/verify/shared/IdlePlaceholder";
 import { CATEGORY_SUBCATS } from "@/lib/category";
+import { coverUrl } from "@/lib/coverImage";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -16,6 +17,8 @@ interface PublicDatabase {
   subCategory: string;
   topic: string;
   participantCount: number;
+  coverImageId?: string;
+  coverUpdatedAt?: string;
 }
 
 export interface Props {
@@ -42,6 +45,7 @@ export default function OfficialSearch({
   const [nameInput, setNameInput] = useState("");
   const [selectedDbId, setSelectedDbId] = useState(preselectedDbId || "");
   const [selectedSubCat, setSelectedSubCat] = useState("");
+  const [coverFailed, setCoverFailed] = useState(false);
   const [databases, setDatabases] = useState<PublicDatabase[]>([]);
   const [loadingDbs, setLoadingDbs] = useState(true);
   const [nameResults, setNameResults] = useState<SearchResult[]>([]);
@@ -219,6 +223,10 @@ export default function OfficialSearch({
   };
 
   const selectedDb = databases.find((d) => d.id === selectedDbId) || null;
+
+  useEffect(() => {
+    setCoverFailed(false);
+  }, [selectedDbId]);
 
   const handleIdSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -523,6 +531,14 @@ export default function OfficialSearch({
                   style={{ background: "#dcfce7", border: "1px solid #86efac", color: "#16a34a" }}
                 >
                   <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>folder</span>
+                  {coverUrl(selectedDb) && !coverFailed && (
+                    <img
+                      src={coverUrl(selectedDb)!}
+                      alt=""
+                      className="w-16 h-9 rounded-md object-cover flex-shrink-0"
+                      onError={() => setCoverFailed(true)}
+                    />
+                  )}
                   {selectedDb.subCategory} · {selectedDb.topic || selectedDb.name}
                 </div>
               )}

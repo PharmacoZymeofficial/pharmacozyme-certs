@@ -1564,6 +1564,7 @@ export function useDatabaseManager(category: "General" | "Official") {
     undo,
     redo,
     fetchParticipants,
+    fetchDatabases,
     handleCreateDatabase,
     handleToggleLive,
     handleRenameDatabase,

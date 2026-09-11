@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
           description: (data.description as string) || "",
           participantCount,
           createdAt: (data.createdAt as string) || "",
+          coverImageId: (data.coverImageId as string) || "",
+          coverUpdatedAt: (data.coverUpdatedAt as string) || "",
         };
       })
     );

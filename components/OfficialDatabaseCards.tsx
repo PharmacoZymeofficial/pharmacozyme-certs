@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { coverUrl } from "@/lib/coverImage";
 
 interface PublicDatabase {
   id: string;
@@ -11,6 +12,8 @@ interface PublicDatabase {
   description: string;
   participantCount: number;
   createdAt: string;
+  coverImageId?: string;
+  coverUpdatedAt?: string;
 }
 
 interface Props {
@@ -112,6 +115,9 @@ function DatabaseCard({
     ? "linear-gradient(90deg,#40916c,#74c69d)"
     : "linear-gradient(90deg,#1b4332,#40916c)";
 
+  const cover = coverUrl(db);
+  const [coverFailed, setCoverFailed] = useState(false);
+
   return (
     <div
       ref={cardRef}
@@ -152,6 +158,12 @@ function DatabaseCard({
             borderRadius: "1.25rem",
           }}
         />
+      )}
+
+      {cover && !coverFailed && (
+        <div className="w-full aspect-[16/9] overflow-hidden" style={{ borderRadius: "1.25rem 1.25rem 0 0" }}>
+          <img src={cover} alt="" className="w-full h-full object-cover" onError={() => setCoverFailed(true)} />
+        </div>
       )}
 
       {/* Card top accent strip */}
