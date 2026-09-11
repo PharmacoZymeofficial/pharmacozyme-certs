@@ -24,7 +24,11 @@ const ALLOWED_COVER_MIME_TYPES: Record<string, string> = {
 // changed. All three 404 branches below (missing cover, isLive-gated, upstream failure)
 // share this one constant on purpose — giving any one of them a different header would
 // itself be a distinguishing signal between "no cover" and "cover exists but gated".
-const NOT_FOUND_CACHE_CONTROL = "public, max-age=60, s-maxage=60";
+// private, not public: the shared CDN's cache key excludes cookies, so a public 404
+// could be served to an admin who should instead pass the isLive check below and get a
+// 200 — a stale cross-identity hit. private keeps each requester's own 404s cheap
+// without letting one requester's cached miss shadow another's legitimate hit.
+const NOT_FOUND_CACHE_CONTROL = "private, max-age=60, s-maxage=60";
 
 // Cover images get their own rate-limit bucket (prefixed key into the same shared
 // lib/rateLimit.ts store) so an unauthenticated visitor loading a page of database cards
@@ -180,7 +184,11 @@ export async function GET(request: NextRequest, { params }: Ctx) {
     }
 
     if (!appsScriptConfigured()) {
-      return NextResponse.json({ error: "GOOGLE_APPS_SCRIPT_URL is not set" }, { status: 500 });
+      console.error("Cover GET: GOOGLE_APPS_SCRIPT_URL is not set");
+      return new NextResponse(null, {
+        status: 404,
+        headers: { "Cache-Control": NOT_FOUND_CACHE_CONTROL },
+      });
     }
 
     const res = await callAppsScript("getFileBytes", { fileId: coverId });
@@ -198,10 +206,18 @@ export async function GET(request: NextRequest, { params }: Ctx) {
         ? res.mimeType
         : "image/webp";
     // An admin-only preview of a not-yet-live cover must never be cached by the shared
-    // CDN — the public, live path keeps the long s-maxage.
+    // CDN. Both branches' TTLs are bounded to 1 day, not indefinite: coverUrl's `?v=` only
+    // changes on a cover write, never on an isLive toggle, so an unbounded s-maxage would
+    // keep serving a live database's cover from the edge for up to a year after it was
+    // unpublished — the isLive gate below would then be silently defeated in the unpublish
+    // direction. The admin-preview TTL was raised from 60s to 86400s for the opposite
+    // reason: content is already versioned by `?v=`, so a draft preview is safe to hold far
+    // longer than a minute, and the original 60s TTL meant the admin database grid fired one
+    // Apps Script + Drive round-trip per covered draft on every visit — against the same
+    // Apps Script bridge certificate generation and Sheet sync depend on.
     const cacheControl = isAdminPreview
-      ? "private, max-age=60"
-      : "public, max-age=300, s-maxage=31536000, stale-while-revalidate=86400";
+      ? "private, max-age=86400"
+      : "public, max-age=300, s-maxage=86400, stale-while-revalidate=3600";
 
     return new NextResponse(bytes, {
       status: 200,

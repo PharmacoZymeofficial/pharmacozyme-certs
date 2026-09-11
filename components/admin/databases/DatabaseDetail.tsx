@@ -80,8 +80,9 @@ export default function DatabaseDetail({
     setCoverBusy(true);
     try {
       const blob = await cropToCoverBlob(file);
+      const extension = blob.type === "image/png" ? "png" : blob.type === "image/jpeg" ? "jpg" : "webp";
       const body = new FormData();
-      body.append("file", new File([blob], "cover.webp", { type: "image/webp" }));
+      body.append("file", new File([blob], `cover.${extension}`, { type: blob.type || "image/webp" }));
       const res = await fetch(`/api/databases/${selectedDatabase.id}/cover`, { method: "POST", body });
       if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || "Upload failed");
       const data = await res.json().catch(() => ({}));
@@ -125,7 +126,7 @@ export default function DatabaseDetail({
           </nav>
 
       <div className="bg-white rounded-xl border border-green-100 shadow-sm overflow-clip">
-        <div className="relative w-full aspect-[16/9] bg-green-50 group">
+        <div className={`relative w-full ${cover && !coverFailed ? "aspect-[16/9]" : "h-32"} bg-green-50 group`}>
           {cover && !coverFailed ? (
             <img src={cover} alt={`${selectedDatabase.name} cover`} className="w-full h-full object-cover" onError={() => setCoverFailed(true)} />
           ) : (
@@ -133,7 +134,7 @@ export default function DatabaseDetail({
               <span className="material-symbols-outlined text-5xl text-green-200">image</span>
             </div>
           )}
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+          <div className="absolute inset-0 bg-black/0 sm:group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={coverBusy}
