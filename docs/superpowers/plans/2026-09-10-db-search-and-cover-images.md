@@ -1164,3 +1164,76 @@ No spec requirement is left without a task.
 **Placeholder scan:** No "TBD"/"handle edge cases"/"similar to Task N". Task 10 Step 1 asks the implementer to `sed` the exact lines because the surrounding JSX is large and not worth transcribing in full — the change itself (Steps 2-3) is given as complete code. Task 7 Step 4 flags the `toast` API as needing a one-line confirmation against `components/Toast.tsx` with explicit fallback instruction.
 
 **Type consistency:** `coverImageId` / `coverUpdatedAt` spelled identically in `lib/types.ts` (Task 4), the route (Task 5), `coverUrl` (Task 3), the public API (Task 9), and the card interfaces (Task 9/10). `filterDatabases(dbs, query)` signature identical in Task 1 and Task 2. `coverUrl(db)` takes `Pick<Database, "id" | "coverImageId" | "coverUpdatedAt">` — satisfied by both the full `Database` (admin) and the extended `PublicDatabase` (public). Apps Script action names `uploadDatabaseCover` / `getFileBytes` identical in Task 4 (handlers + switch) and Task 5 (callers). `onCoverChanged` prop identical in Task 7 Steps 2-3.
+
+---
+
+## Release Steps (as implemented — read before deploying)
+
+All 11 tasks are complete on `feat/db-search-and-covers`. Full local gate is clean:
+`npx tsc --noEmit` clean, `npx vitest run` 107/107 (16 files), `npm run build` succeeds
+and lists `ƒ /api/databases/[id]/cover`.
+
+Two things changed from the original plan during implementation review — read these
+before deploying, they affect what "correct behaviour" looks like:
+
+- **The cover proxy's rate limit is 300 requests/60s per IP, keyed `cover:<ip>`** — not
+  the 25/60s the plan originally specified. The original number was sized for a search
+  endpoint and would have 429'd a visitor's browser mid-page-load on any database grid
+  with more than ~25 live covers, and would have made the admin grid (mostly draft
+  databases, so never CDN-cached) unusable past ~25 databases. `lib/rateLimit.ts` now
+  takes optional `max`/`windowMs` params; `/api/verify` and `/api/search-name` are
+  provably unaffected (both still call `rateLimit(ip)` with no args → original 25/60s).
+- **All three 404 branches on the cover proxy cache for 60 seconds, not an hour.** The
+  original hour-long cache would have pinned a draft's 404 at the edge for up to an hour
+  after the database was published (there is no way to cache-bust a 404, since a cover
+  page's URL is versioned only by `coverUpdatedAt`, which an `isLive` toggle doesn't
+  touch), and would have turned any transient Apps Script hiccup into an hour-long
+  visible outage on a live cover.
+
+1. Merge `feat/db-search-and-covers` and let Vercel deploy; confirm the Production
+   deployment SHA matches the merge commit.
+2. Open `script.google.com`, replace the whole `apps-script.js` with this branch's
+   version, Save, then Deploy → Manage deployments → edit the active web-app deployment
+   → New version → Deploy. The web-app URL does not change; `GOOGLE_APPS_SCRIPT_URL`
+   stays as-is. **Nothing cover-related works until this step is done** — `uploadDatabaseCover`
+   and `getFileBytes` do not exist in the currently-deployed script.
+3. In the Apps Script editor, run `grantPermissions` once (Drive scope is unchanged but
+   re-approving is harmless) if cover uploads return "Access denied: DriveApp".
+4. Optional: after the first cover upload for a database with no Drive folder, open the
+   auto-created "PZ DB Covers" folder in Drive, copy its id into `DB_COVERS_FOLDER_ID`
+   at the top of `apps-script.js`, and redeploy — skips a name lookup on every future
+   fallback upload.
+5. Run the production smoke test below.
+
+### Production smoke test (after the Apps Script redeploy)
+
+- [ ] Upload a cover on a database **with** a Drive folder → appears on the admin detail
+      banner + admin grid card.
+- [ ] Mark that database live (or use one already live) → cover shows on `/verify` (or
+      `/official`) card and, after clicking the card, in the scoped-search header.
+- [ ] Re-request the cover URL (`/api/databases/<id>/cover?v=...`) → second load is a CDN
+      `HIT` (check the `x-vercel-cache` response header).
+- [ ] Upload a cover on a database **without** a Drive folder → lands in "PZ DB Covers",
+      renders the same.
+- [ ] Replace a cover → new image shows within a second (cache-bust via `?v=`), old Drive
+      file is in the trash (allow a few seconds — the delete is now correctly awaited).
+- [ ] Remove a cover → all sites fall back to the icon/gradient.
+- [ ] Force a cover load failure (e.g. temporarily break the Apps Script URL) → every
+      render site (admin grid, admin detail, public cards, scoped header) falls back to
+      its icon/gradient treatment, not a broken-image glyph.
+- [ ] Delete a test database that had a folder-stored cover → its Drive folder (cover
+      included) is trashed.
+- [ ] Admin database search: partial name / subCategory / topic all narrow the grid;
+      gibberish shows the no-match state.
+- [ ] As a non-admin (logged out), try to fetch the cover of a database with `isLive: false`
+      → 404, same shape as a missing cover. As an admin, the same URL should still resolve
+      (draft-preview path), with a `private` cache header rather than the public long one.
+
+### Rulings made during implementation
+
+The full ledger with reasoning for every decision above the task level lives at
+`.superpowers/sdd/2026-09-10-db-search-and-cover-images/progress.md` (git-ignored,
+session-local). It will be deleted once the final whole-branch review is clean, per the
+subagent-driven-development skill's Finish step. The two rate-limit/cache rulings above
+are its highest-impact entries; the rest are mostly scoping/sequencing calls (which
+tasks got batched, which trailer was active when) with no user-facing effect.
