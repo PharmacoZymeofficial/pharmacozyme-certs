@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { JSX, MouseEvent } from "react";
 import { Database } from "@/lib/types";
 import { coverUrl } from "@/lib/coverImage";
@@ -43,6 +44,7 @@ export default function DatabaseList({
   query,
   onClearQuery,
 }: DatabaseListProps): JSX.Element {
+  const [failedCovers, setFailedCovers] = useState<Set<string>>(new Set());
   return (
     <>
       {databases.length === 0 ? (
@@ -72,9 +74,14 @@ export default function DatabaseList({
               onClick={() => { setSelectedDatabase(db); setFilterStatus("all"); setFilterEmailed("all"); setSortBy("sheet"); setSortOrder("asc"); }}
               className="bg-white rounded-xl border-2 border-green-100 hover:border-brand-vivid-green/60 hover:shadow-md p-6 cursor-pointer transition-all"
             >
-              {coverUrl(db) && (
+              {coverUrl(db) && !failedCovers.has(db.id!) && (
                 <div className="-m-6 mb-4 aspect-[16/9] overflow-hidden rounded-t-xl bg-green-50">
-                  <img src={coverUrl(db)!} alt="" className="w-full h-full object-cover" />
+                  <img
+                    src={coverUrl(db)!}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onError={() => setFailedCovers((prev) => new Set(prev).add(db.id!))}
+                  />
                 </div>
               )}
               <div className="flex items-start justify-between mb-4">

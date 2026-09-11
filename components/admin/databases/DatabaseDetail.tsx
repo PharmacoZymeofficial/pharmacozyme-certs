@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 import { Database } from "@/lib/types";
 import type { GenerationSummary } from "@/lib/generationState";
@@ -66,7 +66,12 @@ export default function DatabaseDetail({
 }: DatabaseDetailProps): JSX.Element {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [coverBusy, setCoverBusy] = useState(false);
+  const [coverFailed, setCoverFailed] = useState(false);
   const cover = coverUrl(selectedDatabase);
+
+  useEffect(() => {
+    setCoverFailed(false);
+  }, [cover]);
 
   const handleCoverPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -121,8 +126,8 @@ export default function DatabaseDetail({
 
       <div className="bg-white rounded-xl border border-green-100 shadow-sm overflow-clip">
         <div className="relative w-full aspect-[16/9] bg-green-50 group">
-          {cover ? (
-            <img src={cover} alt={`${selectedDatabase.name} cover`} className="w-full h-full object-cover" />
+          {cover && !coverFailed ? (
+            <img src={cover} alt={`${selectedDatabase.name} cover`} className="w-full h-full object-cover" onError={() => setCoverFailed(true)} />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <span className="material-symbols-outlined text-5xl text-green-200">image</span>

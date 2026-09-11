@@ -116,6 +116,7 @@ function DatabaseCard({
     : "linear-gradient(90deg,#1b4332,#40916c)";
 
   const cover = coverUrl(db);
+  const [coverFailed, setCoverFailed] = useState(false);
 
   return (
     <div
@@ -159,9 +160,9 @@ function DatabaseCard({
         />
       )}
 
-      {cover && (
+      {cover && !coverFailed && (
         <div className="w-full aspect-[16/9] overflow-hidden" style={{ borderRadius: "1.25rem 1.25rem 0 0" }}>
-          <img src={cover} alt="" className="w-full h-full object-cover" />
+          <img src={cover} alt="" className="w-full h-full object-cover" onError={() => setCoverFailed(true)} />
         </div>
       )}
 
