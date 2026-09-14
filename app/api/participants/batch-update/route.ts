@@ -3,6 +3,8 @@ import { getAdminDb } from "@/lib/firebase.admin";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { callAppsScript, appsScriptConfigured } from "@/lib/appsScript";
 import { sortParticipantsForSheet } from "@/lib/participantSort";
+import { resolveUniqueCertificateIds } from "@/lib/certificateId";
+import { findExistingCertIdOwners } from "@/lib/certificateIdOwners";
 
 // Two call signatures:
 // A) Per-participant: { databaseId, updates: [{id, ...fields}] }
@@ -26,6 +28,32 @@ export async function POST(request: NextRequest) {
       const updates: Array<{ id: string; [key: string]: any }> = body.updates;
       const certDocs: any[] = Array.isArray(body.certDocs) ? body.certDocs : [];
       const certificatesRef = adminDb.collection("certificates");
+
+      // Any update assigning a certificateId must not collide with an ID already
+      // in use anywhere else (any database, or the top-level certificates
+      // collection) — enforced here so it holds regardless of caller.
+      const idAssignments = updates.filter(
+        (u) => typeof u.certificateId === "string" && u.certificateId.trim().length > 0
+      );
+      const bumped: { id: string; from: string; to: string }[] = [];
+      if (idAssignments.length > 0) {
+        const candidateIds = idAssignments.map((u) => u.certificateId.trim());
+        const owners = await findExistingCertIdOwners(candidateIds);
+        const entries = idAssignments.map((u) => ({
+          ownerPath: participantsRef.doc(u.id).path,
+          certificateId: u.certificateId.trim(),
+        }));
+        const resolved = resolveUniqueCertificateIds(entries, owners);
+        for (const u of idAssignments) {
+          const ownerPath = participantsRef.doc(u.id).path;
+          const finalId = resolved.get(ownerPath)!;
+          if (finalId !== u.certificateId) {
+            bumped.push({ id: u.id, from: u.certificateId, to: finalId });
+            u.certificateId = finalId;
+          }
+        }
+      }
+
       // Participant .update()s and their cert-doc .set()s go in ONE batch per
       // chunk, committed together — otherwise a certDocs failure after the
       // participant commit leaves a participant with a cert ID and no cert doc,
@@ -48,7 +76,12 @@ export async function POST(request: NextRequest) {
       }
 
       if (!skipSheetSync) await syncAllToSheet(databaseId);
-      return NextResponse.json({ success: true, updated: updates.length });
+      return NextResponse.json({
+        success: true,
+        updated: updates.length,
+        assignments: idAssignments.map((u) => ({ id: u.id, certificateId: u.certificateId })),
+        bumped,
+      });
     }
 
     if (Array.isArray(body.participantIds) && body.participantIds.length > 0 && body.fields) {

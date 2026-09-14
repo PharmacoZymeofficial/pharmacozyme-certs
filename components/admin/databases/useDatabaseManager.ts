@@ -1247,7 +1247,18 @@ export function useDatabaseManager(category: "General" | "Official") {
         throw new Error(err.error || "Batch update failed");
       }
 
+      const data = await response.json();
+      // Server re-checks uniqueness across every database, not just this one, and
+      // bumps the serial on any collision — use its final IDs, not the locally
+      // computed ones, so the sheet sync below never writes a colliding ID.
+      const finalIdById = new Map<string, string>(
+        (data.assignments || []).map((a: { id: string; certificateId: string }) => [a.id, a.certificateId])
+      );
+
       sfx.success();
+      if (data.bumped?.length) {
+        toast.info(`${data.bumped.length} ID(s) were adjusted to avoid duplicates across other databases.`);
+      }
       toast.success(`Generated ${unassignedParticipants.length} certificate IDs!`);
       fetchParticipants(selectedDatabase.id!);
 
@@ -1255,7 +1266,7 @@ export function useDatabaseManager(category: "General" | "Official") {
       if (selectedDatabase?.linkedSheet) {
         const certIdUpdates = updates.map(u => {
           const p = participants.find(x => x.id === u.id);
-          return { email: p?.email || "", certificateId: u.certificateId };
+          return { email: p?.email || "", certificateId: finalIdById.get(u.id || "") || u.certificateId || "" };
         }).filter(u => u.email);
 
         fetch("/api/sheets/sync", {

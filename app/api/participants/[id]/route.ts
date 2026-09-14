@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/requireAdmin";
 import { callAppsScript, appsScriptConfigured } from "@/lib/appsScript";
 import { deleteDriveFile, resolveDriveFileId } from "@/lib/driveCleanup";
 import { deleteCertificateCascade } from "@/lib/certCascade";
+import { findExistingCertIdOwners } from "@/lib/certificateIdOwners";
 
 async function getSheetInfo(databaseId: string) {
   const dbSnap = await getAdminDb().collection("databases").doc(databaseId).get();
@@ -32,6 +33,21 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       .doc(id);
 
     const { databaseId: _omit, ...updateData } = body;
+
+    // A manually-typed ID is a deliberate choice, unlike bulk generation — reject
+    // on conflict instead of silently substituting a different one.
+    if (typeof updateData.certificateId === "string" && updateData.certificateId.trim()) {
+      const candidate = updateData.certificateId.trim();
+      const owners = await findExistingCertIdOwners([candidate]);
+      const ownerPath = owners.get(candidate);
+      if (ownerPath && ownerPath !== participantRef.path) {
+        return NextResponse.json(
+          { error: `Certificate ID "${candidate}" is already in use elsewhere (${ownerPath}). Choose a different ID.` },
+          { status: 409 }
+        );
+      }
+    }
+
     await participantRef.update({ ...updateData, updatedAt: new Date().toISOString() });
 
     if (appsScriptConfigured()) {
