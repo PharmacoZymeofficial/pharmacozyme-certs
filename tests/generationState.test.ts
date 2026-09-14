@@ -4,6 +4,7 @@ import {
   deriveGenerationSummary,
   jobEffectiveStatus,
   STALE_JOB_MS,
+  scopeToOriginalParticipants,
 } from "@/lib/generationState";
 
 describe("classifyParticipant", () => {
@@ -95,5 +96,45 @@ describe("jobEffectiveStatus", () => {
   it("a missing or unparseable startedAt reads as interrupted", () => {
     expect(jobEffectiveStatus({ status: "running" }, base)).toBe("interrupted");
     expect(jobEffectiveStatus({ status: "running", startedAt: "not-a-date" }, base)).toBe("interrupted");
+  });
+});
+
+describe("scopeToOriginalParticipants", () => {
+  // Reproduces the "generate for one, regenerates for everyone" report: the
+  // pre-generation Sheet sync fetches every participant in the database, and
+  // that full list used to silently replace a run scoped to one selected
+  // participant.
+  it("restricts a full-database fetch back down to the originally selected participant(s)", () => {
+    const original = [{ id: "p1", name: "Almas Raza" }];
+    const freshFromServer = [
+      { id: "p1", name: "Almas Raza", customFields: { updated: true } },
+      { id: "p2", name: "Someone Else" },
+      { id: "p3", name: "Someone Else Too" },
+    ];
+    const result = scopeToOriginalParticipants(freshFromServer, original);
+    expect(result).toEqual([{ id: "p1", name: "Almas Raza", customFields: { updated: true } }]);
+  });
+
+  it("still picks up refreshed field values for each originally selected participant", () => {
+    const original = [{ id: "p1", name: "Almas Raza", customFields: { date: "old" } }];
+    const fresh = [{ id: "p1", name: "Almas Raza", customFields: { date: "new" } }];
+    expect(scopeToOriginalParticipants(fresh, original)).toEqual([
+      { id: "p1", name: "Almas Raza", customFields: { date: "new" } },
+    ]);
+  });
+
+  it("falls back to the original entry when a selected participant is missing from the fresh fetch", () => {
+    const original = [{ id: "p1", name: "Almas Raza" }, { id: "p2", name: "Someone Else" }];
+    const fresh = [{ id: "p1", name: "Almas Raza (refreshed)" }]; // p2 missing
+    expect(scopeToOriginalParticipants(fresh, original)).toEqual([
+      { id: "p1", name: "Almas Raza (refreshed)" },
+      { id: "p2", name: "Someone Else" },
+    ]);
+  });
+
+  it("selecting all participants (nothing scoped down) passes the full fresh set through unchanged", () => {
+    const original = [{ id: "p1" }, { id: "p2" }];
+    const fresh = [{ id: "p1", touched: 1 }, { id: "p2", touched: 1 }];
+    expect(scopeToOriginalParticipants(fresh, original)).toEqual(fresh);
   });
 });

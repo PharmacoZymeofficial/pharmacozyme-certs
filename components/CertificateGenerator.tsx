@@ -20,7 +20,7 @@ async function loadFontBytesViaProxy(fontName: string): Promise<Uint8Array | nul
 }
 import { useToast } from "@/components/Toast";
 import { sfx } from "@/lib/sfx";
-import { classifyParticipant, deriveGenerationSummary } from "@/lib/generationState";
+import { classifyParticipant, deriveGenerationSummary, scopeToOriginalParticipants } from "@/lib/generationState";
 import { lookupBoundValue } from "@/lib/sheetSchema";
 import { splitByCategory, normalizeCategory } from "@/lib/templatePicker";
 import type { GenerationJob } from "@/lib/types";
@@ -532,7 +532,12 @@ export default function CertificateGenerator({ database, participants, onGenerat
         const fresh = await fetch(`/api/participants?databaseId=${database.id}`);
         if (fresh.ok) {
           const d = await fresh.json();
-          if (Array.isArray(d.participants) && d.participants.length > 0) liveParticipants = d.participants;
+          // The sync above always returns every participant in the database — a
+          // run scoped to a subset (e.g. one selected participant) must stay
+          // scoped to that subset, not silently widen to everyone.
+          if (Array.isArray(d.participants) && d.participants.length > 0) {
+            liveParticipants = scopeToOriginalParticipants(d.participants, participants);
+          }
         }
       } catch (err) {
         console.error("Pre-generation sheet sync failed — using current data:", err);

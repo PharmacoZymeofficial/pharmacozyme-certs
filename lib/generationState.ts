@@ -45,6 +45,20 @@ export function deriveGenerationSummary(
   return summary;
 }
 
+/**
+ * A generation run's pre-flight Sheet sync fetches every participant in the
+ * database (needed to pick up fresh custom-field values), but the run itself
+ * may be scoped to a subset — e.g. one selected participant. Restrict that
+ * full fetch back down to the originally-scoped set so a sync refresh never
+ * silently widens what actually gets (re)generated. Falls back to the
+ * original entry when a scoped participant is missing from the fresh fetch,
+ * so a timing hiccup drops nobody from the run.
+ */
+export function scopeToOriginalParticipants<T extends { id?: string }>(fresh: T[], original: T[]): T[] {
+  const freshById = new Map(fresh.filter((p) => p.id).map((p) => [p.id as string, p]));
+  return original.map((p) => (p.id && freshById.has(p.id)) ? (freshById.get(p.id) as T) : p);
+}
+
 /** A `running` job doc older than this reads as `interrupted`. */
 export const STALE_JOB_MS = 30 * 60 * 1000;
 
